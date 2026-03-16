@@ -639,6 +639,35 @@ export class SkiaEngine {
       }
     }
 
+    // Connection badges (green circle at top-right of elements with connections)
+    const connections = useDocumentStore.getState().document.connections ?? []
+    if (connections.length > 0) {
+      const activePageId = useCanvasStore.getState().activePageId
+      const activePage = (useDocumentStore.getState().document.pages ?? []).find(
+        (p) => p.id === activePageId,
+      )
+      // Skip badges on ERD pages
+      if (activePage?.type !== 'erd') {
+        const connMap = new Map<string, number>()
+        for (const c of connections) {
+          if (c.sourcePageId === activePageId) {
+            connMap.set(c.sourceElementId, (connMap.get(c.sourceElementId) ?? 0) + 1)
+          }
+        }
+        if (connMap.size > 0) {
+          for (const rn of this.renderNodes) {
+            const count = connMap.get(rn.node.id)
+            if (count) {
+              this.renderer.drawConnectionBadge(
+                canvas, rn.absX, rn.absY, rn.absW, rn.absH,
+                this.zoom, count,
+              )
+            }
+          }
+        }
+      }
+    }
+
     // Hover outline
     if (this.hoveredNodeId && !selectedIds.has(this.hoveredNodeId)) {
       const hovered = this.spatialIndex.get(this.hoveredNodeId)

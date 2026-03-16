@@ -15,6 +15,7 @@ import TextSection from './text-section'
 import TextLayoutSection from './text-layout-section'
 import EffectsSection from './effects-section'
 import ExportSection from './export-section'
+import ConnectionSection from './connection-section'
 import IconSection from './icon-section'
 import ImageSection from './image-section'
 
@@ -29,6 +30,7 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
   const setSelection = useCanvasStore((s) => s.setSelection)
   const activePageId = useCanvasStore((s) => s.activePageId)
   const children = useDocumentStore((s) => getActivePageChildren(s.document, activePageId))
+  const pages = useDocumentStore((s) => s.document.pages)
   const getNodeById = useDocumentStore((s) => s.getNodeById)
   const updateNode = useDocumentStore((s) => s.updateNode)
   const makeReusable = useDocumentStore((s) => s.makeReusable)
@@ -345,6 +347,16 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
                 effects={'effects' in displayNode ? displayNode.effects : undefined}
                 onUpdate={handleUpdate}
               />
+            </div>
+          </>
+        )}
+
+        {/* Connection section: only on non-ERD pages */}
+        {activePageId && (pages ?? []).find((p) => p.id === activePageId)?.type !== 'erd' && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              <ConnectionSection nodeId={node.id} pageId={activePageId} />
             </div>
           </>
         )}

@@ -11,6 +11,8 @@ import {
   PEN_HANDLE_LINE_STROKE,
   PEN_RUBBER_BAND_STROKE,
   PEN_RUBBER_BAND_DASH,
+  CONNECTION_BADGE_COLOR,
+  CONNECTION_BADGE_ICON_COLOR,
 } from '../canvas-constants'
 import { parseColor } from './skia-paint-utils'
 
@@ -558,4 +560,62 @@ export function drawAgentPreviewFill(
   paint.setAlphaf(alpha)
   canvas.drawRect(ck.LTRBRect(x, y, x + w, y + h), paint)
   paint.delete()
+}
+
+// ---------------------------------------------------------------------------
+// Connection badge (green circle at top-right of elements with connections)
+// ---------------------------------------------------------------------------
+
+/**
+ * Draw a connection badge at the top-right corner of an element.
+ * Shows a green circle with an arrow icon. If connectionCount > 1,
+ * displays the count.
+ */
+export function drawConnectionBadge(
+  ck: CanvasKit, canvas: Canvas,
+  x: number, y: number, w: number, _h: number,
+  zoom: number,
+  connectionCount: number,
+): void {
+  const invZ = 1 / zoom
+  const badgeR = 8 * invZ // 16px diameter
+  const badgeX = x + w - badgeR * 0.5
+  const badgeY = y - badgeR * 0.5
+
+  // Green circle background
+  const bgPaint = new ck.Paint()
+  bgPaint.setStyle(ck.PaintStyle.Fill)
+  bgPaint.setAntiAlias(true)
+  bgPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  canvas.drawCircle(badgeX, badgeY, badgeR, bgPaint)
+  bgPaint.delete()
+
+  // Arrow icon (arrow-up-right) inside the circle
+  const iconPaint = new ck.Paint()
+  iconPaint.setStyle(ck.PaintStyle.Stroke)
+  iconPaint.setAntiAlias(true)
+  iconPaint.setStrokeWidth(1.5 * invZ)
+  iconPaint.setColor(parseColor(ck, CONNECTION_BADGE_ICON_COLOR))
+  iconPaint.setStrokeCap(ck.StrokeCap.Round)
+
+  const iconSize = badgeR * 0.7
+  const ix = badgeX - iconSize * 0.4
+  const iy = badgeY + iconSize * 0.4
+  // Arrow shaft: bottom-left to top-right
+  canvas.drawLine(ix, iy, ix + iconSize, iy - iconSize, iconPaint)
+  // Arrow head: horizontal line from tip
+  canvas.drawLine(ix + iconSize * 0.4, iy - iconSize, ix + iconSize, iy - iconSize, iconPaint)
+  // Arrow head: vertical line from tip
+  canvas.drawLine(ix + iconSize, iy - iconSize + iconSize * 0.6, ix + iconSize, iy - iconSize, iconPaint)
+  iconPaint.delete()
+
+  // Count text if > 1
+  if (connectionCount > 1) {
+    const fontSize = 9 * invZ
+    drawText2D(
+      ck, canvas, String(connectionCount),
+      badgeX + badgeR * 0.3, badgeY + badgeR * 0.1,
+      CONNECTION_BADGE_ICON_COLOR, fontSize, '700',
+    )
+  }
 }

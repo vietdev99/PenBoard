@@ -30,6 +30,7 @@ import {
   drawAgentBadge as _drawAgentBadge,
   drawAgentNodeBorder as _drawAgentNodeBorder,
   drawAgentPreviewFill as _drawAgentPreviewFill,
+  drawConnectionBadge as _drawConnectionBadge,
   type PenPreviewData,
 } from './skia-overlays'
 
@@ -1551,5 +1552,12 @@ export class SkiaRenderer {
     color: string, time: number,
   ) {
     _drawAgentPreviewFill(this.ck, canvas, x, y, w, h, color, time)
+  }
+
+  drawConnectionBadge(
+    canvas: Canvas, x: number, y: number, w: number, h: number,
+    zoom: number, connectionCount: number,
+  ) {
+    _drawConnectionBadge(this.ck, canvas, x, y, w, h, zoom, connectionCount)
   }
 }
