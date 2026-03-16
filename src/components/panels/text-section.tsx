@@ -1,6 +1,7 @@
 import NumberInput from '@/components/shared/number-input'
 import SectionHeader from '@/components/shared/section-header'
 import FontPicker from '@/components/shared/font-picker'
+import VariablePicker from '@/components/shared/variable-picker'
 import {
   Select,
   SelectContent,
@@ -106,10 +107,18 @@ export default function TextSection({
       <SectionHeader title={t('text.typography')} />
 
       {/* Font family */}
-      <FontPicker
-        value={fontFamily}
-        onChange={(v) => onUpdate({ fontFamily: v } as Partial<PenNode>)}
-      />
+      <div className="flex items-center gap-0.5">
+        <FontPicker
+          value={fontFamily}
+          onChange={(v) => onUpdate({ fontFamily: v } as Partial<PenNode>)}
+        />
+        <VariablePicker
+          type="string"
+          currentValue={node.fontFamily}
+          onBind={(ref) => onUpdate({ fontFamily: ref } as unknown as Partial<PenNode>)}
+          onUnbind={(val) => onUpdate({ fontFamily: String(val) } as Partial<PenNode>)}
+        />
+      </div>
 
       {/* Weight + Size */}
       <div className="grid grid-cols-2 gap-1">
@@ -130,15 +139,23 @@ export default function TextSection({
             ))}
           </SelectContent>
         </Select>
-        <NumberInput
-          label="S"
-          value={fontSize}
-          onChange={(v) =>
-            onUpdate({ fontSize: v } as Partial<PenNode>)
-          }
-          min={1}
-          max={999}
-        />
+        <div className="flex items-center gap-0.5">
+          <NumberInput
+            label="S"
+            value={fontSize}
+            onChange={(v) =>
+              onUpdate({ fontSize: v } as Partial<PenNode>)
+            }
+            min={1}
+            max={999}
+          />
+          <VariablePicker
+            type="number"
+            currentValue={node.fontSize}
+            onBind={(ref) => onUpdate({ fontSize: ref } as unknown as Partial<PenNode>)}
+            onUnbind={(val) => onUpdate({ fontSize: Number(val) } as Partial<PenNode>)}
+          />
+        </div>
       </div>
 
       {/* Line height + Letter spacing */}
@@ -147,23 +164,39 @@ export default function TextSection({
         <span>{t('text.letterSpacing')}</span>
       </div>
       <div className="grid grid-cols-2 gap-1">
-        <NumberInput
-          icon={LineHeightIcon}
-          value={Math.round(lineHeight * 100)}
-          onChange={(v) =>
-            onUpdate({ lineHeight: v / 100 } as Partial<PenNode>)
-          }
-          min={50}
-          max={400}
-          suffix="%"
-        />
-        <NumberInput
-          label="|A|"
-          value={letterSpacing}
-          onChange={(v) =>
-            onUpdate({ letterSpacing: v } as Partial<PenNode>)
-          }
-        />
+        <div className="flex items-center gap-0.5">
+          <NumberInput
+            icon={LineHeightIcon}
+            value={Math.round(lineHeight * 100)}
+            onChange={(v) =>
+              onUpdate({ lineHeight: v / 100 } as Partial<PenNode>)
+            }
+            min={50}
+            max={400}
+            suffix="%"
+          />
+          <VariablePicker
+            type="number"
+            currentValue={node.lineHeight}
+            onBind={(ref) => onUpdate({ lineHeight: ref } as unknown as Partial<PenNode>)}
+            onUnbind={(val) => onUpdate({ lineHeight: Number(val) } as Partial<PenNode>)}
+          />
+        </div>
+        <div className="flex items-center gap-0.5">
+          <NumberInput
+            label="|A|"
+            value={letterSpacing}
+            onChange={(v) =>
+              onUpdate({ letterSpacing: v } as Partial<PenNode>)
+            }
+          />
+          <VariablePicker
+            type="number"
+            currentValue={node.letterSpacing}
+            onBind={(ref) => onUpdate({ letterSpacing: ref } as unknown as Partial<PenNode>)}
+            onUnbind={(val) => onUpdate({ letterSpacing: Number(val) } as Partial<PenNode>)}
+          />
+        </div>
       </div>
 
       {/* Horizontal alignment */}

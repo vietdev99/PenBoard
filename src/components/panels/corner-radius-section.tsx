@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import NumberInput from '@/components/shared/number-input'
+import VariablePicker from '@/components/shared/variable-picker'
 import type { PenNode } from '@/types/pen'
 
 interface CornerRadiusSectionProps {
@@ -24,14 +25,22 @@ export default function CornerRadiusSection({
       <h4 className="text-xs font-medium text-muted-foreground tracking-wider">
         {t('cornerRadius.title')}
       </h4>
-      <NumberInput
-        value={value}
-        onChange={(v) =>
-          onUpdate({ cornerRadius: v } as Partial<PenNode>)
-        }
-        min={0}
-        max={999}
-      />
+      <div className="flex items-center gap-0.5">
+        <NumberInput
+          value={value}
+          onChange={(v) =>
+            onUpdate({ cornerRadius: v } as Partial<PenNode>)
+          }
+          min={0}
+          max={999}
+        />
+        <VariablePicker
+          type="number"
+          currentValue={typeof cornerRadius === 'number' ? cornerRadius : undefined}
+          onBind={(ref) => onUpdate({ cornerRadius: ref } as unknown as Partial<PenNode>)}
+          onUnbind={(val) => onUpdate({ cornerRadius: Number(val) } as Partial<PenNode>)}
+        />
+      </div>
     </div>
   )
 }

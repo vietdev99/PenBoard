@@ -271,12 +271,75 @@ export function resolveNodeForCanvas(
     }
   }
 
-  // Text content
-  if (node.type === 'text' && typeof node.content === 'string' && isVariableRef(node.content)) {
-    const resolved = resolveVariableRef(node.content, variables, activeTheme)
-    if (typeof resolved === 'string') {
-      out.content = resolved
+  // Width
+  if ('width' in node && isVariableRef((node as unknown as Record<string, unknown>).width)) {
+    const val = resolveNumericRef((node as unknown as Record<string, unknown>).width, variables, activeTheme)
+    if (val !== undefined) {
+      out.width = val
       changed = true
+    }
+  }
+
+  // Height
+  if ('height' in node && isVariableRef((node as unknown as Record<string, unknown>).height)) {
+    const val = resolveNumericRef((node as unknown as Record<string, unknown>).height, variables, activeTheme)
+    if (val !== undefined) {
+      out.height = val
+      changed = true
+    }
+  }
+
+  // Corner radius
+  if ('cornerRadius' in node && typeof (node as unknown as Record<string, unknown>).cornerRadius === 'string' && isVariableRef((node as unknown as Record<string, unknown>).cornerRadius as string)) {
+    const val = resolveNumericRef((node as unknown as Record<string, unknown>).cornerRadius, variables, activeTheme)
+    if (val !== undefined) {
+      out.cornerRadius = val
+      changed = true
+    }
+  }
+
+  // Text fields: fontSize, lineHeight, letterSpacing, fontFamily, content
+  if (node.type === 'text') {
+    const textNode = node as unknown as Record<string, unknown>
+
+    if (isVariableRef(textNode.fontSize)) {
+      const val = resolveNumericRef(textNode.fontSize, variables, activeTheme)
+      if (val !== undefined) {
+        out.fontSize = val
+        changed = true
+      }
+    }
+
+    if (isVariableRef(textNode.lineHeight)) {
+      const val = resolveNumericRef(textNode.lineHeight, variables, activeTheme)
+      if (val !== undefined) {
+        out.lineHeight = val
+        changed = true
+      }
+    }
+
+    if (isVariableRef(textNode.letterSpacing)) {
+      const val = resolveNumericRef(textNode.letterSpacing, variables, activeTheme)
+      if (val !== undefined) {
+        out.letterSpacing = val
+        changed = true
+      }
+    }
+
+    if (isVariableRef(textNode.fontFamily)) {
+      const resolved = resolveVariableRef(String(textNode.fontFamily), variables, activeTheme)
+      if (typeof resolved === 'string') {
+        out.fontFamily = resolved
+        changed = true
+      }
+    }
+
+    if (typeof node.content === 'string' && isVariableRef(node.content)) {
+      const resolved = resolveVariableRef(node.content, variables, activeTheme)
+      if (typeof resolved === 'string') {
+        out.content = resolved
+        changed = true
+      }
     }
   }
 
