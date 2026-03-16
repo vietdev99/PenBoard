@@ -14,6 +14,7 @@ const en = {
   'common.untitled': 'Untitled',
   'common.best': 'Best',
   'common.selected': '{{count}} selected',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Select',
@@ -55,6 +56,7 @@ const en = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Design',
+  'rightPanel.navigate': 'Navigate',
   'rightPanel.code': 'Code',
   'rightPanel.noSelection': 'Select an element',
 
@@ -107,6 +109,7 @@ const en = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Group Selection',
   'layerMenu.createComponent': 'Create Component',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Detach Component',
   'layerMenu.detachInstance': 'Detach Instance',
   'layerMenu.booleanUnion': 'Union',
@@ -114,6 +117,7 @@ const en = {
   'layerMenu.booleanIntersect': 'Intersect',
   'layerMenu.toggleLock': 'Toggle Lock',
   'layerMenu.toggleVisibility': 'Toggle Visibility',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Create Component',
@@ -264,6 +268,10 @@ const en = {
   'variables.exportPreset': 'Export to File\u2026',
   'variables.presetName': 'Preset name',
   'variables.noPresets': 'No saved presets',
+  'variables.tokenColor': 'Color Token',
+  'variables.tokenSpacing': 'Spacing Token',
+  'variables.tokenTypography': 'Typography Token',
+  'variables.tokenNumber': 'Number Token',
 
   // ── AI Chat ──
   'ai.newChat': 'New chat',
@@ -405,6 +413,13 @@ const en = {
   'componentBrowser.category.feedback': 'Feedback',
   'componentBrowser.category.data': 'Data',
   'componentBrowser.category.other': 'Other',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'Bound to --{{name}}',

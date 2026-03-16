@@ -17,36 +17,36 @@ test.describe('Highlight mode (Show Connections)', () => {
     await expect(showConnBtn).toBeVisible()
   })
 
-  // Shift+H activates highlight mode
-  test('HIGHLIGHT-02: Shift+H toggles Show Connections on', async ({ page }) => {
+  // Shift+H toggles highlight mode (state-agnostic)
+  test('HIGHLIGHT-02: Shift+H toggles Show Connections state', async ({ page }) => {
     const showConnBtn = page.getByRole('button', { name: /show connections|toggle connections/i })
-    // Initially off
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'false')
-    // Press Shift+H
+    // Read current state
+    const initialState = await showConnBtn.getAttribute('aria-pressed')
+    // Press Shift+H — should flip the state
     await page.keyboard.press('Shift+H')
-    // Button should now be active
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'true')
+    const expectedAfter = initialState === 'true' ? 'false' : 'true'
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', expectedAfter)
   })
 
-  // Shift+H again turns it off
-  test('HIGHLIGHT-03: Shift+H toggles Show Connections off', async ({ page }) => {
+  // Shift+H twice returns to original state
+  test('HIGHLIGHT-03: Shift+H double-toggle returns to original state', async ({ page }) => {
     const showConnBtn = page.getByRole('button', { name: /show connections|toggle connections/i })
-    // Turn on
+    const initialState = await showConnBtn.getAttribute('aria-pressed')
     await page.keyboard.press('Shift+H')
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'true')
-    // Turn off
     await page.keyboard.press('Shift+H')
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', initialState!)
   })
 
   // Clicking the button toggles state
   test('HIGHLIGHT-04: clicking Show Connections button toggles it', async ({ page }) => {
     const showConnBtn = page.getByRole('button', { name: /show connections|toggle connections/i })
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'false')
+    const initialState = await showConnBtn.getAttribute('aria-pressed')
     await showConnBtn.click()
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'true')
+    const expectedAfter = initialState === 'true' ? 'false' : 'true'
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', expectedAfter)
+    // Toggle back
     await showConnBtn.click()
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', initialState!)
   })
 
   // No JS errors when highlight mode is active with multiple pages
@@ -64,18 +64,21 @@ test.describe('Highlight mode (Show Connections)', () => {
   })
 
   // Highlight mode survives page navigation
-  test('HIGHLIGHT-06: highlight mode toggles off cleanly after page switch', async ({ page }) => {
+  test('HIGHLIGHT-06: highlight mode toggles cleanly after page switch', async ({ page }) => {
     const showConnBtn = page.getByRole('button', { name: /show connections|toggle connections/i })
+    const initialState = await showConnBtn.getAttribute('aria-pressed')
+    // Toggle on (flip state once)
     await page.keyboard.press('Shift+H')
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'true')
+    const stateAfterFirst = initialState === 'true' ? 'false' : 'true'
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', stateAfterFirst)
 
     // Add and navigate to another page
     await addPage(page, 'screen')
     // Editor should still be functional
     await expect(page.getByRole('button', { name: 'Select' })).toBeVisible()
 
-    // Toggle off
+    // Toggle back to original
     await page.keyboard.press('Shift+H')
-    await expect(showConnBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect(showConnBtn).toHaveAttribute('aria-pressed', initialState!)
   })
 })

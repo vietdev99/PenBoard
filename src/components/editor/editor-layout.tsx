@@ -170,7 +170,7 @@ export default function EditorLayout() {
               {/* Expanded AI panel (floating, draggable) */}
               <AIChatPanel />
             </div>
-            {hasSelection && <RightPanel />}
+            <RightPanel />
           </div>
         </div>
         <ExportDialog open={exportOpen} onClose={closeExport} />

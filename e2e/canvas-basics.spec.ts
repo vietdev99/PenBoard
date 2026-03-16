@@ -76,6 +76,6 @@ test.describe('Canvas basics', () => {
     await expect(page.getByText('Pages')).toBeVisible()
     // Add a second page
     await addPage(page, 'screen')
-    await expect(page.getByText('Screen', { exact: false })).toBeVisible()
+    await expect(page.getByText('Page 2', { exact: false })).toBeVisible()
   })
 })

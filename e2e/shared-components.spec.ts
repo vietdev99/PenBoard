@@ -34,14 +34,15 @@ test.describe('Shared components', () => {
     // Check for component browser or component list button in the UI
     // Either the UIKit browser button or a dedicated component button
     const uikitBtn = page.getByRole('button', { name: /component|uikit|kit/i }).first()
-    // If it doesn't exist, the test passes vacuously — feature may be in panel
+    // Just verify it exists — do not open it to avoid state pollution across tests
     const exists = await uikitBtn.isVisible().catch(() => false)
+    // Editor should still be functional regardless of whether button exists
+    // Use aria-label selector to avoid strict mode violation with component cards
+    await expect(page.getByLabel('Select')).toBeVisible()
     if (exists) {
-      await uikitBtn.click()
-      await expect(uikitBtn).toBeVisible()
+      // Verify the button is interactable
+      await expect(uikitBtn).toBeEnabled()
     }
-    // Verify editor still works
-    await expect(page.getByRole('button', { name: 'Select' })).toBeVisible()
   })
 
   // SHARED-04: Navigating to component page doesn't show Navigate panel restriction
@@ -71,8 +72,9 @@ test.describe('Shared components', () => {
     await addPage(page, 'screen')
     await addPage(page, 'component')
     await addPage(page, 'erd')
-    await expect(page.getByText('Screen', { exact: false })).toBeVisible()
-    await expect(page.getByText('Component', { exact: false })).toBeVisible()
+    // Screen pages named "Page N", component pages named "Components", ERD pages named "ERD"
+    await expect(page.getByText('Page 2', { exact: false })).toBeVisible()
+    await expect(page.getByText('Components', { exact: false })).toBeVisible()
     await expect(page.getByText('ERD', { exact: false })).toBeVisible()
   })
 
@@ -88,7 +90,7 @@ test.describe('Shared components', () => {
     await addPage(page, 'component')
     const compTab = page.getByText('Component', { exact: false }).first()
     await compTab.click()
-    // Layers section in left panel
-    await expect(page.getByText('Layers', { exact: false })).toBeVisible()
+    // Layers section header in left panel (use exact match to avoid matching "No layers yet..." text)
+    await expect(page.getByText('Layers', { exact: true })).toBeVisible()
   })
 })

@@ -42,7 +42,8 @@ test.describe('Data entities', () => {
     await addPage(page, 'screen')
     await addPage(page, 'erd')
     // Both page types should be visible in the tabs
-    await expect(page.getByText('Screen', { exact: false })).toBeVisible()
+    // Screen pages are named "Page N", ERD pages are named "ERD"
+    await expect(page.getByText('Page 2', { exact: false })).toBeVisible()
     await expect(page.getByText('ERD', { exact: false })).toBeVisible()
   })
 
