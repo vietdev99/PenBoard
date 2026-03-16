@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import DataFieldRow from './data-field-row'
+import DataEntityTable from './data-entity-table'
+import DataViewControls from './data-view-controls'
 import {
   Dialog,
   DialogContent,
@@ -27,13 +29,14 @@ export default function DataPanel() {
   const removeEntity = useDocumentStore((s) => s.removeEntity)
   const updateEntity = useDocumentStore((s) => s.updateEntity)
   const addField = useDocumentStore((s) => s.addField)
-  const addRow = useDocumentStore((s) => s.addRow)
+  const addView = useDocumentStore((s) => s.addView)
   const toggleDataPanel = useCanvasStore((s) => s.toggleDataPanel)
   const dataFocusEntityId = useCanvasStore((s) => s.dataFocusEntityId)
   const setDataFocusEntityId = useCanvasStore((s) => s.setDataFocusEntityId)
 
-  // Active entity tab
+  // Active entity tab + active view per entity
   const [activeEntityId, setActiveEntityId] = useState<string | null>(null)
+  const [activeViewIds, setActiveViewIds] = useState<Record<string, string>>({})
   // Panel size
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH)
   const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT)
@@ -303,22 +306,62 @@ export default function DataPanel() {
               </div>
             </div>
 
-            {/* Data table section (placeholder - implemented in Task 3) */}
-            <div className="flex-1 overflow-auto p-3">
-              <div className="text-xs text-muted-foreground text-center py-6">
-                {activeEntity.rows.length === 0
-                  ? t('data.noRows')
-                  : `${activeEntity.rows.length} row(s)`}
-              </div>
-              <div className="flex justify-center">
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => addRow(activeEntity.id)}
-                >
-                  {t('data.addRow')}
-                </button>
-              </div>
-            </div>
+            {/* View controls + Data table */}
+            {(() => {
+              const views = activeEntity.views
+              const activeViewId = activeViewIds[activeEntity.id]
+              const activeView = views.find((v) => v.id === activeViewId) ?? views[0]
+
+              return (
+                <>
+                  {/* View tabs + controls */}
+                  <div className="border-b border-border flex items-center gap-0">
+                    <div className="flex items-center gap-0 overflow-x-auto scrollbar-none px-1 py-0.5">
+                      {views.map((view) => {
+                        const isViewActive = view.id === (activeView?.id)
+                        return (
+                          <button
+                            key={view.id}
+                            className={cn(
+                              'shrink-0 h-5 px-2 text-[10px] rounded transition-colors',
+                              isViewActive
+                                ? 'bg-accent text-foreground font-medium'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                            onClick={() => setActiveViewIds((prev) => ({ ...prev, [activeEntity.id]: view.id }))}
+                          >
+                            {view.name}
+                          </button>
+                        )
+                      })}
+                      <button
+                        className="shrink-0 h-5 px-1 text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                          const id = addView(activeEntity.id)
+                          if (id) setActiveViewIds((prev) => ({ ...prev, [activeEntity.id]: id }))
+                        }}
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </div>
+                  {activeView && (
+                    <DataViewControls
+                      entityId={activeEntity.id}
+                      view={activeView}
+                      fields={activeEntity.fields}
+                    />
+                  )}
+                  <DataEntityTable
+                    entityId={activeEntity.id}
+                    fields={activeEntity.fields}
+                    rows={activeEntity.rows}
+                    activeView={activeView}
+                    entities={entityList}
+                  />
+                </>
+              )
+            })()}
           </div>
         )}
 
