@@ -19,6 +19,7 @@ import ConnectionSection from './connection-section'
 import IconSection from './icon-section'
 import ImageSection from './image-section'
 import ArgumentSection from './argument-section'
+import ArgumentValuesSection from './argument-values-section'
 
 /** Properties stored directly on the RefNode (instance-level), not as overrides. */
 const INSTANCE_DIRECT_PROPS = new Set([
@@ -253,6 +254,15 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
             <Separator />
             <div className="px-3 py-2">
               <ArgumentSection node={displayNode as FrameNode} />
+            </div>
+          </>
+        )}
+
+        {nodeIsInstance && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              <ArgumentValuesSection instanceNode={node as RefNode} />
             </div>
           </>
         )}
