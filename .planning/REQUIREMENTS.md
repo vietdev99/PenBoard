@@ -43,7 +43,7 @@
 - [x] **SHARED-03**: Shared component instances render with visual distinction (e.g., border/badge)
 - [ ] **SHARED-04**: Editing shared component source propagates to all instances
 - [ ] **SHARED-05**: User can double-click instance to navigate to source
-- [ ] **SHARED-06**: Shared components support arguments (props) with rich types (text, number, boolean, select, color)
+- [x] **SHARED-06**: Shared components support arguments (props) with rich types (text, number, boolean, select, color)
 - [ ] **SHARED-07**: When including a component, user can set argument values (e.g., Sidebar with activeItem="Dashboard")
 - [ ] **SHARED-08**: Component renders differently based on argument values
 
@@ -141,7 +141,7 @@ The following requirements were removed because the app is local-only and file-b
 | SHARED-03 | Phase 3 | Complete |
 | SHARED-04 | Phase 3 | Pending |
 | SHARED-05 | Phase 3 | Pending |
-| SHARED-06 | Phase 3 | Pending |
+| SHARED-06 | Phase 3 | Complete |
 | SHARED-07 | Phase 3 | Pending |
 | SHARED-08 | Phase 3 | Pending |
 | TOKEN-01 | Phase 3 | Pending |

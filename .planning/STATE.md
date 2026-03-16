@@ -10,7 +10,7 @@ progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State: PenBoard
@@ -18,7 +18,7 @@ progress:
 **Last Updated:** 2026-03-16T17:30:30Z
 **Current Phase:** 3
 **Current Plan:** 5 of 5
-**Overall Status:** Phase 3 In Progress — Plan 04 Complete (Design Token Panel & Picker Expansion)
+**Overall Status:** Phase 3 In Progress — Plan 02 & 04 Complete (Argument UI, Design Token Panel)
 
 ## What's Done
 
@@ -31,6 +31,7 @@ progress:
 - [x] Phase 2 Plan 02: Data Entities & ERD (Notion-like tables, field CRUD, ERD page renderer, filter/sort views)
 - [x] Phase 2 Plan 03: Connection Gap Closure (targetFrameId, same-page connections, badge target name)
 - [x] Phase 3 Plan 01: Component Types, Store & Badge (ComponentArgument types, store CRUD, component page, diamond badge)
+- [x] Phase 3 Plan 02: Component Argument UI & Drag-Connect Binding (ArgumentSection panel, SVG wire overlay, binding creation)
 - [x] Phase 3 Plan 04: Design Token Panel & Picker Expansion (grouped variables panel, VariablePicker on 7 new fields, numeric $ref resolution)
 
 ## Roadmap Change (2026-03-16)
@@ -74,10 +75,21 @@ progress:
 | Component store pattern | **createComponentActions with updater-function tree traversal** | Cross-page node lookup for argument mutations |
 | Variable grouping | **Name-based heuristic** | font/size/line/letter -> Typography, rest -> Spacing |
 | VariablePicker placement | **Adjacent flex container (gap-0.5)** | Matches existing fill-section/appearance-section pattern |
+| Drag-connect wire | **SVG overlay** | Bridges DOM panel and SkiaCanvas coordinate spaces |
+| DragConnectOverlay | **Separate React component** | Owns mouse tracking, avoids polluting main canvas event loop |
+| Binding properties | **BINDABLE_PROPERTIES whitelist** | Type-safe bindings per argument type |
 
 ## Context for Next Session
 
-Phase 3 Plan 04 complete. Design token system expanded with grouped display and picker on all relevant fields.
+Phase 3 Plans 01, 02, 04 complete. Component system and design token expansion done.
+
+What was built in Plan 02:
+- ArgumentSection property panel for reusable frames (5-type argument CRUD)
+- DragConnectOverlay SVG wire for binding arguments to canvas elements
+- dragConnectState in canvas-store for cross-panel-canvas communication
+- BINDABLE_PROPERTIES whitelist for type-safe argument bindings
+
+SHARED-06 requirement satisfied by this plan.
 
 What was built in Plan 04:
 - VariableGroup collapsible component (Colors/Spacing/Typography/Other sections)
@@ -85,10 +97,8 @@ What was built in Plan 04:
 - VariablePicker added to: width, height, cornerRadius, fontSize, fontFamily, lineHeight, letterSpacing
 - resolveNodeForCanvas extended to resolve $variable refs on all new numeric/string fields
 
-TOKEN-03, TOKEN-04, TOKEN-05 requirements satisfied by this plan.
-
 Next steps:
-1. Execute remaining Phase 3 plans (02, 03, 05) if any
+1. Execute remaining Phase 3 plans (03, 05)
 2. Phase 4: E2E Tests & Polish
 
 ## Key File Locations
@@ -126,7 +136,7 @@ None currently.
 - Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
 - Phase 2 status: COMPLETE (3/3 plans done, including gap closure)
-- Phase 3 status: IN PROGRESS (2/5 plans done)
+- Phase 3 status: IN PROGRESS (3/5 plans done)
 
 ## Performance Metrics
 
@@ -141,4 +151,5 @@ None currently.
 | 02-02 | 20min | 5 | 23 |
 | 02-03 | 6min | 2 | 22 |
 | 03-01 | 6min | 2 | 8 |
+| 03-02 | 8min | 2 | 4 |
 | 03-04 | 5min | 2 | 6 |
