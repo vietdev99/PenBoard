@@ -11,6 +11,7 @@ import { SkiaPenTool } from './skia-pen-tool'
 import { setSkiaEngineRef } from '../skia-engine-ref'
 import type { ToolType } from '@/types/canvas'
 import type { PenNode, ContainerProps, TextNode } from '@/types/pen'
+import { findNodeInTree } from '@/stores/document-tree-utils'
 
 // --- Drag-connect helpers ---
 
@@ -1221,6 +1222,27 @@ export default function SkiaCanvas() {
 
       const topHit = hits[0]
       const currentSelection = useCanvasStore.getState().selection.selectedIds
+
+      // Double-click on a RefNode instance → navigate to source component page
+      if (currentSelection.length === 1) {
+        const selNode = useDocumentStore.getState().getNodeById(currentSelection[0])
+        if (selNode?.type === 'ref') {
+          const refNode = selNode as import('@/types/pen').RefNode
+          const pages = useDocumentStore.getState().document.pages ?? []
+          for (const page of pages) {
+            const found = findNodeInTree(page.children, refNode.ref)
+            if (found) {
+              useCanvasStore.getState().clearSelection()
+              useCanvasStore.getState().exitAllFrames()
+              useCanvasStore.getState().setActivePageId(page.id)
+              requestAnimationFrame(() => {
+                useCanvasStore.getState().setSelection([refNode.ref], refNode.ref)
+              })
+              return
+            }
+          }
+        }
+      }
 
       // Double-click on a selected group/frame → enter it and select the child
       if (currentSelection.length === 1) {
