@@ -24,6 +24,8 @@ export interface DataField {
   relatedEntityId?: string
   /** For 'relation' type: target field id */
   relatedFieldId?: string
+  /** For 'relation' type: cardinality */
+  relationCardinality?: '1:1' | '1:N' | 'N:M'
   /** Whether this field is required */
   required?: boolean
   /** Default value for new rows */
