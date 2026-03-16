@@ -16,7 +16,8 @@
         "dev": "bun --bun vite dev --port 3000",
         "build": "bun --bun vite build",
         "preview": "bun --bun vite preview",
-        "test": "bun --bun vitest run --passWithNoTests",
+        "test": "bunx --bun vitest run --config vitest.config.ts --passWithNoTests",
+        "test:e2e": "playwright test",
         "mcp:compile": "esbuild src/mcp/server.ts --bundle --platform=node --target=node20 --outfile=dist/mcp-server.cjs --format=cjs --sourcemap --alias:@=src --define:import.meta.env={}",
         "mcp:dev": "bun run src/mcp/server.ts",
         "electron:dev": "bun run scripts/electron-dev.ts",
@@ -86,6 +87,7 @@
         "zustand": "^5.0.11"
     },
     "devDependencies": {
+        "@playwright/test": "^1.58.2",
         "@tanstack/devtools-vite": "^0.3.11",
         "@testing-library/dom": "^10.4.0",
         "@testing-library/react": "^16.2.0",
