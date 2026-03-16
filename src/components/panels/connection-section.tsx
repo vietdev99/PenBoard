@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDocumentStore } from '@/stores/document-store'
+import { useCanvasStore } from '@/stores/canvas-store'
 import type { ScreenConnection } from '@/types/pen'
 import SectionHeader from '@/components/shared/section-header'
 import { Button } from '@/components/ui/button'
@@ -8,13 +9,12 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, ArrowUpRight } from 'lucide-react'
+import NavigateModal from './navigate-modal'
 
 interface ConnectionSectionProps {
   nodeId: string
@@ -33,17 +33,6 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
   const connections = (document.connections ?? []).filter(
     (c) => c.sourceElementId === nodeId,
   )
-
-  // Available target pages: all non-ERD pages (same-page connections allowed)
-  const targetPages = (document.pages ?? []).filter(
-    (p) => p.type !== 'erd',
-  )
-
-  // Build Page > Frame hierarchy for the picker
-  const pageFrameTree = targetPages.map((page) => {
-    const frames = (page.children ?? []).filter((n) => n.type === 'frame')
-    return { page, frames }
-  })
 
   const handleAddTarget = (targetPageId: string, targetFrameId?: string) => {
     addConnection({
@@ -66,6 +55,17 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
       return `${page.name} > ${frameName}`
     }
     return page.name
+  }
+
+  const handleQuickNavigate = (conn: ScreenConnection) => {
+    useCanvasStore.getState().clearSelection()
+    useCanvasStore.getState().exitAllFrames()
+    useCanvasStore.getState().setActivePageId(conn.targetPageId)
+    if (conn.targetFrameId) {
+      requestAnimationFrame(() => {
+        useCanvasStore.getState().setSelection([conn.targetFrameId!], conn.targetFrameId!)
+      })
+    }
   }
 
   return (
@@ -93,59 +93,19 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
             pageName={getTargetDisplayName(conn)}
             onUpdate={(updates) => updateConnection(conn.id, updates)}
             onRemove={() => removeConnection(conn.id)}
+            onNavigate={() => handleQuickNavigate(conn)}
           />
         ))}
-
-        {isAdding && (
-          <div className="flex items-center gap-1">
-            <Select onValueChange={(value) => {
-              // value format: "pageId::frameId" or "pageId" (page-only, no frame)
-              const [targetPageId, targetFrameId] = value.split('::')
-              handleAddTarget(targetPageId, targetFrameId || undefined)
-            }}>
-              <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
-                <SelectValue placeholder={t('connection.selectTarget')} />
-              </SelectTrigger>
-              <SelectContent>
-                {pageFrameTree.map(({ page, frames }) => (
-                  <SelectGroup key={page.id}>
-                    <SelectLabel className="text-[11px] text-muted-foreground px-2 py-1">
-                      {page.name}
-                    </SelectLabel>
-                    {frames.length > 0 ? (
-                      frames.map((frame) => (
-                        <SelectItem
-                          key={`${page.id}::${frame.id}`}
-                          value={`${page.id}::${frame.id}`}
-                          className="text-xs pl-6"
-                        >
-                          {frame.name || 'Untitled Frame'}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem
-                        key={page.id}
-                        value={page.id}
-                        className="text-xs pl-4 italic text-muted-foreground"
-                      >
-                        {page.name} {t('connection.pageOnly')}
-                      </SelectItem>
-                    )}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              onClick={() => setIsAdding(false)}
-            >
-              <Trash2 size={14} className="text-muted-foreground" />
-            </Button>
-          </div>
-        )}
       </div>
+
+      {/* Navigate modal (replaces dropdown picker) */}
+      <NavigateModal
+        isOpen={isAdding}
+        onClose={() => setIsAdding(false)}
+        onSelect={(targetPageId, targetFrameId) => {
+          handleAddTarget(targetPageId, targetFrameId)
+        }}
+      />
     </div>
   )
 }
@@ -159,9 +119,10 @@ interface ConnectionRowProps {
   pageName: string
   onUpdate: (updates: Partial<ScreenConnection>) => void
   onRemove: () => void
+  onNavigate: () => void
 }
 
-function ConnectionRow({ connection, pageName, onUpdate, onRemove }: ConnectionRowProps) {
+function ConnectionRow({ connection, pageName, onUpdate, onRemove, onNavigate }: ConnectionRowProps) {
   const { t } = useTranslation()
 
   return (
@@ -171,6 +132,15 @@ function ConnectionRow({ connection, pageName, onUpdate, onRemove }: ConnectionR
         <span className="text-[11px] text-foreground truncate flex-1">
           {pageName}
         </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 shrink-0"
+          onClick={onNavigate}
+          title="Go to target"
+        >
+          <ArrowUpRight size={14} />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
