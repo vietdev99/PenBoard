@@ -26,15 +26,15 @@
 
 ### Data Entities & ERD
 
-- [ ] **ERD-01**: User can create data tables with name and typed fields on ERD page
-- [ ] **ERD-02**: User can draw relation edges showing 1:1, 1:N, N:M cardinality
-- [ ] **ERD-03**: Table nodes display field names, types, and PK/FK badges
-- [ ] **ERD-04**: User can drag table nodes to rearrange ERD layout
-- [ ] **DATA-01**: Data entities sidebar panel for managing tables and fields
-- [ ] **DATA-02**: Sample data rows (Notion-like: enter data into table rows)
-- [ ] **DATA-03**: Data views with filter and sort
-- [ ] **DATA-04**: Data entities stored in .pb file (PenDocument.dataEntities[])
-- [ ] **DATA-05**: ERD page type (dedicated page for schema visualization)
+- [x] **ERD-01**: User can create data tables with name and typed fields on ERD page
+- [x] **ERD-02**: User can draw relation edges showing 1:1, 1:N, N:M cardinality
+- [x] **ERD-03**: Table nodes display field names, types, and PK/FK badges
+- [x] **ERD-04**: User can drag table nodes to rearrange ERD layout
+- [x] **DATA-01**: Data entities sidebar panel for managing tables and fields
+- [x] **DATA-02**: Sample data rows (Notion-like: enter data into table rows)
+- [x] **DATA-03**: Data views with filter and sort
+- [x] **DATA-04**: Data entities stored in .pb file (PenDocument.dataEntities[])
+- [x] **DATA-05**: ERD page type (dedicated page for schema visualization)
 
 ### Shared Components
 
@@ -127,15 +127,15 @@ The following requirements were removed because the app is local-only and file-b
 | CONN-03 | Phase 2 | Complete |
 | CONN-04 | Phase 2 | Complete |
 | CONN-05 | Phase 2 | Complete |
-| ERD-01 | Phase 2 | Pending |
-| ERD-02 | Phase 2 | Pending |
-| ERD-03 | Phase 2 | Pending |
-| ERD-04 | Phase 2 | Pending |
-| DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
-| DATA-04 | Phase 2 | Pending |
-| DATA-05 | Phase 2 | Pending |
+| ERD-01 | Phase 2 | Complete |
+| ERD-02 | Phase 2 | Complete |
+| ERD-03 | Phase 2 | Complete |
+| ERD-04 | Phase 2 | Complete |
+| DATA-01 | Phase 2 | Complete |
+| DATA-02 | Phase 2 | Complete |
+| DATA-03 | Phase 2 | Complete |
+| DATA-04 | Phase 2 | Complete |
+| DATA-05 | Phase 2 | Complete |
 | SHARED-01 | Phase 3 | Pending |
 | SHARED-02 | Phase 3 | Pending |
 | SHARED-03 | Phase 3 | Pending |
