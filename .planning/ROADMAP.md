@@ -53,7 +53,7 @@ Plans:
   8. All data persists in .pb file
 
 Plans:
-- [ ] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
+- [x] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
 - [ ] 02-02-PLAN.md — Data entities: Notion-like tables, field management, ERD page rendering, filter/sort views
 
 ### Phase 3: Shared Components & Design Tokens
@@ -91,6 +91,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
-| 2. Storyboard Connections & Data Entities | 0/2 | Planned | - |
+| 2. Storyboard Connections & Data Entities | 1/2 | In Progress | - |
 | 3. Shared Views & Design Tokens | 0/1 | Not started | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |

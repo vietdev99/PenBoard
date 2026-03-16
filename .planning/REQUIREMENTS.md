@@ -18,11 +18,11 @@
 
 ### Screen Connections
 
-- [ ] **CONN-01**: User can assign element-to-screen navigation via property panel "Navigate to" section
-- [ ] **CONN-02**: Each connection stores sourceElement, targetPage, trigger event, and transition type
-- [ ] **CONN-03**: User can add labels to connections
-- [ ] **CONN-04**: User can delete a connection from property panel
-- [ ] **CONN-05**: Elements with connections show visual indicator badge on canvas
+- [x] **CONN-01**: User can assign element-to-screen navigation via property panel "Navigate to" section
+- [x] **CONN-02**: Each connection stores sourceElement, targetPage, trigger event, and transition type
+- [x] **CONN-03**: User can add labels to connections
+- [x] **CONN-04**: User can delete a connection from property panel
+- [x] **CONN-05**: Elements with connections show visual indicator badge on canvas
 
 ### Data Entities & ERD
 
@@ -122,11 +122,11 @@ The following requirements were removed because the app is local-only and file-b
 | CANVAS-05 | Phase 1 | Complete |
 | CANVAS-06 | Phase 1 | Complete |
 | CANVAS-07 | Phase 1 | Complete |
-| CONN-01 | Phase 2 | Pending |
-| CONN-02 | Phase 2 | Pending |
-| CONN-03 | Phase 2 | Pending |
-| CONN-04 | Phase 2 | Pending |
-| CONN-05 | Phase 2 | Pending |
+| CONN-01 | Phase 2 | Complete |
+| CONN-02 | Phase 2 | Complete |
+| CONN-03 | Phase 2 | Complete |
+| CONN-04 | Phase 2 | Complete |
+| CONN-05 | Phase 2 | Complete |
 | ERD-01 | Phase 2 | Pending |
 | ERD-02 | Phase 2 | Pending |
 | ERD-03 | Phase 2 | Pending |

@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 2
-current_plan: Not started
-status: context_complete
-last_updated: "2026-03-16T18:30:00Z"
+current_plan: 2
+status: in_progress
+last_updated: "2026-03-16T14:14:12Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T18:30:00Z
+**Last Updated:** 2026-03-16T14:14:12Z
 **Current Phase:** 2 — Storyboard Connections & Data Entities
-**Current Plan:** Not started (CONTEXT.md complete, needs research + planning)
-**Overall Status:** Phase 1 Complete — Phase 2 Context Ready
+**Current Plan:** Plan 02 (Data Entities & ERD) — Plan 01 complete
+**Overall Status:** Phase 2 In Progress — Plan 01 Done (1/2)
 
 ## What's Done
 
@@ -27,6 +27,7 @@ progress:
 - [x] Phase 2 CONTEXT.md created with all decisions
 - [x] Roadmap restructured (removed Backend Foundation phase)
 - [x] Requirements updated (removed auth/project/screen, added data entity reqs)
+- [x] Phase 2 Plan 01: Screen Connections (types, store CRUD, UI, canvas badge)
 
 ## Roadmap Change (2026-03-16)
 
@@ -56,14 +57,17 @@ progress:
 | Data entity features | **Full** | Tables + fields + sample data + relations + views |
 | Data entity UI | **Panel + ERD page** | Sidebar panel for management, ERD page for visualization |
 | Shared components | **With rich args** | Props: text, number, boolean, select, color (Phase 3) |
+| Connection storage | **Document-level array** | PenDocument.connections[] for easy querying and cascade |
+| Connection cascade | **Auto-delete on node/page remove** | Ensures data integrity without orphaned connections |
+| ERD page exclusion | **No connections on ERD** | Connections are screen-to-screen only |
 
 ## Context for Next Session
 
-Phase 2 CONTEXT.md is ready at `.planning/phases/02-storyboard-data/02-CONTEXT.md`.
+Phase 2 Plan 01 (Screen Connections) is complete.
 
 Next steps:
-1. Run `/gsd:plan-phase 2` to research and create execution plans
-2. Phase 2 covers: screen connections (property panel) + data entities (Notion-like)
+1. Execute Phase 2 Plan 02 (Data Entities & ERD) - `/gsd:execute-phase 02-02`
+2. Plan 02 covers: DataEntity CRUD, ERD page visualization, data panel UI
 
 ## Key File Locations
 
@@ -77,7 +81,10 @@ Next steps:
 | `src/stores/document-store.ts` | Document state management |
 | `src/stores/document-store-pages.ts` | Multi-page management |
 | `src/types/pen.ts` | Document model types |
-| `src/components/panels/property-panel.tsx` | Property panel (connections will go here) |
+| `src/components/panels/property-panel.tsx` | Property panel (with connections section) |
+| `src/components/panels/connection-section.tsx` | Connection section UI |
+| `src/stores/document-store-connections.ts` | Connection CRUD actions |
+| `src/types/data-entity.ts` | DataEntity types for Plan 02 |
 | `src/components/editor/page-tabs.tsx` | Page tabs (screens) |
 | `.planning/phases/02-storyboard-data/02-CONTEXT.md` | Phase 2 decisions |
 
@@ -90,7 +97,7 @@ None currently.
 - Requirements: 35 (v1, was 44 — removed 17, added 8)
 - Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
-- Phase 2 status: CONTEXT COMPLETE (needs research + planning)
+- Phase 2 status: IN PROGRESS (1/2 plans done)
 
 ## Performance Metrics
 
@@ -101,3 +108,4 @@ None currently.
 | 01-03 | 35min | 4 | 11 |
 | 01-04 | 3min | 2 | 2 |
 | 01-05 | 1min | 1 | 1 |
+| 02-01 | 10min | 2 | 29 |
