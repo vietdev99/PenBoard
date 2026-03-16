@@ -604,6 +604,55 @@ export default function SkiaCanvas() {
         if (newW < MIN) { if (dir.includes('w')) newX = resizeOrigX + resizeOrigW - MIN; newW = MIN }
         if (newH < MIN) { if (dir.includes('n')) newY = resizeOrigY + resizeOrigH - MIN; newH = MIN }
 
+        // Snap resizing edges to alignment guides
+        const resizeBounds = { x: newX, y: newY, w: newW, h: newH }
+        const resizeThreshold = SNAP_THRESHOLD / engine.zoom
+        const resizeGuideResult = computeGuides(resizeBounds, engine.renderNodes, new Set([resizeNodeId]), resizeThreshold)
+        const sizeGuides: GuideSpec[] = [...resizeGuideResult.guides]
+        if (resizeGuideResult.snapDx !== 0) {
+          if (dir.includes('e')) { newW += resizeGuideResult.snapDx }
+          else if (dir.includes('w')) { newX += resizeGuideResult.snapDx; newW -= resizeGuideResult.snapDx }
+        }
+        if (resizeGuideResult.snapDy !== 0) {
+          if (dir.includes('s')) { newH += resizeGuideResult.snapDy }
+          else if (dir.includes('n')) { newY += resizeGuideResult.snapDy; newH -= resizeGuideResult.snapDy }
+        }
+
+        // Size matching: snap when width/height matches another shape's dimensions
+        let sizeSnapW = false, sizeSnapH = false
+        for (const rn of engine.renderNodes) {
+          if (rn.node.id === resizeNodeId) continue
+          if (!sizeSnapW && (dir.includes('e') || dir.includes('w'))) {
+            const wDiff = rn.absW - newW
+            if (Math.abs(wDiff) <= resizeThreshold) {
+              if (dir.includes('e')) { newW += wDiff }
+              else { newX -= wDiff; newW += wDiff }
+              // Vertical guides at both left and right edges to show width match
+              const gy1 = Math.min(newY, rn.absY) - 20
+              const gy2 = Math.max(newY + newH, rn.absY + rn.absH) + 20
+              sizeGuides.push({ x1: newX, y1: gy1, x2: newX, y2: gy2 })
+              sizeGuides.push({ x1: newX + newW, y1: gy1, x2: newX + newW, y2: gy2 })
+              sizeSnapW = true
+            }
+          }
+          if (!sizeSnapH && (dir.includes('s') || dir.includes('n'))) {
+            const hDiff = rn.absH - newH
+            if (Math.abs(hDiff) <= resizeThreshold) {
+              if (dir.includes('s')) { newH += hDiff }
+              else { newY -= hDiff; newH += hDiff }
+              // Horizontal guides at both top and bottom edges to show height match
+              const gx1 = Math.min(newX, rn.absX) - 20
+              const gx2 = Math.max(newX + newW, rn.absX + rn.absW) + 20
+              sizeGuides.push({ x1: gx1, y1: newY, x2: gx2, y2: newY })
+              sizeGuides.push({ x1: gx1, y1: newY + newH, x2: gx2, y2: newY + newH })
+              sizeSnapH = true
+            }
+          }
+          if (sizeSnapW && sizeSnapH) break
+        }
+        engine.activeGuides = sizeGuides
+        engine.markDirty()
+
         // For text nodes, switching to fixed-width enables auto-wrap
         const resizedNode = useDocumentStore.getState().getNodeById(resizeNodeId)
         const updates: Record<string, unknown> = { x: newX, y: newY, width: newW, height: newH }
@@ -803,6 +852,7 @@ export default function SkiaCanvas() {
         isResizing = false
         resizeHandle = null
         resizeNodeId = null
+        if (engine) { engine.activeGuides = []; engine.markDirty() }
         canvasEl.style.cursor = toolToCursor(getTool())
       }
 
