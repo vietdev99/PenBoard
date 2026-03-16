@@ -8,7 +8,7 @@ PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard 
 
 - [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
 - [x] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
-- [ ] **Phase 3: Shared Views & Design Tokens** - Reusable layouts via component system, token management UI via variables system
+- [ ] **Phase 3: Shared Components & Design Tokens** - Reusable components with rich arguments, token management UI, connection highlight mode
 - [ ] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
 
 ## Removed Phases
@@ -58,19 +58,26 @@ Plans:
 - [x] 02-03-PLAN.md — Gap closure: Connection targets Page > Frame, same-page connections, badge shows target name
 
 ### Phase 3: Shared Components & Design Tokens
-**Goal**: Reusable components with arguments (props) and global design tokens
-**Depends on**: Phase 1 (no DB dependency — file-based)
+**Goal**: Reusable components with rich arguments (props), connection highlight mode, and expanded design token management
+**Depends on**: Phase 1, Phase 2
 **Requirements**: SHARED-01, SHARED-02, SHARED-03, SHARED-04, SHARED-05, SHARED-06, SHARED-07, SHARED-08, TOKEN-01, TOKEN-02, TOKEN-03, TOKEN-04, TOKEN-05
+**Plans:** 5 plans
 **Success Criteria**:
-  1. User can create shared component (navbar, sidebar, footer) on dedicated page
+  1. User can create shared component (navbar, sidebar, footer) on dedicated component page
   2. Shared component instances on screen canvases update when source is edited
   3. Components support rich arguments (text, number, boolean, select, color)
   4. User can set argument values when including component (e.g., Sidebar with activeItem="Dashboard")
-  5. Design tokens panel allows creating color/spacing/typography tokens
-  6. Token picker in properties panel, $variable references resolve at render
+  5. Design tokens panel grouped by type (Colors, Spacing, Typography, Other)
+  6. Token picker on size and text property fields, $variable references resolve at render
+  7. Highlight mode shows connection flow arrows with focus+dim
+  8. Navigate picker redesigned as tab/list modal
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Types, component page, component store, badge overlay (SHARED-01, SHARED-03)
+- [ ] 03-02-PLAN.md — Argument definitions, drag-connect binding UI (SHARED-06)
+- [ ] 03-03-PLAN.md — Argument values on instances, render pipeline, navigate-to-source (SHARED-07, SHARED-08, SHARED-05)
+- [ ] 03-04-PLAN.md — Token expansion: grouped variables panel, VariablePicker on size/text fields (TOKEN-01..05)
+- [ ] 03-05-PLAN.md — Highlight mode, connection arrows, navigate modal redesign (SHARED-02, SHARED-05)
 
 ### Phase 4: E2E Tests & Polish
 **Goal**: Comprehensive test coverage, Electron validation, performance
@@ -93,5 +100,5 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
 | 2. Storyboard Connections & Data Entities | 3/3 | Complete | 2026-03-16 |
-| 3. Shared Views & Design Tokens | 0/1 | Not started | - |
+| 3. Shared Components & Design Tokens | 0/5 | Planned | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |
