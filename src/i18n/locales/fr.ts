@@ -16,6 +16,7 @@ const fr: TranslationKeys = {
   'common.untitled': 'Sans titre',
   'common.best': 'Recommandé',
   'common.selected': '{{count}} sélectionné(s)',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Sélection',
@@ -111,6 +112,7 @@ const fr: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Grouper la sélection',
   'layerMenu.createComponent': 'Créer un composant',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Détacher le composant',
   'layerMenu.detachInstance': 'Détacher l\u2019instance',
   'layerMenu.booleanUnion': 'Union',
@@ -118,6 +120,7 @@ const fr: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Intersection',
   'layerMenu.toggleLock': 'Verrouiller / Déverrouiller',
   'layerMenu.toggleVisibility': 'Afficher / Masquer',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Créer un composant',
@@ -269,6 +272,10 @@ const fr: TranslationKeys = {
   'variables.exportPreset': 'Exporter vers un fichier…',
   'variables.presetName': 'Nom du préréglage',
   'variables.noPresets': 'Aucun préréglage enregistré',
+  'variables.tokenColor': 'Jeton de couleur',
+  'variables.tokenSpacing': "Jeton d'espacement",
+  'variables.tokenTypography': 'Jeton typographique',
+  'variables.tokenNumber': 'Jeton numérique',
 
   // ── AI Chat ──
   'ai.newChat': 'Nouvelle conversation',
@@ -415,6 +422,13 @@ const fr: TranslationKeys = {
   'componentBrowser.category.feedback': 'Retour',
   'componentBrowser.category.data': 'Données',
   'componentBrowser.category.other': 'Autre',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'Lié à --{{name}}',
