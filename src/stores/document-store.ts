@@ -29,6 +29,7 @@ import {
 import { createPageActions } from './document-store-pages'
 import { createConnectionActions } from './document-store-connections'
 import { createDataActions, type DataActions } from './document-store-data'
+import { createComponentActions } from './document-store-components'
 
 interface DocumentStoreState {
   document: PenDocument
@@ -91,7 +92,7 @@ interface DocumentStoreState {
   getConnectionsForPage: (pageId: string) => ScreenConnection[]
 
   // Page management
-  addPage: (type?: 'screen' | 'erd') => string
+  addPage: (type?: 'screen' | 'erd' | 'component') => string
   removePage: (pageId: string) => void
   renamePage: (pageId: string, name: string) => void
   reorderPage: (pageId: string, direction: 'left' | 'right') => void
@@ -112,6 +113,15 @@ interface DocumentStoreState {
   addView: DataActions['addView']
   removeView: DataActions['removeView']
   updateView: DataActions['updateView']
+
+  // Component argument management
+  addArgument: (nodeId: string, arg: Omit<import('@/types/pen').ComponentArgument, 'id'>) => string | null
+  removeArgument: (nodeId: string, argId: string) => void
+  updateArgument: (nodeId: string, argId: string, updates: Partial<import('@/types/pen').ComponentArgument>) => void
+  addArgumentBinding: (nodeId: string, argId: string, binding: import('@/types/pen').ArgumentBinding) => void
+  removeArgumentBinding: (nodeId: string, argId: string, targetNodeId: string, targetProperty: string) => void
+  setArgumentValue: (instanceId: string, argId: string, value: string | number | boolean) => void
+  removeArgumentValue: (instanceId: string, argId: string) => void
 
   applyExternalDocument: (doc: PenDocument) => void
   applyHistoryState: (doc: PenDocument) => void
@@ -726,6 +736,9 @@ export const useDocumentStore = create<DocumentStoreState>(
 
     // --- Data entity management (extracted to document-store-data.ts) ---
     ...createDataActions(set, get),
+
+    // --- Component argument management (extracted to document-store-components.ts) ---
+    ...createComponentActions(set, get),
 
     applyExternalDocument: (doc) => {
       // Push current state to history so MCP changes are undoable

@@ -20,12 +20,27 @@ export interface ScreenConnection {
   transitionType: 'push' | 'modal' | 'replace'
 }
 
+// --- Component Arguments ---
+
+export interface ComponentArgument {
+  id: string
+  name: string
+  type: 'text' | 'number' | 'boolean' | 'select' | 'color'
+  defaultValue: string | number | boolean
+  options?: string[]  // For select type only
+}
+
+export interface ArgumentBinding {
+  targetNodeId: string     // Original child node ID (NOT virtual/remapped ID)
+  targetProperty: string   // 'content' | 'fill.0.color' | 'visible' | 'opacity' | 'width' | etc.
+}
+
 // --- Page ---
 
 export interface PenPage {
   id: string
   name: string
-  type?: 'screen' | 'erd'
+  type?: 'screen' | 'erd' | 'component'
   children: PenNode[]
 }
 
@@ -111,6 +126,8 @@ export interface FrameNode extends PenNodeBase, ContainerProps {
   type: 'frame'
   reusable?: boolean
   slot?: string[]
+  arguments?: ComponentArgument[]
+  argumentBindings?: Record<string, ArgumentBinding[]>  // argId -> bindings
 }
 
 export interface GroupNode extends PenNodeBase, ContainerProps {
@@ -216,6 +233,7 @@ export interface RefNode extends PenNodeBase {
   ref: string
   descendants?: Record<string, Partial<PenNode>>
   children?: PenNode[]
+  argumentValues?: Record<string, string | number | boolean>  // argId -> value
 }
 
 // --- Union ---

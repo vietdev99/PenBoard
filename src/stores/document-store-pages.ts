@@ -4,7 +4,7 @@ import { useHistoryStore } from '@/stores/history-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 
 interface PageActions {
-  addPage: (type?: 'screen' | 'erd') => string
+  addPage: (type?: 'screen' | 'erd' | 'component') => string
   removePage: (pageId: string) => void
   renamePage: (pageId: string, name: string) => void
   reorderPage: (pageId: string, direction: 'left' | 'right') => void
@@ -30,6 +30,13 @@ export function createPageActions(
           id: newPageId,
           name: 'ERD',
           type: 'erd',
+          children: [],
+        }
+      } else if (type === 'component') {
+        newPage = {
+          id: newPageId,
+          name: 'Components',
+          type: 'component',
           children: [],
         }
       } else {
