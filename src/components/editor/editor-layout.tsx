@@ -8,6 +8,7 @@ import LayerPanel from '@/components/panels/layer-panel'
 import RightPanel from '@/components/panels/right-panel'
 import AIChatPanel, { AIChatMinimizedBar } from '@/components/panels/ai-chat-panel'
 import VariablesPanel from '@/components/panels/variables-panel'
+import DataPanel from '@/components/panels/data-panel'
 import ComponentBrowserPanel from '@/components/panels/component-browser-panel'
 import ExportDialog from '@/components/shared/export-dialog'
 import SaveDialog from '@/components/shared/save-dialog'
@@ -32,6 +33,7 @@ export default function EditorLayout() {
   const hasSelection = useCanvasStore((s) => s.selection.activeId !== null)
   const layerPanelOpen = useCanvasStore((s) => s.layerPanelOpen)
   const variablesPanelOpen = useCanvasStore((s) => s.variablesPanelOpen)
+  const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
   const figmaImportOpen = useCanvasStore((s) => s.figmaImportDialogOpen)
   const closeFigmaImport = useCallback(() => {
     useCanvasStore.getState().setFigmaImportDialogOpen(false)
@@ -148,6 +150,9 @@ export default function EditorLayout() {
 
               {/* Floating variables panel — anchored to the right of the toolbar */}
               {variablesPanelOpen && <VariablesPanel />}
+
+              {/* Floating data entities panel */}
+              {dataPanelOpen && <DataPanel />}
 
               {/* Floating UIKit browser panel */}
               {browserOpen && <ComponentBrowserPanel />}

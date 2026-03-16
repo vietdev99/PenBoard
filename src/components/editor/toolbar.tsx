@@ -8,6 +8,7 @@ import {
   Redo2,
   Braces,
   LayoutGrid,
+  Database,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ToolButton from './tool-button'
@@ -33,6 +34,8 @@ export default function Toolbar() {
   const canRedo = useHistoryStore((s) => s.redoStack.length > 0)
   const variablesPanelOpen = useCanvasStore((s) => s.variablesPanelOpen)
   const toggleVariablesPanel = useCanvasStore((s) => s.toggleVariablesPanel)
+  const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
+  const toggleDataPanel = useCanvasStore((s) => s.toggleDataPanel)
   const browserOpen = useUIKitStore((s) => s.browserOpen)
   const toggleBrowser = useUIKitStore((s) => s.toggleBrowser)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -244,6 +247,31 @@ export default function Toolbar() {
           {t('toolbar.variables')}
           <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
             {'\u2318\u21e7'}V
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Data Entities */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={toggleDataPanel}
+            aria-label={t('data.panelTitle')}
+            aria-pressed={dataPanelOpen}
+            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+              dataPanelOpen
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Database size={20} strokeWidth={1.5} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {t('data.panelTitle')}
+          <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+            {'\u2318\u21e7'}D
           </kbd>
         </TooltipContent>
       </Tooltip>
