@@ -7,7 +7,7 @@ PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard 
 ## Phases
 
 - [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
-- [x] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
+- [ ] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
 - [ ] **Phase 3: Shared Views & Design Tokens** - Reusable layouts via component system, token management UI via variables system
 - [ ] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
 
@@ -41,11 +41,11 @@ Plans:
 **Goal**: Users can connect screen elements to other screens via property panel, and manage Notion-like data entities (tables, fields, sample data, relations, views) within .pb files
 **Depends on**: Phase 1
 **Requirements**: CONN-01, CONN-02, CONN-03, CONN-04, CONN-05, ERD-01, ERD-02, ERD-03, ERD-04, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
-**Plans:** 2 plans
+**Plans:** 3 plans
 **Success Criteria**:
-  1. Select element → property panel "Navigate to" → pick target screen
+  1. Select element → property panel "Navigate to" → pick target screen/frame
   2. Connections persist in .pb file and reload correctly
-  3. Visual indicator on elements that have connections
+  3. Visual indicator on elements that have connections (with target name)
   4. Data entities panel: create tables, add typed fields, enter sample data rows
   5. ERD page: tables as visual nodes, drag to arrange, draw relation edges
   6. Relations display cardinality (1:1, 1:N, N:M)
@@ -55,6 +55,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
 - [x] 02-02-PLAN.md — Data entities: Notion-like tables, field management, ERD page rendering, filter/sort views
+- [ ] 02-03-PLAN.md — Gap closure: Connection targets Page > Frame, same-page connections, badge shows target name
 
 ### Phase 3: Shared Components & Design Tokens
 **Goal**: Reusable components with arguments (props) and global design tokens
@@ -91,6 +92,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
-| 2. Storyboard Connections & Data Entities | 2/2 | Complete | 2026-03-16 |
+| 2. Storyboard Connections & Data Entities | 2/3 | Gap closure | - |
 | 3. Shared Views & Design Tokens | 0/1 | Not started | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |
