@@ -51,9 +51,9 @@
 
 - [ ] **TOKEN-01**: User can create named color tokens in design tokens panel
 - [ ] **TOKEN-02**: User can create spacing and typography tokens
-- [ ] **TOKEN-03**: Properties panel shows token picker for color/spacing fields
-- [ ] **TOKEN-04**: Token references resolve to values at render time
-- [ ] **TOKEN-05**: Changing a token updates all shapes referencing it
+- [x] **TOKEN-03**: Properties panel shows token picker for color/spacing fields
+- [x] **TOKEN-04**: Token references resolve to values at render time
+- [x] **TOKEN-05**: Changing a token updates all shapes referencing it
 
 ## Removed Requirements
 
@@ -146,9 +146,9 @@ The following requirements were removed because the app is local-only and file-b
 | SHARED-08 | Phase 3 | Pending |
 | TOKEN-01 | Phase 3 | Pending |
 | TOKEN-02 | Phase 3 | Pending |
-| TOKEN-03 | Phase 3 | Pending |
-| TOKEN-04 | Phase 3 | Pending |
-| TOKEN-05 | Phase 3 | Pending |
+| TOKEN-03 | Phase 3 | Complete |
+| TOKEN-04 | Phase 3 | Complete |
+| TOKEN-05 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 35 total (was 44, removed 17 auth/project/screen/overview, added 5 new data reqs + 3 shared component args reqs)

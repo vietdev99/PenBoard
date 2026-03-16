@@ -3,22 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: 2 of 5
+current_plan: 5 of 5
 status: in-progress
-last_updated: "2026-03-16T17:18:47Z"
+last_updated: "2026-03-16T17:30:30.191Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T17:18:47Z
+**Last Updated:** 2026-03-16T17:30:30Z
 **Current Phase:** 3
-**Current Plan:** 2 of 5
-**Overall Status:** Phase 3 In Progress — Plan 01 Complete (Component Types & Badge)
+**Current Plan:** 5 of 5
+**Overall Status:** Phase 3 In Progress — Plan 04 Complete (Design Token Panel & Picker Expansion)
 
 ## What's Done
 
@@ -31,6 +31,7 @@ progress:
 - [x] Phase 2 Plan 02: Data Entities & ERD (Notion-like tables, field CRUD, ERD page renderer, filter/sort views)
 - [x] Phase 2 Plan 03: Connection Gap Closure (targetFrameId, same-page connections, badge target name)
 - [x] Phase 3 Plan 01: Component Types, Store & Badge (ComponentArgument types, store CRUD, component page, diamond badge)
+- [x] Phase 3 Plan 04: Design Token Panel & Picker Expansion (grouped variables panel, VariablePicker on 7 new fields, numeric $ref resolution)
 
 ## Roadmap Change (2026-03-16)
 
@@ -71,23 +72,24 @@ progress:
 | Component args | **5 types: text/number/boolean/select/color** | Rich arg system per SHARED-01 |
 | Component badge | **Faded purple diamond (0.4 alpha)** | Low-opacity corner badge per user decision |
 | Component store pattern | **createComponentActions with updater-function tree traversal** | Cross-page node lookup for argument mutations |
+| Variable grouping | **Name-based heuristic** | font/size/line/letter -> Typography, rest -> Spacing |
+| VariablePicker placement | **Adjacent flex container (gap-0.5)** | Matches existing fill-section/appearance-section pattern |
 
 ## Context for Next Session
 
-Phase 3 Plan 01 complete. Component type system and store infrastructure established.
+Phase 3 Plan 04 complete. Design token system expanded with grouped display and picker on all relevant fields.
 
-What was built in Plan 01:
-- ComponentArgument interface (5 types: text/number/boolean/select/color) with ArgumentBinding
-- FrameNode extended with arguments/argumentBindings, RefNode with argumentValues
-- document-store-components.ts: 7 CRUD actions (add/remove/update arguments, add/remove bindings, set/remove values)
-- 'component' page type with purple diamond icon in tabs
-- drawComponentBadge overlay on canvas for reusable frames
+What was built in Plan 04:
+- VariableGroup collapsible component (Colors/Spacing/Typography/Other sections)
+- Variables panel now shows grouped variables instead of flat list
+- VariablePicker added to: width, height, cornerRadius, fontSize, fontFamily, lineHeight, letterSpacing
+- resolveNodeForCanvas extended to resolve $variable refs on all new numeric/string fields
 
-SHARED-01 and SHARED-03 requirements satisfied by this plan.
+TOKEN-03, TOKEN-04, TOKEN-05 requirements satisfied by this plan.
 
 Next steps:
-1. Execute Plan 02 (Component Panel UI) - argument editor, binding picker
-2. Plans 03-05: Instance overrides, design tokens, token panel
+1. Execute remaining Phase 3 plans (02, 03, 05) if any
+2. Phase 4: E2E Tests & Polish
 
 ## Key File Locations
 
@@ -110,6 +112,7 @@ Next steps:
 | `src/components/panels/data-entity-table.tsx` | Notion-like inline table |
 | `src/components/panels/connection-section.tsx` | Connection section UI |
 | `src/stores/document-store-components.ts` | Component argument CRUD actions |
+| `src/components/panels/variable-group.tsx` | Collapsible group component for variables panel |
 | `src/components/editor/page-tabs.tsx` | Page tabs (screens + ERD + component) |
 | `.planning/phases/02-storyboard-data/02-CONTEXT.md` | Phase 2 decisions |
 
@@ -123,7 +126,7 @@ None currently.
 - Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
 - Phase 2 status: COMPLETE (3/3 plans done, including gap closure)
-- Phase 3 status: IN PROGRESS (1/5 plans done)
+- Phase 3 status: IN PROGRESS (2/5 plans done)
 
 ## Performance Metrics
 
@@ -138,3 +141,4 @@ None currently.
 | 02-02 | 20min | 5 | 23 |
 | 02-03 | 6min | 2 | 22 |
 | 03-01 | 6min | 2 | 8 |
+| 03-04 | 5min | 2 | 6 |
