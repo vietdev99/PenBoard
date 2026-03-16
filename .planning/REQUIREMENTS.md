@@ -1,31 +1,10 @@
 # Requirements: PenBoard
 
 **Defined:** 2026-03-15
+**Last updated:** 2026-03-16 — Removed auth/project/screen-persistence requirements (app is local-only file-based)
 **Core Value:** Visual design canvas + storyboard intelligence — design screens, connect flows, link data models, generate code.
 
 ## v1 Requirements
-
-### Backend & Auth
-
-- [ ] **AUTH-01**: User can register with email and password
-- [ ] **AUTH-02**: User can login and receive session token
-- [ ] **AUTH-03**: User session persists across browser refresh
-- [ ] **AUTH-04**: User can logout
-
-### Project Management
-
-- [ ] **PROJ-01**: User can create a new project with name and description
-- [ ] **PROJ-02**: User can view list of their projects on dashboard
-- [ ] **PROJ-03**: User can delete a project
-- [ ] **PROJ-04**: User can rename a project
-
-### Screen Management
-
-- [ ] **SCR-01**: User can create new screens within a project
-- [ ] **SCR-02**: User can rename and reorder screens
-- [ ] **SCR-03**: User can delete screens
-- [ ] **SCR-04**: Screen canvas auto-saves to server
-- [ ] **SCR-05**: Screen canvas loads from server on navigation
 
 ### Canvas (inherited from OpenPencil — already working)
 
@@ -37,20 +16,13 @@
 - [x] **CANVAS-06**: Shapes snap to grid and show alignment guides
 - [x] **CANVAS-07**: Canvas renders with CanvasKit/Skia WebGL
 
-### Storyboard Overview
-
-- [ ] **OVER-01**: Overview canvas displays all project screens as thumbnail previews
-- [ ] **OVER-02**: User can double-click a screen thumbnail to navigate into that screen's editor
-- [ ] **OVER-03**: User can drag screen thumbnails to rearrange positions
-- [ ] **OVER-04**: Screen thumbnails auto-update when screen content changes
-
 ### Screen Connections
 
-- [ ] **CONN-01**: User can draw arrows between screen thumbnails on overview canvas
-- [ ] **CONN-02**: Each arrow stores source/target screen, trigger event, and transition type
-- [ ] **CONN-03**: User can add labels to connection arrows
-- [ ] **CONN-04**: User can delete a connection by selecting arrow + Delete
-- [ ] **CONN-05**: User can assign component-to-screen navigation via properties panel
+- [ ] **CONN-01**: User can assign element-to-screen navigation via property panel "Navigate to" section
+- [ ] **CONN-02**: Each connection stores sourceElement, targetPage, trigger event, and transition type
+- [ ] **CONN-03**: User can add labels to connections
+- [ ] **CONN-04**: User can delete a connection from property panel
+- [ ] **CONN-05**: Elements with connections show visual indicator badge on canvas
 
 ### Data Entities & ERD
 
@@ -58,17 +30,22 @@
 - [ ] **ERD-02**: User can draw relation edges showing 1:1, 1:N, N:M cardinality
 - [ ] **ERD-03**: Table nodes display field names, types, and PK/FK badges
 - [ ] **ERD-04**: User can drag table nodes to rearrange ERD layout
-- [ ] **DATA-01**: User can place data entity shapes on screen design canvas
-- [ ] **DATA-02**: Clicking a data entity shape shows popover with schema fields
-- [ ] **DATA-03**: Double-clicking data entity navigates to ERD page
+- [ ] **DATA-01**: Data entities sidebar panel for managing tables and fields
+- [ ] **DATA-02**: Sample data rows (Notion-like: enter data into table rows)
+- [ ] **DATA-03**: Data views with filter and sort
+- [ ] **DATA-04**: Data entities stored in .pb file (PenDocument.dataEntities[])
+- [ ] **DATA-05**: ERD page type (dedicated page for schema visualization)
 
-### Shared Views
+### Shared Components
 
-- [ ] **SHARED-01**: User can create shared views (navbar, sidebar, footer) on dedicated pages
-- [ ] **SHARED-02**: User can attach shared view instances to any screen
-- [ ] **SHARED-03**: Shared view instances render as read-only with visual distinction
-- [ ] **SHARED-04**: Editing shared view source propagates to all instances
+- [ ] **SHARED-01**: User can create shared components (navbar, sidebar, footer) on dedicated pages
+- [ ] **SHARED-02**: User can include shared component instances in any screen
+- [ ] **SHARED-03**: Shared component instances render with visual distinction (e.g., border/badge)
+- [ ] **SHARED-04**: Editing shared component source propagates to all instances
 - [ ] **SHARED-05**: User can double-click instance to navigate to source
+- [ ] **SHARED-06**: Shared components support arguments (props) with rich types (text, number, boolean, select, color)
+- [ ] **SHARED-07**: When including a component, user can set argument values (e.g., Sidebar with activeItem="Dashboard")
+- [ ] **SHARED-08**: Component renders differently based on argument values
 
 ### Design Tokens
 
@@ -77,6 +54,30 @@
 - [ ] **TOKEN-03**: Properties panel shows token picker for color/spacing fields
 - [ ] **TOKEN-04**: Token references resolve to values at render time
 - [ ] **TOKEN-05**: Changing a token updates all shapes referencing it
+
+## Removed Requirements
+
+The following requirements were removed because the app is local-only and file-based:
+
+| Requirement | Original Description | Reason Removed |
+|-------------|---------------------|----------------|
+| AUTH-01 | Register with email/password | No auth needed — local app |
+| AUTH-02 | Login and receive session token | No auth needed |
+| AUTH-03 | Session persists across refresh | No auth needed |
+| AUTH-04 | Logout | No auth needed |
+| PROJ-01 | Create project with name/description | No project management — single file |
+| PROJ-02 | View project list on dashboard | No dashboard needed |
+| PROJ-03 | Delete project | No project management |
+| PROJ-04 | Rename project | No project management |
+| SCR-01 | Create screens within project | Screens = pages (already working) |
+| SCR-02 | Rename and reorder screens | Page rename/reorder (already working) |
+| SCR-03 | Delete screens | Page delete (already working) |
+| SCR-04 | Auto-save canvas to server | File save only (already working) |
+| SCR-05 | Load canvas from server | File open only (already working) |
+| OVER-01 | Overview displays screen thumbnails | No overview canvas needed |
+| OVER-02 | Double-click thumbnail to navigate | Page tabs sufficient |
+| OVER-03 | Drag thumbnails to rearrange | Page tabs have reorder |
+| OVER-04 | Thumbnails auto-update | Not applicable |
 
 ## v2 Requirements (Deferred)
 
@@ -101,29 +102,19 @@
 
 | Feature | Reason |
 |---------|--------|
+| Auth / user accounts | App is local-only, single-user |
+| Server-side persistence | File-based (.pb) is sufficient |
 | Real-time collaboration | Single-user must be solid first |
 | Animation timeline | Not needed for wireframing |
 | Plugin marketplace | MCP is the extensibility model |
 | Custom vector pen tool | Already inherited from OpenPencil |
 | Code generation | Already inherited from OpenPencil |
+| Formula fields in data entities | Deferred to later iteration |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
-| PROJ-01 | Phase 2 | Pending |
-| PROJ-02 | Phase 2 | Pending |
-| PROJ-03 | Phase 2 | Pending |
-| PROJ-04 | Phase 2 | Pending |
-| SCR-01 | Phase 2 | Pending |
-| SCR-02 | Phase 2 | Pending |
-| SCR-03 | Phase 2 | Pending |
-| SCR-04 | Phase 2 | Pending |
-| SCR-05 | Phase 2 | Pending |
 | CANVAS-01 | Phase 1 | Complete |
 | CANVAS-02 | Phase 1 | Complete |
 | CANVAS-03 | Phase 1 | Complete |
@@ -131,38 +122,39 @@
 | CANVAS-05 | Phase 1 | Complete |
 | CANVAS-06 | Phase 1 | Complete |
 | CANVAS-07 | Phase 1 | Complete |
-| OVER-01 | Phase 3 | Pending |
-| OVER-02 | Phase 3 | Pending |
-| OVER-03 | Phase 3 | Pending |
-| OVER-04 | Phase 3 | Pending |
-| CONN-01 | Phase 3 | Pending |
-| CONN-02 | Phase 3 | Pending |
-| CONN-03 | Phase 3 | Pending |
-| CONN-04 | Phase 3 | Pending |
-| CONN-05 | Phase 3 | Pending |
-| ERD-01 | Phase 4 | Pending |
-| ERD-02 | Phase 4 | Pending |
-| ERD-03 | Phase 4 | Pending |
-| ERD-04 | Phase 4 | Pending |
-| DATA-01 | Phase 4 | Pending |
-| DATA-02 | Phase 4 | Pending |
-| DATA-03 | Phase 4 | Pending |
-| SHARED-01 | Phase 5 | Pending |
-| SHARED-02 | Phase 5 | Pending |
-| SHARED-03 | Phase 5 | Pending |
-| SHARED-04 | Phase 5 | Pending |
-| SHARED-05 | Phase 5 | Pending |
-| TOKEN-01 | Phase 5 | Pending |
-| TOKEN-02 | Phase 5 | Pending |
-| TOKEN-03 | Phase 5 | Pending |
-| TOKEN-04 | Phase 5 | Pending |
-| TOKEN-05 | Phase 5 | Pending |
+| CONN-01 | Phase 2 | Pending |
+| CONN-02 | Phase 2 | Pending |
+| CONN-03 | Phase 2 | Pending |
+| CONN-04 | Phase 2 | Pending |
+| CONN-05 | Phase 2 | Pending |
+| ERD-01 | Phase 2 | Pending |
+| ERD-02 | Phase 2 | Pending |
+| ERD-03 | Phase 2 | Pending |
+| ERD-04 | Phase 2 | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 2 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| SHARED-01 | Phase 3 | Pending |
+| SHARED-02 | Phase 3 | Pending |
+| SHARED-03 | Phase 3 | Pending |
+| SHARED-04 | Phase 3 | Pending |
+| SHARED-05 | Phase 3 | Pending |
+| SHARED-06 | Phase 3 | Pending |
+| SHARED-07 | Phase 3 | Pending |
+| SHARED-08 | Phase 3 | Pending |
+| TOKEN-01 | Phase 3 | Pending |
+| TOKEN-02 | Phase 3 | Pending |
+| TOKEN-03 | Phase 3 | Pending |
+| TOKEN-04 | Phase 3 | Pending |
+| TOKEN-05 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 44 total
-- Mapped to phases: 44
+- v1 requirements: 35 total (was 44, removed 17 auth/project/screen/overview, added 5 new data reqs + 3 shared component args reqs)
+- Mapped to phases: 32
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-16 after Phase 1 completion (CANVAS-01 through CANVAS-07 verified)*
+*Last updated: 2026-03-16 — Roadmap restructured: removed Backend Foundation phase, app is local-only file-based*

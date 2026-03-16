@@ -4,10 +4,10 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 2
 current_plan: Not started
-status: unknown
-last_updated: "2026-03-16T12:08:06.106Z"
+status: context_complete
+last_updated: "2026-03-16T18:30:00Z"
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 1
   total_plans: 5
   completed_plans: 5
@@ -15,26 +15,28 @@ progress:
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T11:42:08Z
-**Current Phase:** 2
-**Current Plan:** Not started
-**Overall Status:** Phase 1 Complete — Ready for Phase 2
+**Last Updated:** 2026-03-16T18:30:00Z
+**Current Phase:** 2 — Storyboard Connections & Data Entities
+**Current Plan:** Not started (CONTEXT.md complete, needs research + planning)
+**Overall Status:** Phase 1 Complete — Phase 2 Context Ready
 
 ## What's Done
 
-- [x] OpenPencil cloned to D:\Workspace\Messi\Code\PenBoard
-- [x] Dependencies installed (777 packages via Bun)
-- [x] Planning infrastructure created (.planning/ directory)
-- [x] Config files, Electron, and server-side code rebranded (01-01)
-- [x] i18n locales, README files, templates, and metadata rebranded (01-02)
-- [x] .pb file extension support added across Electron + web (01-03)
-- [x] Landing page redirect to /editor (01-03)
-- [x] Type check, tests, and production build verified (01-03)
-- [x] Dev server verified working with canvas (01-03)
-- [x] All 6 canvas interaction types verified (CANVAS-01 through CANVAS-06) (01-03)
-- [x] Fresh git init with PenBoard identity commit (01-03)
-- [x] Alignment guides wired into drag handler and render loop (01-04)
-- [x] Save dialog restricted to .pb only, .op removed from save accept list (01-05)
+- [x] Phase 1: Clone, Rebrand & Verify (5/5 plans, all verified)
+- [x] Resize alignment guides + size matching (bonus feature)
+- [x] Phase 2 CONTEXT.md created with all decisions
+- [x] Roadmap restructured (removed Backend Foundation phase)
+- [x] Requirements updated (removed auth/project/screen, added data entity reqs)
+
+## Roadmap Change (2026-03-16)
+
+**Removed Phase 2 (Backend Foundation)** — App is local-only, file-based. No auth, no database, no server persistence.
+
+**New roadmap:**
+1. Clone, Rebrand & Verify (DONE)
+2. Storyboard Connections & Data Entities (NEXT)
+3. Shared Components & Design Tokens
+4. E2E Tests & Polish
 
 ## Active Decisions
 
@@ -42,26 +44,26 @@ progress:
 |----------|--------|-----------|
 | Canvas engine | CanvasKit/Skia (from OpenPencil) | Full source, MIT, GPU-accelerated |
 | Base project | Fork OpenPencil v0.4.1 | Already has canvas, shapes, MCP, code gen |
-| Backend | Nitro + Prisma + SQLite | Keep OpenPencil's Nitro, add persistence |
 | Package manager | Bun | OpenPencil default, fast |
 | File format | .pb (default), .op (legacy) | .pb is PenBoard native; .op for backward compat |
-| File save default | .pb extension | PenBoard identity; .op still accepted for open |
-| Save dialog | .pb only | .op removed from save accept list; open dialogs unchanged |
+| Save dialog | .pb only | .op removed from save accept list |
 | Landing page | Redirect to /editor | No landing page needed for dev tool |
-| Test runner (Windows) | bun vitest run | bun --bun run test has pre-existing Windows issue |
+| App model | **Local-only, file-based** | No auth, no DB, no server persistence |
+| Screen model | **Page = Screen** | Existing PenPage is a storyboard screen |
+| Connections | **Property panel** | Select element → "Navigate to" → pick target screen |
+| Connection data | **PenDocument.connections[]** | Detailed: sourceElement, targetPage, trigger, transition |
+| Data entities | **In .pb file** | PenDocument.dataEntities[] — Notion-like tables |
+| Data entity features | **Full** | Tables + fields + sample data + relations + views |
+| Data entity UI | **Panel + ERD page** | Sidebar panel for management, ERD page for visualization |
+| Shared components | **With rich args** | Props: text, number, boolean, select, color (Phase 3) |
 
 ## Context for Next Session
 
-Phase 1 (Clone, Rebrand & Verify) is fully complete. All 5 plans executed successfully:
-- 01-01: Config/code rebrand (42 files)
-- 01-02: i18n/docs rebrand (34 files)
-- 01-03: File extension, build verification, canvas verification (11 files)
-- 01-04: Gap closure — alignment guides wired into drag handler and render loop
-- 01-05: Gap closure — save dialog restricted to .pb only
+Phase 2 CONTEXT.md is ready at `.planning/phases/02-storyboard-data/02-CONTEXT.md`.
 
 Next steps:
-1. Plan Phase 2 (Backend Foundation: Auth, Projects, Screen Persistence)
-2. Phase 2 will add Prisma + SQLite persistence to the existing Nitro server
+1. Run `/gsd:plan-phase 2` to research and create execution plans
+2. Phase 2 covers: screen connections (property panel) + data entities (Notion-like)
 
 ## Key File Locations
 
@@ -70,16 +72,14 @@ Next steps:
 | `package.json` | Dependencies, scripts |
 | `vite.config.ts` | Vite + TanStack Start + Nitro config |
 | `electron/main.ts` | Electron main process |
-| `electron-builder.yml` | Desktop build config |
 | `src/canvas/skia/skia-engine.ts` | Canvas rendering engine |
+| `src/canvas/skia/skia-canvas.tsx` | Canvas component + event handling |
 | `src/stores/document-store.ts` | Document state management |
 | `src/stores/document-store-pages.ts` | Multi-page management |
-| `src/mcp/server.ts` | MCP server |
 | `src/types/pen.ts` | Document model types |
-| `src/constants/app.ts` | App constants |
-| `src/routes/index.tsx` | Landing page redirect |
-| `src/utils/file-operations.ts` | File save/open dialogs (.pb default) |
-| `server/` | Nitro server routes |
+| `src/components/panels/property-panel.tsx` | Property panel (connections will go here) |
+| `src/components/editor/page-tabs.tsx` | Page tabs (screens) |
+| `.planning/phases/02-storyboard-data/02-CONTEXT.md` | Phase 2 decisions |
 
 ## Blockers
 
@@ -87,11 +87,10 @@ None currently.
 
 ## Metrics
 
-- Requirements: 44 (v1)
-- Phases: 6
+- Requirements: 35 (v1, was 44 — removed 17, added 8)
+- Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
-- Phase 1 duration: ~69 min total (01-01: 25min, 01-02: 5min, 01-03: 35min, 01-04: 3min, 01-05: 1min)
-- Phase 1 files modified: 88+ total
+- Phase 2 status: CONTEXT COMPLETE (needs research + planning)
 
 ## Performance Metrics
 
