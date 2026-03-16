@@ -1,7 +1,8 @@
 ---
 phase: 02
 slug: storyboard-data
-status: draft
+status: approved
+reviewed_at: "2026-03-16"
 shadcn_initialized: true
 preset: new-york
 created: "2026-03-16"
@@ -70,13 +71,15 @@ All typography follows existing codebase patterns detected from component analys
 |------|------|--------|-------------|----------------|-------|
 | Section Header | 11px | 400 (normal) | 1.27 (h-7 / 11px) | `text-[11px] text-muted-foreground` | "Navigate to", "Connections", "Fields", "Data", "Views" section headers |
 | Panel Content | 12px | 400 (normal) | 1.5 | `text-xs` | Connection target page names, field names, data cell values, filter/sort labels |
-| Panel Control | 12px | 500 (medium) | 1.5 | `text-xs font-medium` | Active page tab, selected entity tab, button labels in panels |
-| Panel Title | 14px | 500 (medium) | 1.43 | `text-sm font-medium` | Data panel header entity name, ERD page tab label |
-| ERD Node Title | 13px | 600 (semibold) | 1.2 | Canvas: `fontSize=13, weight='600'` | Entity name rendered on ERD canvas nodes |
+| Panel Control | 12px | 600 (semibold) | 1.5 | `text-xs font-semibold` | Active page tab, selected entity tab, button labels in panels |
+| Panel Title | 14px | 600 (semibold) | 1.43 | `text-sm font-semibold` | Data panel header entity name, ERD page tab label, ERD node entity name on canvas |
 | ERD Node Field | 11px | 400 (normal) | 1.2 | Canvas: `fontSize=11, weight='400'` | Field name + type rendered on ERD canvas nodes |
 | ERD Cardinality | 10px | 600 (semibold) | 1.0 | Canvas: `fontSize=10, weight='600'` | "1", "N", "M" labels on relation edges |
 
-**Source:** Existing patterns from `section-header.tsx` (text-[11px]), `page-tabs.tsx` (text-xs font-medium), `select.tsx` (text-xs), `button.tsx` (text-sm font-medium), `skia-overlays.ts` drawAgentBadge (fontSize=11, weight='600').
+**Font sizes (4 total):** 10, 11, 12, 14px. ERD Node Title uses 14px semibold (same as Panel Title) instead of a dedicated 13px size.
+**Font weights (2 total):** 400 (normal) for body/content, 600 (semibold) for emphasis/titles. No medium (500) weight used.
+
+**Source:** Existing patterns from `section-header.tsx` (text-[11px]), `page-tabs.tsx` (text-xs font-medium→semibold), `select.tsx` (text-xs), `button.tsx` (text-sm font-medium→semibold), `skia-overlays.ts` drawAgentBadge (fontSize=11, weight='600').
 
 ---
 
@@ -212,7 +215,7 @@ New constants to add to `canvas-constants.ts`:
 | Visual Element | Rendering Method | Description |
 |----------------|-----------------|-------------|
 | ERD Table Node | CanvasKit rectangle + text | Rounded rectangle with header bar (entity name) and field list body |
-| Table Header | Filled rectangle | Blue-500 header with entity name in white, 13px semibold |
+| Table Header | Filled rectangle | Blue-500 header with entity name in white, 14px semibold |
 | Field Row | Text line | Field name + type label + PK/FK badge, 11px normal |
 | PK Badge | Small filled rounded rect | "PK" in amber-500, 8px text |
 | FK Badge | Small filled rounded rect | "FK" in violet-500, 8px text |
@@ -226,7 +229,7 @@ New constants to add to `canvas-constants.ts`:
 ```
 +----------------------------------+
 |  [ERD_NODE_HEADER_BG]            |
-|  Entity Name (13px semibold)     |  height: 32px
+|  Entity Name (14px semibold)     |  height: 32px
 |                                  |  padding: 8px 12px
 +----------------------------------+
 |  [ERD_NODE_BODY_BG]              |
@@ -319,7 +322,10 @@ New constants to add to `canvas-constants.ts`:
 | Entity name placeholder | Table name | `data.entityNamePlaceholder` |
 | Delete entity confirmation | Delete "{name}"? This will remove the table, all its fields, and all sample data. This action can be undone. | `data.deleteEntity.confirm` |
 | Delete entity action | Delete table | `data.deleteEntity.action` |
+| Delete entity cancel | Keep table | `data.deleteEntity.cancel` |
 | Field type change with data | Change field type? Values incompatible with the new type will be cleared. | `data.fieldTypeChange.confirm` |
+| Field type change action | Change type | `data.fieldTypeChange.action` |
+| Field type change cancel | Keep type | `data.fieldTypeChange.cancel` |
 | View: default name | Default view | `data.view.default` |
 | Filter button | Filter | `data.view.filter` |
 | Sort button | Sort | `data.view.sort` |
@@ -355,8 +361,8 @@ New constants to add to `canvas-constants.ts`:
 | Delete connection | No confirmation (undo available) |
 | Delete field | No confirmation (undo available) |
 | Delete data row | No confirmation (undo available) |
-| Delete entity/table | Dialog confirmation: "Delete '{name}'? This will remove the table, all its fields, and all sample data. This action can be undone." with "Cancel" and "Delete table" buttons |
-| Change field type (with data) | Dialog confirmation: "Change field type? Values incompatible with the new type will be cleared." with "Cancel" and "Change type" buttons |
+| Delete entity/table | Dialog confirmation: "Delete '{name}'? This will remove the table, all its fields, and all sample data. This action can be undone." with **"Keep table"** and "Delete table" buttons |
+| Change field type (with data) | Dialog confirmation: "Change field type? Values incompatible with the new type will be cleared." with **"Keep type"** and "Change type" buttons |
 
 ---
 
@@ -441,11 +447,11 @@ Lucide icons for data field types in both the data panel and ERD nodes:
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: FLAG (non-blocking — focal point recommendation only)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-03-16
