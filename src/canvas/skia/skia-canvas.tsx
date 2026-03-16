@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { loadCanvasKit } from './skia-init'
 import { SkiaEngine, screenToScene } from './skia-engine'
+import { erdHitTest, computeAllNodeBounds } from './skia-erd-renderer'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore } from '@/stores/document-store'
 import { createNodeForTool, isDrawingTool } from '../canvas-node-creator'
@@ -313,8 +314,25 @@ export default function SkiaCanvas() {
     // --- Pen tool ---
     const penTool = new SkiaPenTool(() => engineRef.current)
 
+    // --- ERD interaction state ---
+    let erdDragging = false
+    let erdDragEntityId: string | null = null
+    let erdDragStartSceneX = 0
+    let erdDragStartSceneY = 0
+    let erdDragOrigX = 0
+    let erdDragOrigY = 0
+    let erdDragMoved = false
+
     const getEngine = () => engineRef.current
-    const getTool = () => useCanvasStore.getState().activeTool
+    const getTool = () => {
+      const engine = getEngine()
+      const tool = useCanvasStore.getState().activeTool
+      // On ERD pages, only allow select and hand tools
+      if (engine?.isErdPage && tool !== 'select' && tool !== 'hand') {
+        return 'select'
+      }
+      return tool
+    }
 
     const getScene = (e: MouseEvent) => {
       const engine = getEngine()
@@ -402,7 +420,11 @@ export default function SkiaCanvas() {
 
     // Tool change → cursor + cancel pen if switching away
     const unsubTool = useCanvasStore.subscribe((state) => {
-      if (!spacePressed && !isResizing) canvasEl.style.cursor = toolToCursor(state.activeTool)
+      const engine = getEngine()
+      const effectiveTool = (engine?.isErdPage && state.activeTool !== 'hand')
+        ? 'select'
+        : state.activeTool
+      if (!spacePressed && !isResizing) canvasEl.style.cursor = toolToCursor(effectiveTool)
       penTool.onToolChange(state.activeTool)
     })
 
@@ -428,6 +450,30 @@ export default function SkiaCanvas() {
       const tool = getTool()
       const scene = getScene(e)
       if (!scene) return
+
+      // --- ERD page: custom click/drag behavior ---
+      if (engine.isErdPage) {
+        const entities = useDocumentStore.getState().document.dataEntities ?? []
+        const hit = erdHitTest(entities, scene.x, scene.y)
+        if (hit) {
+          engine.selectedErdEntityId = hit.entityId
+          engine.markDirty()
+          // Start ERD drag
+          erdDragging = true
+          erdDragMoved = false
+          erdDragEntityId = hit.entityId
+          erdDragStartSceneX = scene.x
+          erdDragStartSceneY = scene.y
+          const allBounds = computeAllNodeBounds(entities)
+          const bounds = allBounds.find((b) => b.entityId === hit.entityId)
+          erdDragOrigX = bounds?.x ?? 0
+          erdDragOrigY = bounds?.y ?? 0
+        } else {
+          engine.selectedErdEntityId = null
+          engine.markDirty()
+        }
+        return
+      }
 
       // --- Text tool: click to create immediately ---
       if (tool === 'text') {
@@ -579,6 +625,32 @@ export default function SkiaCanvas() {
 
       const scene = getScene(e)
       if (!scene) return
+
+      // --- ERD page: drag entity ---
+      if (engine.isErdPage && erdDragging && erdDragEntityId) {
+        const dx = scene.x - erdDragStartSceneX
+        const dy = scene.y - erdDragStartSceneY
+        const screenDist = Math.hypot(dx * engine.zoom, dy * engine.zoom)
+        if (!erdDragMoved && screenDist < 3) return
+        erdDragMoved = true
+        // Set visual offset for the ERD renderer (not committed to store yet)
+        engine.erdDragOffset = { entityId: erdDragEntityId, dx, dy }
+        engine.markDirty()
+        return
+      }
+
+      // --- ERD page: hover ---
+      if (engine.isErdPage && !erdDragging) {
+        const entities = useDocumentStore.getState().document.dataEntities ?? []
+        const hit = erdHitTest(entities, scene.x, scene.y)
+        const newHovered = hit?.entityId ?? null
+        if (newHovered !== engine.hoveredErdEntityId) {
+          engine.hoveredErdEntityId = newHovered
+          canvasEl.style.cursor = newHovered ? 'move' : 'default'
+          engine.markDirty()
+        }
+        return
+      }
 
       // --- Pen tool move ---
       if (penTool.onMouseMove(scene)) return
@@ -838,6 +910,21 @@ export default function SkiaCanvas() {
     const onMouseUp = () => {
       const engine = getEngine()
 
+      // --- ERD page: end entity drag ---
+      if (erdDragging && erdDragEntityId && engine) {
+        if (erdDragMoved && engine.erdDragOffset) {
+          const newX = erdDragOrigX + engine.erdDragOffset.dx
+          const newY = erdDragOrigY + engine.erdDragOffset.dy
+          useDocumentStore.getState().updateEntityErdPosition(erdDragEntityId, { x: newX, y: newY })
+        }
+        engine.erdDragOffset = null
+        erdDragging = false
+        erdDragEntityId = null
+        erdDragMoved = false
+        engine.markDirty()
+        return
+      }
+
       // --- Pen tool: end handle drag ---
       if (penTool.onMouseUp()) return
 
@@ -980,6 +1067,19 @@ export default function SkiaCanvas() {
     const onDblClick = (e: MouseEvent) => {
       const engine = getEngine()
       if (!engine) return
+
+      // --- ERD page: double-click to open data panel ---
+      if (engine.isErdPage) {
+        const scene = getScene(e)
+        if (!scene) return
+        const entities = useDocumentStore.getState().document.dataEntities ?? []
+        const hit = erdHitTest(entities, scene.x, scene.y)
+        if (hit) {
+          useCanvasStore.getState().setDataFocusEntityId(hit.entityId)
+          useCanvasStore.getState().setDataPanelOpen(true)
+        }
+        return
+      }
 
       // Pen tool: double-click finalizes the path (open)
       if (penTool.onDblClick()) return

@@ -26,6 +26,7 @@ import {
   isPreviewNode,
 } from '../agent-indicator'
 import { isNodeBorderReady, getNodeRevealTime } from '@/services/ai/design-animation'
+import { SkiaErdRenderer } from './skia-erd-renderer'
 
 // Re-export for use by canvas component
 export { screenToScene } from './skia-viewport'
@@ -375,6 +376,14 @@ export class SkiaEngine {
   spatialIndex = new SpatialIndex()
   renderNodes: RenderNode[] = []
 
+  // ERD rendering
+  private erdRenderer: SkiaErdRenderer
+  isErdPage = false
+  selectedErdEntityId: string | null = null
+  hoveredErdEntityId: string | null = null
+  /** Temporary visual offset applied to dragging ERD entity (not committed to store) */
+  erdDragOffset: { entityId: string; dx: number; dy: number } | null = null
+
   // Component/instance IDs for colored frame labels
   private reusableIds = new Set<string>()
   private instanceIds = new Set<string>()
@@ -410,6 +419,7 @@ export class SkiaEngine {
   constructor(ck: CanvasKit) {
     this.ck = ck
     this.renderer = new SkiaRenderer(ck)
+    this.erdRenderer = new SkiaErdRenderer(ck)
   }
 
   // ---------------------------------------------------------------------------
@@ -476,6 +486,19 @@ export class SkiaEngine {
     if (this.dragSyncSuppressed) return
     const docState = useDocumentStore.getState()
     const activePageId = useCanvasStore.getState().activePageId
+
+    // Detect ERD page — skip normal node flattening
+    const activePage = (docState.document.pages ?? []).find((p) => p.id === activePageId)
+    this.isErdPage = activePage?.type === 'erd'
+
+    if (this.isErdPage) {
+      // ERD pages don't use normal render nodes or spatial index
+      this.renderNodes = []
+      this.spatialIndex.rebuild([])
+      this.markDirty()
+      return
+    }
+
     const pageChildren = getActivePageChildren(docState.document, activePageId)
     const allNodes = getAllChildren(docState.document)
 
@@ -541,6 +564,20 @@ export class SkiaEngine {
     if (!this.surface || !this.canvasEl) return
     const canvas = this.surface.getCanvas()
     const ck = this.ck
+
+    // ERD page: delegate entirely to ERD renderer
+    if (this.isErdPage) {
+      this.erdRenderer.renderErd(
+        canvas,
+        useDocumentStore.getState().document.dataEntities ?? [],
+        this.zoom, this.panX, this.panY,
+        this.selectedErdEntityId,
+        this.hoveredErdEntityId,
+        this.erdDragOffset,
+      )
+      this.surface.flush()
+      return
+    }
 
     const dpr = window.devicePixelRatio || 1
     const selectedIds = new Set(useCanvasStore.getState().selection.selectedIds)
