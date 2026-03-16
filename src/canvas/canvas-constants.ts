@@ -53,3 +53,19 @@ export const DEFAULT_TEXT_FILL = '#000000'
 export const GUIDE_COLOR = '#FF6B35'
 export const GUIDE_LINE_WIDTH = 1
 export const GUIDE_DASH = [3, 3]
+
+// Connection badge
+export const CONNECTION_BADGE_COLOR = '#10b981'
+export const CONNECTION_BADGE_ICON_COLOR = '#ffffff'
+
+// ERD nodes
+export const ERD_NODE_HEADER_BG = '#3b82f6'
+export const ERD_NODE_BODY_BG = '#1e293b'
+export const ERD_NODE_BODY_BG_LIGHT = '#f8fafc'
+export const ERD_NODE_BORDER = '#334155'
+export const ERD_NODE_TEXT = '#f1f5f9'
+export const ERD_NODE_TEXT_LIGHT = '#1e293b'
+export const ERD_RELATION_LINE = '#6366f1'
+export const ERD_RELATION_LINE_SELECTED = '#818cf8'
+export const ERD_PK_BADGE_COLOR = '#f59e0b'
+export const ERD_FK_BADGE_COLOR = '#8b5cf6'

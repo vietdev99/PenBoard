@@ -5,12 +5,26 @@ import type {
   StyledTextSegment,
 } from './styles'
 import type { VariableDefinition } from './variables'
+import type { DataEntity } from './data-entity'
+
+// --- Screen Connection ---
+
+export interface ScreenConnection {
+  id: string
+  sourceElementId: string
+  sourcePageId: string
+  targetPageId: string
+  label?: string
+  triggerEvent: 'click' | 'hover' | 'submit'
+  transitionType: 'push' | 'modal' | 'replace'
+}
 
 // --- Page ---
 
 export interface PenPage {
   id: string
   name: string
+  type?: 'screen' | 'erd'
   children: PenNode[]
 }
 
@@ -22,6 +36,8 @@ export interface PenDocument {
   themes?: Record<string, string[]>
   variables?: Record<string, VariableDefinition>
   pages?: PenPage[]
+  connections?: ScreenConnection[]
+  dataEntities?: DataEntity[]
   children: PenNode[]
 }
 

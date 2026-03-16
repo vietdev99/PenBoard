@@ -32,6 +32,8 @@ export function normalizePenDocument(doc: PenDocument): PenDocument {
       children: p.children.map((n) => normalizeNode(n)),
     }))
   }
+  // Backward compat: preserve connections and dataEntities as-is if present.
+  // Do NOT add empty arrays for missing fields — keep them undefined for clean JSON.
   return normalized
 }
 

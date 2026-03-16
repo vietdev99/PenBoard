@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
-import type { PenDocument, PenNode, GroupNode, RefNode } from '@/types/pen'
+import type { PenDocument, PenNode, GroupNode, RefNode, ScreenConnection } from '@/types/pen'
 import type { VariableDefinition } from '@/types/variables'
 import { useHistoryStore } from '@/stores/history-store'
 import { useCanvasStore } from '@/stores/canvas-store'
@@ -27,6 +27,7 @@ import {
   DEFAULT_PAGE_ID,
 } from './document-tree-utils'
 import { createPageActions } from './document-store-pages'
+import { createConnectionActions } from './document-store-connections'
 
 interface DocumentStoreState {
   document: PenDocument
@@ -80,6 +81,13 @@ interface DocumentStoreState {
   removeVariable: (name: string) => void
   renameVariable: (oldName: string, newName: string) => void
   setThemes: (themes: Record<string, string[]>) => void
+
+  // Connection management
+  addConnection: (conn: Omit<ScreenConnection, 'id'>) => string
+  removeConnection: (connectionId: string) => void
+  updateConnection: (id: string, updates: Partial<ScreenConnection>) => void
+  getConnectionsForElement: (elementId: string) => ScreenConnection[]
+  getConnectionsForPage: (pageId: string) => ScreenConnection[]
 
   // Page management
   addPage: () => string
@@ -148,13 +156,21 @@ export const useDocumentStore = create<DocumentStoreState>(
 
     removeNode: (id) => {
       useHistoryStore.getState().pushState(get().document)
-      set((s) => ({
-        document: _setChildren(
-          s.document,
-          removeNodeFromTree(_children(s), id),
-        ),
-        isDirty: true,
-      }))
+      set((s) => {
+        const newChildren = removeNodeFromTree(_children(s), id)
+        const doc = _setChildren(s.document, newChildren)
+        // Cascade: remove connections where the deleted element is the source
+        const connections = (doc.connections ?? []).filter(
+          (c) => c.sourceElementId !== id,
+        )
+        return {
+          document: {
+            ...doc,
+            connections: connections.length > 0 ? connections : doc.connections?.length ? [] : doc.connections,
+          },
+          isDirty: true,
+        }
+      })
     },
 
     moveNode: (id, newParentId, index) => {
@@ -684,6 +700,9 @@ export const useDocumentStore = create<DocumentStoreState>(
         isDirty: true,
       }))
     },
+
+    // --- Connection management (extracted to document-store-connections.ts) ---
+    ...createConnectionActions(set, get),
 
     // --- Page management (extracted to document-store-pages.ts) ---
     ...createPageActions(set, get),

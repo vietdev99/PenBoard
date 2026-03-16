@@ -54,7 +54,18 @@ export function createPageActions(
       if (!doc.pages || doc.pages.length <= 1) return // Can't delete last page
       useHistoryStore.getState().pushState(doc)
       const newPages = doc.pages.filter((p) => p.id !== pageId)
-      set({ document: { ...doc, pages: newPages }, isDirty: true })
+      // Cascade: remove connections where the deleted page is source or target
+      const connections = (doc.connections ?? []).filter(
+        (c) => c.sourcePageId !== pageId && c.targetPageId !== pageId,
+      )
+      set({
+        document: {
+          ...doc,
+          pages: newPages,
+          connections: connections.length > 0 ? connections : doc.connections ? [] : undefined,
+        },
+        isDirty: true,
+      })
       // If we deleted the active page, switch to the first page
       const activePageId = useCanvasStore.getState().activePageId
       if (activePageId === pageId) {
