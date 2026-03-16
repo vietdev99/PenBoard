@@ -27,6 +27,7 @@ import {
 } from '../agent-indicator'
 import { isNodeBorderReady, getNodeRevealTime } from '@/services/ai/design-animation'
 import { SkiaErdRenderer } from './skia-erd-renderer'
+import { applyPropertyValue as _applyPropertyValue, applyBindingsToTree as _applyBindingsToTree, applyArgumentValues as _applyArgumentValues } from './argument-apply'
 
 // Re-export for use by canvas component
 export { screenToScene } from './skia-viewport'
@@ -151,118 +152,9 @@ function cornerRadiusVal(cr: number | [number, number, number, number] | undefin
 /** Apply argument values from a RefNode instance to the resolved component children.
  * Must run BEFORE remapIds (uses original child IDs) and BEFORE variable resolution.
  * Creates new node objects (never mutates source). */
-function applyArgumentValues(
-  children: PenNode[],
-  refNode: PenNode,
-  component: PenNode,
-): PenNode[] {
-  const frameComp = component as FrameNodeType
-  const ref = refNode as RefNodeType
-  const args = frameComp.arguments
-  const bindings = frameComp.argumentBindings
-  const values = ref.argumentValues
-
-  if (!args || !bindings || !values) return children
-
-  // Collect all binding applications
-  const applications: Array<{ targetNodeId: string; targetProperty: string; value: string | number | boolean }> = []
-
-  for (const arg of args) {
-    const value = values[arg.id] ?? arg.defaultValue
-    const argBindings = bindings[arg.id]
-    if (!argBindings) continue
-
-    for (const binding of argBindings) {
-      applications.push({
-        targetNodeId: binding.targetNodeId,
-        targetProperty: binding.targetProperty,
-        value,
-      })
-    }
-  }
-
-  if (applications.length === 0) return children
-
-  return applyBindingsToTree(children, applications)
-}
-
-function applyBindingsToTree(
-  nodes: PenNode[],
-  applications: Array<{ targetNodeId: string; targetProperty: string; value: string | number | boolean }>,
-): PenNode[] {
-  return nodes.map((node) => {
-    let modified = node
-
-    // Check if any applications target this node (using original ID)
-    const nodeApps = applications.filter((a) => a.targetNodeId === node.id)
-    if (nodeApps.length > 0) {
-      modified = { ...node } as PenNode
-      for (const app of nodeApps) {
-        modified = applyPropertyValue(modified, app.targetProperty, app.value)
-      }
-    }
-
-    // Recurse into children
-    if ('children' in modified && modified.children) {
-      const newChildren = applyBindingsToTree(modified.children, applications)
-      if (newChildren !== modified.children) {
-        modified = { ...modified, children: newChildren } as PenNode
-      }
-    }
-
-    return modified
-  })
-}
-
-function applyPropertyValue(
-  node: PenNode,
-  property: string,
-  value: string | number | boolean,
-): PenNode {
-  // Use unknown intermediary to avoid strict interface casting issues
-  const updated: Record<string, unknown> = { ...(node as unknown as Record<string, unknown>) }
-
-  if (property === 'content' && node.type === 'text') {
-    updated.content = String(value)
-  } else if (property === 'visible') {
-    updated.visible = Boolean(value)
-  } else if (property === 'opacity') {
-    updated.opacity = Number(value)
-  } else if (property === 'width') {
-    updated.width = Number(value)
-  } else if (property === 'height') {
-    updated.height = Number(value)
-  } else if (property === 'fontSize' && node.type === 'text') {
-    updated.fontSize = Number(value)
-  } else if (property === 'gap') {
-    updated.gap = Number(value)
-  } else if (property === 'name') {
-    updated.name = String(value)
-  } else if (property === 'fill.0.color') {
-    // Deep property: set the first fill's color
-    const nodeFill = (node as unknown as Record<string, unknown>).fill
-    const fills = Array.isArray(nodeFill) ? [...(nodeFill as unknown[])] : []
-    if (fills.length > 0) {
-      fills[0] = { ...(fills[0] as Record<string, unknown>), color: String(value) }
-      updated.fill = fills
-    }
-  } else if (property === 'stroke.fill.0.color') {
-    // Deep property: set stroke fill color
-    const nodeStroke = (node as unknown as Record<string, unknown>).stroke as Record<string, unknown> | undefined
-    if (nodeStroke) {
-      const stroke = { ...nodeStroke }
-      const strokeFill = stroke.fill as unknown[] | undefined
-      if (Array.isArray(strokeFill) && strokeFill.length > 0) {
-        const newFill = [...strokeFill]
-        newFill[0] = { ...(newFill[0] as Record<string, unknown>), color: String(value) }
-        stroke.fill = newFill
-        updated.stroke = stroke
-      }
-    }
-  }
-
-  return updated as unknown as PenNode
-}
+const applyArgumentValues = _applyArgumentValues
+const applyBindingsToTree = _applyBindingsToTree
+const applyPropertyValue = _applyPropertyValue
 
 /** Resolve RefNodes inline (same logic as use-canvas-sync.ts). */
 function resolveRefs(
@@ -794,46 +686,53 @@ export class SkiaEngine {
       }
     }
 
-    // Connection badges (green circle at top-right of elements with connections)
+    // Storyboard-style connection arrows between elements
     const connections = useDocumentStore.getState().document.connections ?? []
     if (connections.length > 0) {
       const activePageId = useCanvasStore.getState().activePageId
       const activePage = (useDocumentStore.getState().document.pages ?? []).find(
         (p) => p.id === activePageId,
       )
-      // Skip badges on ERD pages
+      // Skip on ERD pages
       if (activePage?.type !== 'erd') {
         const pages = useDocumentStore.getState().document.pages ?? []
-        // Build connection info map: elementId -> { count, targetName }
-        const connInfoMap = new Map<string, { count: number; targetName: string }>()
-        for (const c of connections) {
-          if (c.sourcePageId === activePageId) {
-            const existing = connInfoMap.get(c.sourceElementId)
-            if (existing) {
-              existing.count++
-            } else {
-              // Resolve target name: prefer frame name, fall back to page name
-              let targetName = ''
-              const targetPage = pages.find((p) => p.id === c.targetPageId)
-              if (c.targetFrameId && targetPage) {
-                const frame = (targetPage.children ?? []).find((n) => n.id === c.targetFrameId)
-                targetName = frame?.name || targetPage.name
-              } else {
-                targetName = targetPage?.name || ''
-              }
-              connInfoMap.set(c.sourceElementId, { count: 1, targetName })
-            }
-          }
+        // Build render node lookup for fast access
+        const rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
+        for (const rn of this.renderNodes) {
+          rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
         }
-        if (connInfoMap.size > 0) {
-          for (const rn of this.renderNodes) {
-            const info = connInfoMap.get(rn.node.id)
-            if (info) {
-              this.renderer.drawConnectionBadge(
-                canvas, rn.absX, rn.absY, rn.absW, rn.absH,
-                this.zoom, info.count, info.targetName,
+
+        for (const c of connections) {
+          if (c.sourcePageId !== activePageId) continue
+          const src = rnMap.get(c.sourceElementId)
+          if (!src) continue
+
+          const samePage = c.targetPageId === activePageId
+          if (samePage) {
+            // Same-page: draw arrow to target frame/element
+            const targetId = c.targetFrameId || c.targetPageId
+            const tgt = rnMap.get(targetId)
+            if (tgt) {
+              this.renderer.drawStoryboardArrow(
+                canvas,
+                src.absX, src.absY, src.absW, src.absH,
+                tgt.absX, tgt.absY, tgt.absW, tgt.absH,
+                this.zoom, c.label,
               )
             }
+          } else {
+            // Cross-page: dashed arrow going off-screen with page name pill
+            const targetPage = pages.find((p) => p.id === c.targetPageId)
+            let targetName = targetPage?.name || ''
+            if (c.targetFrameId && targetPage) {
+              const frame = (targetPage.children ?? []).find((n) => n.id === c.targetFrameId)
+              if (frame?.name) targetName = `${targetPage.name} / ${frame.name}`
+            }
+            this.renderer.drawCrossPageArrow(
+              canvas,
+              src.absX, src.absY, src.absW, src.absH,
+              this.zoom, targetName,
+            )
           }
         }
       }
@@ -849,63 +748,101 @@ export class SkiaEngine {
       }
     }
 
-    // Highlight mode: show connection flow arrows and dim unrelated elements
-    const { highlightMode } = useCanvasStore.getState()
-    if (highlightMode && selectedIds.size > 0) {
+    // Highlight mode: trace full connection chain from selected element,
+    // show bright arrows for connected flow, dim everything else
+    const { showConnections } = useCanvasStore.getState()
+    if (showConnections && selectedIds.size > 0) {
       const docState = useDocumentStore.getState()
       const allConnections = docState.document.connections ?? []
       const activePageId = useCanvasStore.getState().activePageId
-      const selectedArr = Array.from(selectedIds)
+      const pages = docState.document.pages ?? []
 
-      // Find connections FROM selected elements
-      const outgoingConns = allConnections.filter(c =>
-        selectedArr.includes(c.sourceElementId),
-      )
-      // Find connections TO selected elements (where they are targets)
-      const incomingConns = allConnections.filter(c =>
-        selectedArr.some(id => c.targetFrameId === id),
-      )
-      const relevantConns = [...outgoingConns, ...incomingConns]
-
-      // Build set of connected element IDs
-      const connectedIds = new Set<string>(selectedArr)
-      for (const c of relevantConns) {
-        connectedIds.add(c.sourceElementId)
-        if (c.targetFrameId) connectedIds.add(c.targetFrameId)
+      // Build lookup: which element/frame has connections from/to
+      const outMap = new Map<string, typeof allConnections>() // sourceElementId -> connections
+      const inMap = new Map<string, typeof allConnections>()  // targetFrameId -> connections
+      for (const c of allConnections) {
+        const outs = outMap.get(c.sourceElementId) ?? []
+        outs.push(c)
+        outMap.set(c.sourceElementId, outs)
+        if (c.targetFrameId) {
+          const ins = inMap.get(c.targetFrameId) ?? []
+          ins.push(c)
+          inMap.set(c.targetFrameId, ins)
+        }
       }
 
-      // Dim unrelated render nodes
+      // BFS: trace full chain forward (outputs) and backward (inputs) from selected
+      const visitedIds = new Set<string>(selectedIds)
+      const chainConns = new Set<typeof allConnections[0]>()
+      const queue = [...selectedIds]
+      while (queue.length > 0) {
+        const id = queue.shift()!
+        // Forward: connections FROM this element
+        for (const c of outMap.get(id) ?? []) {
+          chainConns.add(c)
+          if (c.targetFrameId && !visitedIds.has(c.targetFrameId)) {
+            visitedIds.add(c.targetFrameId)
+            queue.push(c.targetFrameId)
+          }
+        }
+        // Backward: connections TO this element/frame
+        for (const c of inMap.get(id) ?? []) {
+          chainConns.add(c)
+          if (!visitedIds.has(c.sourceElementId)) {
+            visitedIds.add(c.sourceElementId)
+            queue.push(c.sourceElementId)
+          }
+        }
+      }
+
+      // Also add parent frames of connected elements to avoid dimming them
+      const connectedIds = new Set(visitedIds)
+      for (const id of visitedIds) {
+        const parent = docState.getParentOf(id)
+        if (parent) connectedIds.add(parent.id)
+      }
+
+      // Dim unrelated root-level render nodes (only top-level frames, not children)
       for (const rn of this.renderNodes) {
-        if (!connectedIds.has(rn.node.id)) {
+        if (!rn.clipRect && !connectedIds.has(rn.node.id)) {
           this.renderer.drawDimOverlay(canvas, rn.absX, rn.absY, rn.absW, rn.absH, 0.5)
         }
       }
 
-      // Draw connection arrows for same-page connections
-      for (const c of outgoingConns) {
-        const sourceRn = this.renderNodes.find(r => r.node.id === c.sourceElementId)
-        if (!sourceRn) continue
+      // Build render node lookup
+      const rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
+      for (const rn of this.renderNodes) {
+        rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
+      }
 
-        if (c.sourcePageId === c.targetPageId || c.targetPageId === activePageId) {
-          // Same page: find target render node and draw arrow
-          const targetId = c.targetFrameId ?? null
-          const targetRn = targetId ? this.renderNodes.find(r => r.node.id === targetId) : null
-          if (targetRn) {
-            this.renderer.drawConnectionArrow(
+      // Draw arrows for all connections in the chain
+      for (const c of chainConns) {
+        const src = rnMap.get(c.sourceElementId)
+        if (!src) continue
+
+        const samePage = c.sourcePageId === activePageId && (c.targetPageId === activePageId || c.sourcePageId === c.targetPageId)
+        if (samePage) {
+          const targetId = c.targetFrameId || c.targetPageId
+          const tgt = rnMap.get(targetId)
+          if (tgt) {
+            this.renderer.drawStoryboardArrow(
               canvas,
-              sourceRn.absX, sourceRn.absY, sourceRn.absW, sourceRn.absH,
-              targetRn.absX, targetRn.absY, targetRn.absW, targetRn.absH,
-              this.zoom,
+              src.absX, src.absY, src.absW, src.absH,
+              tgt.absX, tgt.absY, tgt.absW, tgt.absH,
+              this.zoom, c.label,
             )
           }
         } else {
-          // Cross-page: show off-screen indicator
-          const targetPage = (docState.document.pages ?? []).find(p => p.id === c.targetPageId)
-          const label = targetPage ? `-> ${targetPage.name}` : '-> Other Page'
-          this.renderer.drawOffScreenIndicator(
+          const targetPage = pages.find(p => p.id === c.targetPageId)
+          let targetName = targetPage?.name || ''
+          if (c.targetFrameId && targetPage) {
+            const frame = (targetPage.children ?? []).find(n => n.id === c.targetFrameId)
+            if (frame?.name) targetName = `${targetPage.name} / ${frame.name}`
+          }
+          this.renderer.drawCrossPageArrow(
             canvas,
-            sourceRn.absX, sourceRn.absY, sourceRn.absW, sourceRn.absH,
-            label, this.zoom,
+            src.absX, src.absY, src.absW, src.absH,
+            this.zoom, targetName,
           )
         }
       }
@@ -1016,6 +953,34 @@ export class SkiaEngine {
       zoom,
       cw / 2 - centerX * zoom,
       ch / 2 - centerY * zoom,
+    )
+  }
+
+  /** Pan (and optionally zoom) so a specific node is centered in the viewport. */
+  panToNode(nodeId: string) {
+    if (!this.canvasEl) return
+    const rn = this.renderNodes.find((r) => r.node.id === nodeId)
+    if (!rn) return
+
+    const cx = rn.absX + rn.absW / 2
+    const cy = rn.absY + rn.absH / 2
+    const cw = this.canvasEl.clientWidth
+    const ch = this.canvasEl.clientHeight
+
+    // If the node is too large or too small at current zoom, adjust zoom to fit
+    const PAD = 80
+    const fitZoomX = (cw - PAD * 2) / rn.absW
+    const fitZoomY = (ch - PAD * 2) / rn.absH
+    const fitZoom = Math.min(fitZoomX, fitZoomY, 1)
+    // Only adjust zoom if node doesn't fit at current zoom or is very tiny
+    const zoom = (rn.absW * this.zoom > cw - PAD || rn.absH * this.zoom > ch - PAD)
+      ? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitZoom))
+      : this.zoom
+
+    this.setViewport(
+      zoom,
+      cw / 2 - cx * zoom,
+      ch / 2 - cy * zoom,
     )
   }
 }

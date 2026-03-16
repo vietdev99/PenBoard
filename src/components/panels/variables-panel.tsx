@@ -10,6 +10,40 @@ import VariableRow from './variable-row'
 import VariableGroup from './variable-group'
 import type { VariableDefinition, ThemedValue } from '@/types/variables'
 
+export function groupVariablesByCategory(
+  entries: [string, VariableDefinition][],
+): Record<string, [string, VariableDefinition][]> {
+  const groups: Record<string, [string, VariableDefinition][]> = {
+    Colors: [],
+    Spacing: [],
+    Typography: [],
+    Other: [],
+  }
+  for (const entry of entries) {
+    const [name, def] = entry
+    if (def.type === 'color') {
+      groups.Colors.push(entry)
+    } else if (def.type === 'number') {
+      const lowerName = name.toLowerCase()
+      if (lowerName.includes('font') || lowerName.includes('size') || lowerName.includes('line') || lowerName.includes('letter') || lowerName.includes('text') || lowerName.includes('typo')) {
+        groups.Typography.push(entry)
+      } else {
+        groups.Spacing.push(entry)
+      }
+    } else if (def.type === 'string') {
+      const lowerName = name.toLowerCase()
+      if (lowerName.includes('font')) {
+        groups.Typography.push(entry)
+      } else {
+        groups.Other.push(entry)
+      }
+    } else {
+      groups.Other.push(entry)
+    }
+  }
+  return groups
+}
+
 const DEFAULT_THEME_AXIS = 'Theme-1'
 const DEFAULT_THEME_VALUES = ['Default']
 const MIN_WIDTH = 480
@@ -161,40 +195,7 @@ export default function VariablesPanel() {
   }, [variables, search])
 
   // Group variables by type category
-  const groupedVariables = useMemo(() => {
-    const groups: Record<string, [string, VariableDefinition][]> = {
-      Colors: [],
-      Spacing: [],
-      Typography: [],
-      Other: [],
-    }
-
-    for (const entry of entries) {
-      const [name, def] = entry
-      if (def.type === 'color') {
-        groups.Colors.push(entry)
-      } else if (def.type === 'number') {
-        // Heuristic: typography vars have font/size/line/letter/text in name
-        const lowerName = name.toLowerCase()
-        if (lowerName.includes('font') || lowerName.includes('size') || lowerName.includes('line') || lowerName.includes('letter') || lowerName.includes('text') || lowerName.includes('typo')) {
-          groups.Typography.push(entry)
-        } else {
-          groups.Spacing.push(entry)
-        }
-      } else if (def.type === 'string') {
-        const lowerName = name.toLowerCase()
-        if (lowerName.includes('font')) {
-          groups.Typography.push(entry)
-        } else {
-          groups.Other.push(entry)
-        }
-      } else {
-        groups.Other.push(entry)
-      }
-    }
-
-    return groups
-  }, [entries])
+  const groupedVariables = useMemo(() => groupVariablesByCategory(entries), [entries])
 
   /* --- Theme actions --- */
   const handleAddTheme = () => {
@@ -268,13 +269,13 @@ export default function VariablesPanel() {
   }
 
   /* --- Add variable --- */
-  const handleAdd = (type: VariableDefinition['type']) => {
+  const handleAdd = (type: VariableDefinition['type'], baseName?: string) => {
     ensureThemes()
     const existing = variables ? Object.keys(variables) : []
     let counter = 1
-    const baseName = type === 'color' ? 'color' : type === 'number' ? 'number' : 'string'
-    let varName = `${baseName}-${counter}`
-    while (existing.includes(varName)) { counter++; varName = `${baseName}-${counter}` }
+    const base = baseName ?? (type === 'color' ? 'color' : type === 'number' ? 'number' : 'string')
+    let varName = `${base}-${counter}`
+    while (existing.includes(varName)) { counter++; varName = `${base}-${counter}` }
     const currentTV = themes?.[themeAxis] ?? DEFAULT_THEME_VALUES
     let defaultValue: VariableDefinition['value']
     if (currentTV.length > 1) {
@@ -288,6 +289,13 @@ export default function VariablesPanel() {
     setVariable(varName, { type, value: defaultValue })
     setShowAddMenu(false)
   }
+
+  const TOKEN_TYPES = [
+    { label: t('variables.tokenColor'), type: 'color' as const, baseName: 'color' },
+    { label: t('variables.tokenSpacing'), type: 'number' as const, baseName: 'spacing' },
+    { label: t('variables.tokenTypography'), type: 'string' as const, baseName: 'font' },
+    { label: t('variables.tokenNumber'), type: 'number' as const, baseName: 'number' },
+  ]
 
   /* --- Preset actions --- */
   const handleSavePreset = (name: string) => {
@@ -658,15 +666,15 @@ export default function VariablesPanel() {
           <ChevronDown size={11} className={cn('transition-transform', showAddMenu && 'rotate-180')} />
         </button>
         {showAddMenu && (
-          <div className="absolute left-4 bottom-full z-50 mb-1.5 w-44 bg-popover border border-border rounded-xl shadow-xl py-1 animate-in fade-in slide-in-from-bottom-1 duration-150">
-            {(['color', 'number', 'string'] as const).map((t) => (
+          <div className="absolute left-4 bottom-full z-50 mb-1.5 w-48 bg-popover border border-border rounded-xl shadow-xl py-1 animate-in fade-in slide-in-from-bottom-1 duration-150">
+            {TOKEN_TYPES.map((tt) => (
               <button
-                key={t}
+                key={`${tt.type}-${tt.baseName}`}
                 type="button"
-                onClick={() => handleAdd(t)}
-                className="w-full text-left px-3 py-2 text-[13px] hover:bg-secondary/60 rounded-lg capitalize transition-colors"
+                onClick={() => handleAdd(tt.type, tt.baseName)}
+                className="w-full text-left px-3 py-2 text-[13px] hover:bg-secondary/60 rounded-lg transition-colors"
               >
-                {t}
+                {tt.label}
               </button>
             ))}
           </div>

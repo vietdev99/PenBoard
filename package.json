@@ -16,7 +16,7 @@
         "dev": "bun --bun vite dev --port 3000",
         "build": "bun --bun vite build",
         "preview": "bun --bun vite preview",
-        "test": "bunx --bun vitest run --config vitest.config.ts --passWithNoTests",
+        "test": "vitest run --config vitest.config.ts --passWithNoTests",
         "test:e2e": "playwright test",
         "mcp:compile": "esbuild src/mcp/server.ts --bundle --platform=node --target=node20 --outfile=dist/mcp-server.cjs --format=cjs --sourcemap --alias:@=src --define:import.meta.env={}",
         "mcp:dev": "bun run src/mcp/server.ts",
