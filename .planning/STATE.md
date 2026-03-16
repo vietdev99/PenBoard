@@ -2,23 +2,23 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_plan: 5 of 5
+current_phase: 4
+current_plan: 1 of 1
 status: in-progress
-last_updated: "2026-03-16T17:30:30.191Z"
+last_updated: "2026-03-16T17:44:40Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 13
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T17:30:30Z
-**Current Phase:** 3
-**Current Plan:** 5 of 5
-**Overall Status:** Phase 3 In Progress — Plan 02 & 04 Complete (Argument UI, Design Token Panel)
+**Last Updated:** 2026-03-16T17:44:40Z
+**Current Phase:** 4
+**Current Plan:** 1 of 1
+**Overall Status:** Phase 3 Complete — All 5 plans done. Phase 4 next (E2E Tests & Polish)
 
 ## What's Done
 
@@ -33,6 +33,8 @@ progress:
 - [x] Phase 3 Plan 01: Component Types, Store & Badge (ComponentArgument types, store CRUD, component page, diamond badge)
 - [x] Phase 3 Plan 02: Component Argument UI & Drag-Connect Binding (ArgumentSection panel, SVG wire overlay, binding creation)
 - [x] Phase 3 Plan 04: Design Token Panel & Picker Expansion (grouped variables panel, VariablePicker on 7 new fields, numeric $ref resolution)
+- [x] Phase 3 Plan 03: Argument Values & Resolution Pipeline (ArgumentValuesSection, applyArgumentValues in resolveRefs, navigate-to-source)
+- [x] Phase 3 Plan 05: Connection Highlight Mode & Navigate Modal (Focus+Dim arrows, NavigateModal tab picker, quick-navigate)
 
 ## Roadmap Change (2026-03-16)
 
@@ -78,28 +80,25 @@ progress:
 | Drag-connect wire | **SVG overlay** | Bridges DOM panel and SkiaCanvas coordinate spaces |
 | DragConnectOverlay | **Separate React component** | Owns mouse tracking, avoids polluting main canvas event loop |
 | Binding properties | **BINDABLE_PROPERTIES whitelist** | Type-safe bindings per argument type |
+| Highlight mode shortcut | **Shift+H** | 'H' alone is hand tool, Shift+H avoids conflict |
+| Navigate picker | **Tab/list modal** | Dropdown doesn't scale with many pages/frames |
+| Overlay drawing pattern | **SkiaRenderer wrapper methods** | Consistent with existing drawConnectionBadge pattern |
 
 ## Context for Next Session
 
-Phase 3 Plans 01, 02, 04 complete. Component system and design token expansion done.
+Phase 3 COMPLETE (all 5 plans done). Component system, argument resolution, design token expansion, and connection highlight mode all implemented.
 
-What was built in Plan 02:
-- ArgumentSection property panel for reusable frames (5-type argument CRUD)
-- DragConnectOverlay SVG wire for binding arguments to canvas elements
-- dragConnectState in canvas-store for cross-panel-canvas communication
-- BINDABLE_PROPERTIES whitelist for type-safe argument bindings
+What was built in Plan 05:
 
-SHARED-06 requirement satisfied by this plan.
-
-What was built in Plan 04:
-- VariableGroup collapsible component (Colors/Spacing/Typography/Other sections)
-- Variables panel now shows grouped variables instead of flat list
-- VariablePicker added to: width, height, cornerRadius, fontSize, fontFamily, lineHeight, letterSpacing
-- resolveNodeForCanvas extended to resolve $variable refs on all new numeric/string fields
+- Highlight mode toggle (toolbar Highlighter button + Shift+H shortcut)
+- Focus+Dim visualization: connection arrows for same-page, off-screen indicators for cross-page, dim unrelated
+- NavigateModal: tab/list modal with vertical page tabs, frame list, search filter
+- Quick-navigate button on each connection row (switches page and selects target)
+- SHARED-02 (highlight connected), SHARED-05 (navigate to connections) satisfied
 
 Next steps:
-1. Execute remaining Phase 3 plans (03, 05)
-2. Phase 4: E2E Tests & Polish
+
+1. Phase 4: E2E Tests & Polish
 
 ## Key File Locations
 
@@ -120,7 +119,8 @@ Next steps:
 | `src/types/data-entity.ts` | DataEntity/DataField/DataRow/DataView types |
 | `src/components/panels/data-panel.tsx` | Data entities floating panel |
 | `src/components/panels/data-entity-table.tsx` | Notion-like inline table |
-| `src/components/panels/connection-section.tsx` | Connection section UI |
+| `src/components/panels/connection-section.tsx` | Connection section UI (with NavigateModal) |
+| `src/components/panels/navigate-modal.tsx` | Tab/list modal for page>frame navigation |
 | `src/stores/document-store-components.ts` | Component argument CRUD actions |
 | `src/components/panels/variable-group.tsx` | Collapsible group component for variables panel |
 | `src/components/editor/page-tabs.tsx` | Page tabs (screens + ERD + component) |
@@ -136,7 +136,7 @@ None currently.
 - Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
 - Phase 2 status: COMPLETE (3/3 plans done, including gap closure)
-- Phase 3 status: IN PROGRESS (3/5 plans done)
+- Phase 3 status: COMPLETE (5/5 plans done)
 
 ## Performance Metrics
 
@@ -152,4 +152,6 @@ None currently.
 | 02-03 | 6min | 2 | 22 |
 | 03-01 | 6min | 2 | 8 |
 | 03-02 | 8min | 2 | 4 |
+| 03-03 | 8min | 2 | 4 |
 | 03-04 | 5min | 2 | 6 |
+| 03-05 | 8min | 2 | 8 |

@@ -39,13 +39,13 @@
 ### Shared Components
 
 - [x] **SHARED-01**: User can create shared components (navbar, sidebar, footer) on dedicated pages
-- [ ] **SHARED-02**: User can include shared component instances in any screen
+- [x] **SHARED-02**: User can include shared component instances in any screen
 - [x] **SHARED-03**: Shared component instances render with visual distinction (e.g., border/badge)
-- [ ] **SHARED-04**: Editing shared component source propagates to all instances
-- [ ] **SHARED-05**: User can double-click instance to navigate to source
+- [x] **SHARED-04**: Editing shared component source propagates to all instances
+- [x] **SHARED-05**: User can double-click instance to navigate to source
 - [x] **SHARED-06**: Shared components support arguments (props) with rich types (text, number, boolean, select, color)
-- [ ] **SHARED-07**: When including a component, user can set argument values (e.g., Sidebar with activeItem="Dashboard")
-- [ ] **SHARED-08**: Component renders differently based on argument values
+- [x] **SHARED-07**: When including a component, user can set argument values (e.g., Sidebar with activeItem="Dashboard")
+- [x] **SHARED-08**: Component renders differently based on argument values
 
 ### Design Tokens
 
@@ -137,13 +137,13 @@ The following requirements were removed because the app is local-only and file-b
 | DATA-04 | Phase 2 | Complete |
 | DATA-05 | Phase 2 | Complete |
 | SHARED-01 | Phase 3 | Complete |
-| SHARED-02 | Phase 3 | Pending |
+| SHARED-02 | Phase 3 | Complete |
 | SHARED-03 | Phase 3 | Complete |
-| SHARED-04 | Phase 3 | Pending |
-| SHARED-05 | Phase 3 | Pending |
+| SHARED-04 | Phase 3 | Complete |
+| SHARED-05 | Phase 3 | Complete |
 | SHARED-06 | Phase 3 | Complete |
-| SHARED-07 | Phase 3 | Pending |
-| SHARED-08 | Phase 3 | Pending |
+| SHARED-07 | Phase 3 | Complete |
+| SHARED-08 | Phase 3 | Complete |
 | TOKEN-01 | Phase 3 | Pending |
 | TOKEN-02 | Phase 3 | Pending |
 | TOKEN-03 | Phase 3 | Complete |
