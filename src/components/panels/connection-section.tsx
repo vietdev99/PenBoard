@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -32,25 +34,38 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
     (c) => c.sourceElementId === nodeId,
   )
 
-  // Available target pages: all pages except current page and ERD pages
+  // Available target pages: all non-ERD pages (same-page connections allowed)
   const targetPages = (document.pages ?? []).filter(
-    (p) => p.id !== pageId && p.type !== 'erd',
+    (p) => p.type !== 'erd',
   )
 
-  const handleAddTarget = (targetPageId: string) => {
+  // Build Page > Frame hierarchy for the picker
+  const pageFrameTree = targetPages.map((page) => {
+    const frames = (page.children ?? []).filter((n) => n.type === 'frame')
+    return { page, frames }
+  })
+
+  const handleAddTarget = (targetPageId: string, targetFrameId?: string) => {
     addConnection({
       sourceElementId: nodeId,
       sourcePageId: pageId,
       targetPageId,
+      targetFrameId,
       triggerEvent: 'click',
       transitionType: 'push',
     })
     setIsAdding(false)
   }
 
-  const getPageName = (pid: string): string => {
-    const page = (document.pages ?? []).find((p) => p.id === pid)
-    return page?.name ?? t('connection.error.targetDeleted')
+  const getTargetDisplayName = (conn: ScreenConnection): string => {
+    const page = (document.pages ?? []).find((p) => p.id === conn.targetPageId)
+    if (!page) return t('connection.error.targetDeleted')
+    if (conn.targetFrameId) {
+      const frame = (page.children ?? []).find((n) => n.id === conn.targetFrameId)
+      const frameName = frame?.name || 'Untitled Frame'
+      return `${page.name} > ${frameName}`
+    }
+    return page.name
   }
 
   return (
@@ -75,7 +90,7 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
           <ConnectionRow
             key={conn.id}
             connection={conn}
-            pageName={getPageName(conn.targetPageId)}
+            pageName={getTargetDisplayName(conn)}
             onUpdate={(updates) => updateConnection(conn.id, updates)}
             onRemove={() => removeConnection(conn.id)}
           />
@@ -83,15 +98,40 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
 
         {isAdding && (
           <div className="flex items-center gap-1">
-            <Select onValueChange={handleAddTarget}>
+            <Select onValueChange={(value) => {
+              // value format: "pageId::frameId" or "pageId" (page-only, no frame)
+              const [targetPageId, targetFrameId] = value.split('::')
+              handleAddTarget(targetPageId, targetFrameId || undefined)
+            }}>
               <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
-                <SelectValue placeholder={t('connection.selectScreen')} />
+                <SelectValue placeholder={t('connection.selectTarget')} />
               </SelectTrigger>
               <SelectContent>
-                {targetPages.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">
-                    {p.name}
-                  </SelectItem>
+                {pageFrameTree.map(({ page, frames }) => (
+                  <SelectGroup key={page.id}>
+                    <SelectLabel className="text-[11px] text-muted-foreground px-2 py-1">
+                      {page.name}
+                    </SelectLabel>
+                    {frames.length > 0 ? (
+                      frames.map((frame) => (
+                        <SelectItem
+                          key={`${page.id}::${frame.id}`}
+                          value={`${page.id}::${frame.id}`}
+                          className="text-xs pl-6"
+                        >
+                          {frame.name || 'Untitled Frame'}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem
+                        key={page.id}
+                        value={page.id}
+                        className="text-xs pl-4 italic text-muted-foreground"
+                      >
+                        {page.name} {t('connection.pageOnly')}
+                      </SelectItem>
+                    )}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
@@ -111,7 +151,7 @@ export default function ConnectionSection({ nodeId, pageId }: ConnectionSectionP
 }
 
 // ---------------------------------------------------------------------------
-// ConnectionRow — individual connection editor row
+// ConnectionRow -- individual connection editor row
 // ---------------------------------------------------------------------------
 
 interface ConnectionRowProps {
@@ -126,7 +166,7 @@ function ConnectionRow({ connection, pageName, onUpdate, onRemove }: ConnectionR
 
   return (
     <div className="flex flex-col gap-1 rounded border border-border p-1.5">
-      {/* Target page name */}
+      {/* Target page/frame name */}
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-foreground truncate flex-1">
           {pageName}

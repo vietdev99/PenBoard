@@ -26,8 +26,21 @@ function makeDoc(connections?: ScreenConnection[]): PenDocument {
     version: '1',
     children: [],
     pages: [
-      { id: 'page-1', name: 'Page 1', children: [] },
-      { id: 'page-2', name: 'Page 2', children: [] },
+      {
+        id: 'page-1',
+        name: 'Page 1',
+        children: [
+          { id: 'frame-1a', type: 'frame' as const, name: 'Login Screen' },
+          { id: 'frame-1b', type: 'frame' as const, name: 'Signup Screen' },
+        ] as any,
+      },
+      {
+        id: 'page-2',
+        name: 'Page 2',
+        children: [
+          { id: 'frame-2a', type: 'frame' as const, name: 'Dashboard' },
+        ] as any,
+      },
       { id: 'page-3', name: 'Page 3', children: [] },
     ],
     connections,
@@ -265,6 +278,84 @@ describe('Connection Store Actions', () => {
 
       const conns = actions.getConnectionsForPage('page-2')
       expect(conns).toHaveLength(2) // one where sourcePageId=page-2, one where targetPageId=page-2
+    })
+  })
+
+  describe('targetFrameId support', () => {
+    it('stores targetFrameId when provided', () => {
+      const id = actions.addConnection({
+        sourceElementId: 'elem-1',
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+        targetFrameId: 'frame-2a',
+        triggerEvent: 'click',
+        transitionType: 'push',
+      })
+
+      const conn = state.document.connections!.find((c) => c.id === id)!
+      expect(conn.targetFrameId).toBe('frame-2a')
+      expect(conn.targetPageId).toBe('page-2')
+    })
+
+    it('backward compat: connection without targetFrameId has undefined', () => {
+      const id = actions.addConnection({
+        sourceElementId: 'elem-1',
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+        triggerEvent: 'click',
+        transitionType: 'push',
+      })
+
+      const conn = state.document.connections!.find((c) => c.id === id)!
+      expect(conn.targetFrameId).toBeUndefined()
+    })
+
+    it('updateConnection can set targetFrameId', () => {
+      const id = actions.addConnection({
+        sourceElementId: 'elem-1',
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+        triggerEvent: 'click',
+        transitionType: 'push',
+      })
+
+      actions.updateConnection(id, { targetFrameId: 'frame-2a' })
+
+      const conn = state.document.connections!.find((c) => c.id === id)!
+      expect(conn.targetFrameId).toBe('frame-2a')
+    })
+
+    it('getConnectionsForElement returns connections with targetFrameId intact', () => {
+      actions.addConnection({
+        sourceElementId: 'elem-1',
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+        targetFrameId: 'frame-2a',
+        triggerEvent: 'click',
+        transitionType: 'push',
+      })
+
+      const conns = actions.getConnectionsForElement('elem-1')
+      expect(conns).toHaveLength(1)
+      expect(conns[0].targetFrameId).toBe('frame-2a')
+    })
+  })
+
+  describe('same-page connections', () => {
+    it('allows same-page connection (sourcePageId === targetPageId)', () => {
+      const id = actions.addConnection({
+        sourceElementId: 'elem-1',
+        sourcePageId: 'page-1',
+        targetPageId: 'page-1',
+        targetFrameId: 'frame-1b',
+        triggerEvent: 'click',
+        transitionType: 'push',
+      })
+
+      const conn = state.document.connections!.find((c) => c.id === id)!
+      expect(conn.sourcePageId).toBe('page-1')
+      expect(conn.targetPageId).toBe('page-1')
+      expect(conn.targetFrameId).toBe('frame-1b')
     })
   })
 

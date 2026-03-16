@@ -418,6 +418,8 @@ const hi: TranslationKeys = {
   'connection.navigateTo': 'Navigate to',
   'connection.add': 'Add connection',
   'connection.selectScreen': 'Select screen...',
+  'connection.selectTarget': 'Select target...',
+  'connection.pageOnly': '(page)',
   'connection.trigger': 'Trigger',
   'connection.trigger.click': 'Click',
   'connection.trigger.hover': 'Hover',

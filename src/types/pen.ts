@@ -14,6 +14,7 @@ export interface ScreenConnection {
   sourceElementId: string
   sourcePageId: string
   targetPageId: string
+  targetFrameId?: string
   label?: string
   triggerEvent: 'click' | 'hover' | 'submit'
   transitionType: 'push' | 'modal' | 'replace'

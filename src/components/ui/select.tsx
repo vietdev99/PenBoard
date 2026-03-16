@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
+const SelectLabel = SelectPrimitive.Label
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
@@ -120,6 +121,7 @@ SelectScrollDownButton.displayName =
 export {
   Select,
   SelectGroup,
+  SelectLabel,
   SelectValue,
   SelectTrigger,
   SelectContent,
