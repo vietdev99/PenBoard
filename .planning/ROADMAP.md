@@ -41,6 +41,7 @@ Plans:
 **Goal**: Users can connect screen elements to other screens via property panel, and manage Notion-like data entities (tables, fields, sample data, relations, views) within .pb files
 **Depends on**: Phase 1
 **Requirements**: CONN-01, CONN-02, CONN-03, CONN-04, CONN-05, ERD-01, ERD-02, ERD-03, ERD-04, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
+**Plans:** 2 plans
 **Success Criteria**:
   1. Select element → property panel "Navigate to" → pick target screen
   2. Connections persist in .pb file and reload correctly
@@ -52,8 +53,8 @@ Plans:
   8. All data persists in .pb file
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
+- [ ] 02-02-PLAN.md — Data entities: Notion-like tables, field management, ERD page rendering, filter/sort views
 
 ### Phase 3: Shared Components & Design Tokens
 **Goal**: Reusable components with arguments (props) and global design tokens
@@ -90,6 +91,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
-| 2. Storyboard Connections & Data Entities | 0/2 | Not started | - |
+| 2. Storyboard Connections & Data Entities | 0/2 | Planned | - |
 | 3. Shared Views & Design Tokens | 0/1 | Not started | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |
