@@ -38,9 +38,9 @@
 
 ### Shared Components
 
-- [ ] **SHARED-01**: User can create shared components (navbar, sidebar, footer) on dedicated pages
+- [x] **SHARED-01**: User can create shared components (navbar, sidebar, footer) on dedicated pages
 - [ ] **SHARED-02**: User can include shared component instances in any screen
-- [ ] **SHARED-03**: Shared component instances render with visual distinction (e.g., border/badge)
+- [x] **SHARED-03**: Shared component instances render with visual distinction (e.g., border/badge)
 - [ ] **SHARED-04**: Editing shared component source propagates to all instances
 - [ ] **SHARED-05**: User can double-click instance to navigate to source
 - [ ] **SHARED-06**: Shared components support arguments (props) with rich types (text, number, boolean, select, color)
@@ -136,9 +136,9 @@ The following requirements were removed because the app is local-only and file-b
 | DATA-03 | Phase 2 | Complete |
 | DATA-04 | Phase 2 | Complete |
 | DATA-05 | Phase 2 | Complete |
-| SHARED-01 | Phase 3 | Pending |
+| SHARED-01 | Phase 3 | Complete |
 | SHARED-02 | Phase 3 | Pending |
-| SHARED-03 | Phase 3 | Pending |
+| SHARED-03 | Phase 3 | Complete |
 | SHARED-04 | Phase 3 | Pending |
 | SHARED-05 | Phase 3 | Pending |
 | SHARED-06 | Phase 3 | Pending |
@@ -157,4 +157,4 @@ The following requirements were removed because the app is local-only and file-b
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-16 — Roadmap restructured: removed Backend Foundation phase, app is local-only file-based*
+*Last updated: 2026-03-16 — SHARED-01, SHARED-03 complete (Phase 3 Plan 01)*

@@ -73,7 +73,7 @@ Plans:
   8. Navigate picker redesigned as tab/list modal
 
 Plans:
-- [ ] 03-01-PLAN.md — Types, component page, component store, badge overlay (SHARED-01, SHARED-03)
+- [x] 03-01-PLAN.md — Types, component page, component store, badge overlay (SHARED-01, SHARED-03)
 - [ ] 03-02-PLAN.md — Argument definitions, drag-connect binding UI (SHARED-06)
 - [ ] 03-03-PLAN.md — Argument values on instances, render pipeline, navigate-to-source (SHARED-07, SHARED-08, SHARED-05)
 - [ ] 03-04-PLAN.md — Token expansion: grouped variables panel, VariablePicker on size/text fields (TOKEN-01..05)
@@ -100,5 +100,5 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
 | 2. Storyboard Connections & Data Entities | 3/3 | Complete | 2026-03-16 |
-| 3. Shared Components & Design Tokens | 0/5 | Planned | - |
+| 3. Shared Components & Design Tokens | 1/5 | In Progress | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |
