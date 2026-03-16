@@ -298,6 +298,13 @@ export function useKeyboardShortcuts() {
         }
       }
 
+      // Highlight mode toggle: Shift+H
+      if (e.key === 'H' && e.shiftKey && !isMod && !e.altKey) {
+        e.preventDefault()
+        useCanvasStore.getState().toggleHighlightMode()
+        return
+      }
+
       // Tool shortcuts (single key, no modifier)
       if (!isMod && !e.shiftKey && !e.altKey) {
         const tool = TOOL_KEYS[e.key.toLowerCase()]

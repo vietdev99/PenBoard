@@ -9,6 +9,7 @@ import {
   Braces,
   LayoutGrid,
   Database,
+  Highlighter,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ToolButton from './tool-button'
@@ -36,6 +37,8 @@ export default function Toolbar() {
   const toggleVariablesPanel = useCanvasStore((s) => s.toggleVariablesPanel)
   const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
   const toggleDataPanel = useCanvasStore((s) => s.toggleDataPanel)
+  const highlightMode = useCanvasStore((s) => s.highlightMode)
+  const toggleHighlightMode = useCanvasStore((s) => s.toggleHighlightMode)
   const browserOpen = useUIKitStore((s) => s.browserOpen)
   const toggleBrowser = useUIKitStore((s) => s.toggleBrowser)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -273,6 +276,28 @@ export default function Toolbar() {
           <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
             {'\u2318\u21e7'}D
           </kbd>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Highlight Connections */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={toggleHighlightMode}
+            aria-label="Highlight Connections"
+            aria-pressed={highlightMode}
+            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+              highlightMode
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Highlighter size={20} strokeWidth={1.5} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          Highlight Connections (Shift+H)
         </TooltipContent>
       </Tooltip>
 

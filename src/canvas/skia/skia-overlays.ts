@@ -692,3 +692,114 @@ export function drawComponentBadge(
   path.delete()
   paint.delete()
 }
+
+// ---------------------------------------------------------------------------
+// Highlight mode overlays (Focus+Dim, connection arrows, off-screen indicators)
+// ---------------------------------------------------------------------------
+
+/** Draw a semi-transparent dim overlay on top of a render node (for non-connected elements). */
+export function drawDimOverlay(
+  ck: CanvasKit, canvas: Canvas,
+  x: number, y: number, w: number, h: number,
+  opacity: number,
+): void {
+  const paint = new ck.Paint()
+  paint.setStyle(ck.PaintStyle.Fill)
+  paint.setColor(ck.Color4f(0, 0, 0, opacity))
+  canvas.drawRect(ck.XYWHRect(x, y, w, h), paint)
+  paint.delete()
+}
+
+/** Draw a directional arrow between two render nodes (for connection visualization). */
+export function drawConnectionArrow(
+  ck: CanvasKit, canvas: Canvas,
+  fromX: number, fromY: number, fromW: number, fromH: number,
+  toX: number, toY: number, _toW: number, toH: number,
+  zoom: number,
+): void {
+  const invZ = 1 / zoom
+  // Arrow from center-right of source to center-left of target
+  const x1 = fromX + fromW
+  const y1 = fromY + fromH / 2
+  const x2 = toX
+  const y2 = toY + toH / 2
+
+  // Line
+  const linePaint = new ck.Paint()
+  linePaint.setStyle(ck.PaintStyle.Stroke)
+  linePaint.setStrokeWidth(2 * invZ)
+  linePaint.setAntiAlias(true)
+  linePaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
+  canvas.drawLine(x1, y1, x2, y2, linePaint)
+
+  // Arrowhead at target
+  const headLen = 10 * invZ
+  const angle = Math.atan2(y2 - y1, x2 - x1)
+  const a1 = angle + Math.PI * 0.8
+  const a2 = angle - Math.PI * 0.8
+
+  const headPaint = new ck.Paint()
+  headPaint.setStyle(ck.PaintStyle.Fill)
+  headPaint.setAntiAlias(true)
+  headPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
+
+  const path = new ck.Path()
+  path.moveTo(x2, y2)
+  path.lineTo(x2 + headLen * Math.cos(a1), y2 + headLen * Math.sin(a1))
+  path.lineTo(x2 + headLen * Math.cos(a2), y2 + headLen * Math.sin(a2))
+  path.close()
+  canvas.drawPath(path, headPaint)
+
+  path.delete()
+  headPaint.delete()
+  linePaint.delete()
+}
+
+/** Draw an off-screen indicator label for cross-page connections. */
+export function drawOffScreenIndicator(
+  ck: CanvasKit, canvas: Canvas,
+  fromX: number, fromY: number, fromW: number, fromH: number,
+  label: string,
+  zoom: number,
+): void {
+  const invZ = 1 / zoom
+  const x = fromX + fromW + 8 * invZ
+  const y = fromY + fromH / 2
+
+  // Use Canvas 2D rasterization for the label text (consistent with other overlays)
+  const fontSize = 11 * invZ
+  const padX = 6 * invZ
+  const padY = 3 * invZ
+
+  // Measure label text width via Canvas 2D
+  const mc = document.createElement('canvas')
+  const ctx = mc.getContext('2d')!
+  ctx.font = `500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+  const textWidth = ctx.measureText(label).width * invZ
+
+  // Background pill
+  const bgPaint = new ck.Paint()
+  bgPaint.setStyle(ck.PaintStyle.Fill)
+  bgPaint.setColor(ck.Color4f(0.2, 0.2, 0.3, 0.85))
+  const rrect = ck.RRectXY(
+    ck.XYWHRect(x - padX, y - padY - fontSize / 2, textWidth + padX * 2, fontSize + padY * 2),
+    3 * invZ, 3 * invZ,
+  )
+  canvas.drawRRect(rrect, bgPaint)
+  bgPaint.delete()
+
+  // Arrow indicator line from element edge to label
+  const arrowPaint = new ck.Paint()
+  arrowPaint.setStyle(ck.PaintStyle.Stroke)
+  arrowPaint.setStrokeWidth(1.5 * invZ)
+  arrowPaint.setAntiAlias(true)
+  arrowPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.6))
+  const dashLen = 3 * invZ
+  const effect = ck.PathEffect.MakeDash([dashLen, dashLen], 0)
+  if (effect) arrowPaint.setPathEffect(effect)
+  canvas.drawLine(fromX + fromW, y, x - padX, y, arrowPaint)
+  arrowPaint.delete()
+
+  // Text via drawText2D (reuse the helper from this file)
+  drawText2D(ck, canvas, label, x, y - fontSize / 2, '#e2e8f0', fontSize, '500')
+}

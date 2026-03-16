@@ -44,8 +44,10 @@ interface CanvasStoreState {
   pendingFigmaFile: File | null
   activePageId: string | null
   dataFocusEntityId: string | null
+  highlightMode: boolean
   dragConnectState: DragConnectState | null
 
+  toggleHighlightMode: () => void
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
@@ -97,9 +99,11 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   figmaImportDialogOpen: false,
   pendingFigmaFile: null,
   activePageId: DEFAULT_PAGE_ID,
+  highlightMode: false,
   dataFocusEntityId: null,
   dragConnectState: null,
 
+  toggleHighlightMode: () => set((s) => ({ highlightMode: !s.highlightMode })),
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   setZoom: (zoom) =>

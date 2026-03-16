@@ -32,6 +32,9 @@ import {
   drawAgentPreviewFill as _drawAgentPreviewFill,
   drawConnectionBadge as _drawConnectionBadge,
   drawComponentBadge as _drawComponentBadge,
+  drawDimOverlay as _drawDimOverlay,
+  drawConnectionArrow as _drawConnectionArrow,
+  drawOffScreenIndicator as _drawOffScreenIndicator,
   type PenPreviewData,
 } from './skia-overlays'
 
@@ -1567,5 +1570,29 @@ export class SkiaRenderer {
     zoom: number,
   ) {
     _drawComponentBadge(this.ck, canvas, x, y, w, h, zoom)
+  }
+
+  drawDimOverlay(
+    canvas: Canvas, x: number, y: number, w: number, h: number,
+    opacity: number,
+  ) {
+    _drawDimOverlay(this.ck, canvas, x, y, w, h, opacity)
+  }
+
+  drawConnectionArrow(
+    canvas: Canvas,
+    fromX: number, fromY: number, fromW: number, fromH: number,
+    toX: number, toY: number, toW: number, toH: number,
+    zoom: number,
+  ) {
+    _drawConnectionArrow(this.ck, canvas, fromX, fromY, fromW, fromH, toX, toY, toW, toH, zoom)
+  }
+
+  drawOffScreenIndicator(
+    canvas: Canvas,
+    fromX: number, fromY: number, fromW: number, fromH: number,
+    label: string, zoom: number,
+  ) {
+    _drawOffScreenIndicator(this.ck, canvas, fromX, fromY, fromW, fromH, label, zoom)
   }
 }

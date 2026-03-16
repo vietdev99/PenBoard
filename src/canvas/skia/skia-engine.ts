@@ -1,5 +1,5 @@
 import type { CanvasKit, Surface } from 'canvaskit-wasm'
-import type { PenNode, ContainerProps } from '@/types/pen'
+import type { PenNode, ContainerProps, FrameNode as FrameNodeType, RefNode as RefNodeType } from '@/types/pen'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren, getAllChildren } from '@/stores/document-store'
 import { resolveNodeForCanvas, getDefaultTheme } from '@/variables/resolve-variables'
@@ -148,6 +148,122 @@ function cornerRadiusVal(cr: number | [number, number, number, number] | undefin
   return cr[0]
 }
 
+/** Apply argument values from a RefNode instance to the resolved component children.
+ * Must run BEFORE remapIds (uses original child IDs) and BEFORE variable resolution.
+ * Creates new node objects (never mutates source). */
+function applyArgumentValues(
+  children: PenNode[],
+  refNode: PenNode,
+  component: PenNode,
+): PenNode[] {
+  const frameComp = component as FrameNodeType
+  const ref = refNode as RefNodeType
+  const args = frameComp.arguments
+  const bindings = frameComp.argumentBindings
+  const values = ref.argumentValues
+
+  if (!args || !bindings || !values) return children
+
+  // Collect all binding applications
+  const applications: Array<{ targetNodeId: string; targetProperty: string; value: string | number | boolean }> = []
+
+  for (const arg of args) {
+    const value = values[arg.id] ?? arg.defaultValue
+    const argBindings = bindings[arg.id]
+    if (!argBindings) continue
+
+    for (const binding of argBindings) {
+      applications.push({
+        targetNodeId: binding.targetNodeId,
+        targetProperty: binding.targetProperty,
+        value,
+      })
+    }
+  }
+
+  if (applications.length === 0) return children
+
+  return applyBindingsToTree(children, applications)
+}
+
+function applyBindingsToTree(
+  nodes: PenNode[],
+  applications: Array<{ targetNodeId: string; targetProperty: string; value: string | number | boolean }>,
+): PenNode[] {
+  return nodes.map((node) => {
+    let modified = node
+
+    // Check if any applications target this node (using original ID)
+    const nodeApps = applications.filter((a) => a.targetNodeId === node.id)
+    if (nodeApps.length > 0) {
+      modified = { ...node } as PenNode
+      for (const app of nodeApps) {
+        modified = applyPropertyValue(modified, app.targetProperty, app.value)
+      }
+    }
+
+    // Recurse into children
+    if ('children' in modified && modified.children) {
+      const newChildren = applyBindingsToTree(modified.children, applications)
+      if (newChildren !== modified.children) {
+        modified = { ...modified, children: newChildren } as PenNode
+      }
+    }
+
+    return modified
+  })
+}
+
+function applyPropertyValue(
+  node: PenNode,
+  property: string,
+  value: string | number | boolean,
+): PenNode {
+  // Use unknown intermediary to avoid strict interface casting issues
+  const updated: Record<string, unknown> = { ...(node as unknown as Record<string, unknown>) }
+
+  if (property === 'content' && node.type === 'text') {
+    updated.content = String(value)
+  } else if (property === 'visible') {
+    updated.visible = Boolean(value)
+  } else if (property === 'opacity') {
+    updated.opacity = Number(value)
+  } else if (property === 'width') {
+    updated.width = Number(value)
+  } else if (property === 'height') {
+    updated.height = Number(value)
+  } else if (property === 'fontSize' && node.type === 'text') {
+    updated.fontSize = Number(value)
+  } else if (property === 'gap') {
+    updated.gap = Number(value)
+  } else if (property === 'name') {
+    updated.name = String(value)
+  } else if (property === 'fill.0.color') {
+    // Deep property: set the first fill's color
+    const nodeFill = (node as unknown as Record<string, unknown>).fill
+    const fills = Array.isArray(nodeFill) ? [...(nodeFill as unknown[])] : []
+    if (fills.length > 0) {
+      fills[0] = { ...(fills[0] as Record<string, unknown>), color: String(value) }
+      updated.fill = fills
+    }
+  } else if (property === 'stroke.fill.0.color') {
+    // Deep property: set stroke fill color
+    const nodeStroke = (node as unknown as Record<string, unknown>).stroke as Record<string, unknown> | undefined
+    if (nodeStroke) {
+      const stroke = { ...nodeStroke }
+      const strokeFill = stroke.fill as unknown[] | undefined
+      if (Array.isArray(strokeFill) && strokeFill.length > 0) {
+        const newFill = [...strokeFill]
+        newFill[0] = { ...(newFill[0] as Record<string, unknown>), color: String(value) }
+        stroke.fill = newFill
+        updated.stroke = stroke
+      }
+    }
+  }
+
+  return updated as unknown as PenNode
+}
+
 /** Resolve RefNodes inline (same logic as use-canvas-sync.ts). */
 function resolveRefs(
   nodes: PenNode[],
@@ -177,7 +293,9 @@ function resolveRefs(
     const resolvedNode = resolved as unknown as PenNode
     if ('children' in component && component.children) {
       const refNode = node as import('@/types/pen').RefNode
-      ;(resolvedNode as PenNode & ContainerProps).children = remapIds(component.children, node.id, refNode.descendants)
+      // Apply argument values BEFORE remapIds (uses original child IDs)
+      const argApplied = applyArgumentValues(component.children, node, component)
+      ;(resolvedNode as PenNode & ContainerProps).children = remapIds(argApplied, node.id, refNode.descendants)
     }
     visited.delete(node.ref)
     return [resolvedNode]
@@ -728,6 +846,68 @@ export class SkiaEngine {
           canvas, rn.absX, rn.absY, rn.absW, rn.absH,
           this.zoom,
         )
+      }
+    }
+
+    // Highlight mode: show connection flow arrows and dim unrelated elements
+    const { highlightMode } = useCanvasStore.getState()
+    if (highlightMode && selectedIds.size > 0) {
+      const docState = useDocumentStore.getState()
+      const allConnections = docState.document.connections ?? []
+      const activePageId = useCanvasStore.getState().activePageId
+      const selectedArr = Array.from(selectedIds)
+
+      // Find connections FROM selected elements
+      const outgoingConns = allConnections.filter(c =>
+        selectedArr.includes(c.sourceElementId),
+      )
+      // Find connections TO selected elements (where they are targets)
+      const incomingConns = allConnections.filter(c =>
+        selectedArr.some(id => c.targetFrameId === id),
+      )
+      const relevantConns = [...outgoingConns, ...incomingConns]
+
+      // Build set of connected element IDs
+      const connectedIds = new Set<string>(selectedArr)
+      for (const c of relevantConns) {
+        connectedIds.add(c.sourceElementId)
+        if (c.targetFrameId) connectedIds.add(c.targetFrameId)
+      }
+
+      // Dim unrelated render nodes
+      for (const rn of this.renderNodes) {
+        if (!connectedIds.has(rn.node.id)) {
+          this.renderer.drawDimOverlay(canvas, rn.absX, rn.absY, rn.absW, rn.absH, 0.5)
+        }
+      }
+
+      // Draw connection arrows for same-page connections
+      for (const c of outgoingConns) {
+        const sourceRn = this.renderNodes.find(r => r.node.id === c.sourceElementId)
+        if (!sourceRn) continue
+
+        if (c.sourcePageId === c.targetPageId || c.targetPageId === activePageId) {
+          // Same page: find target render node and draw arrow
+          const targetId = c.targetFrameId ?? null
+          const targetRn = targetId ? this.renderNodes.find(r => r.node.id === targetId) : null
+          if (targetRn) {
+            this.renderer.drawConnectionArrow(
+              canvas,
+              sourceRn.absX, sourceRn.absY, sourceRn.absW, sourceRn.absH,
+              targetRn.absX, targetRn.absY, targetRn.absW, targetRn.absH,
+              this.zoom,
+            )
+          }
+        } else {
+          // Cross-page: show off-screen indicator
+          const targetPage = (docState.document.pages ?? []).find(p => p.id === c.targetPageId)
+          const label = targetPage ? `-> ${targetPage.name}` : '-> Other Page'
+          this.renderer.drawOffScreenIndicator(
+            canvas,
+            sourceRn.absX, sourceRn.absY, sourceRn.absW, sourceRn.absH,
+            label, this.zoom,
+          )
+        }
       }
     }
 
