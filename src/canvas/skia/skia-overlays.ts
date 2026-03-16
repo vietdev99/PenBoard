@@ -576,6 +576,7 @@ export function drawConnectionBadge(
   x: number, y: number, w: number, _h: number,
   zoom: number,
   connectionCount: number,
+  targetName?: string,
 ): void {
   const invZ = 1 / zoom
   const badgeR = 8 * invZ // 16px diameter
@@ -616,6 +617,44 @@ export function drawConnectionBadge(
       ck, canvas, String(connectionCount),
       badgeX + badgeR * 0.3, badgeY + badgeR * 0.1,
       CONNECTION_BADGE_ICON_COLOR, fontSize, '700',
+    )
+  }
+
+  // Target name label to the right of the badge circle
+  if (targetName) {
+    const labelFontSize = 10 * invZ
+    const labelPadX = 4 * invZ
+    const labelPadY = 2 * invZ
+    const labelGap = 2 * invZ
+
+    // Measure label text width
+    const labelTextW = measureText(targetName, 10, '500') * invZ
+    const labelW = labelTextW + labelPadX * 2
+    const labelH = labelFontSize + labelPadY * 2
+
+    // Position: to the right of the badge circle
+    const labelX = badgeX + badgeR + labelGap
+    const labelY = badgeY - labelH / 2
+
+    // Background pill (dark semi-transparent)
+    const labelBgPaint = new ck.Paint()
+    labelBgPaint.setStyle(ck.PaintStyle.Fill)
+    labelBgPaint.setAntiAlias(true)
+    labelBgPaint.setColor(parseColor(ck, '#1e293b'))
+    labelBgPaint.setAlphaf(0.85)
+    const labelRadius = 3 * invZ
+    const labelRRect = ck.RRectXY(
+      ck.LTRBRect(labelX, labelY, labelX + labelW, labelY + labelH),
+      labelRadius, labelRadius,
+    )
+    canvas.drawRRect(labelRRect, labelBgPaint)
+    labelBgPaint.delete()
+
+    // Text
+    drawText2D(
+      ck, canvas, targetName,
+      labelX + labelPadX, labelY + labelPadY,
+      '#e2e8f0', labelFontSize, '500',
     )
   }
 }

@@ -685,19 +685,35 @@ export class SkiaEngine {
       )
       // Skip badges on ERD pages
       if (activePage?.type !== 'erd') {
-        const connMap = new Map<string, number>()
+        const pages = useDocumentStore.getState().document.pages ?? []
+        // Build connection info map: elementId -> { count, targetName }
+        const connInfoMap = new Map<string, { count: number; targetName: string }>()
         for (const c of connections) {
           if (c.sourcePageId === activePageId) {
-            connMap.set(c.sourceElementId, (connMap.get(c.sourceElementId) ?? 0) + 1)
+            const existing = connInfoMap.get(c.sourceElementId)
+            if (existing) {
+              existing.count++
+            } else {
+              // Resolve target name: prefer frame name, fall back to page name
+              let targetName = ''
+              const targetPage = pages.find((p) => p.id === c.targetPageId)
+              if (c.targetFrameId && targetPage) {
+                const frame = (targetPage.children ?? []).find((n) => n.id === c.targetFrameId)
+                targetName = frame?.name || targetPage.name
+              } else {
+                targetName = targetPage?.name || ''
+              }
+              connInfoMap.set(c.sourceElementId, { count: 1, targetName })
+            }
           }
         }
-        if (connMap.size > 0) {
+        if (connInfoMap.size > 0) {
           for (const rn of this.renderNodes) {
-            const count = connMap.get(rn.node.id)
-            if (count) {
+            const info = connInfoMap.get(rn.node.id)
+            if (info) {
               this.renderer.drawConnectionBadge(
                 canvas, rn.absX, rn.absY, rn.absW, rn.absH,
-                this.zoom, count,
+                this.zoom, info.count, info.targetName,
               )
             }
           }

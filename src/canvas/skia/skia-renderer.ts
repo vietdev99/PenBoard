@@ -1556,8 +1556,8 @@ export class SkiaRenderer {
 
   drawConnectionBadge(
     canvas: Canvas, x: number, y: number, w: number, h: number,
-    zoom: number, connectionCount: number,
+    zoom: number, connectionCount: number, targetName?: string,
   ) {
-    _drawConnectionBadge(this.ck, canvas, x, y, w, h, zoom, connectionCount)
+    _drawConnectionBadge(this.ck, canvas, x, y, w, h, zoom, connectionCount, targetName)
   }
 }
