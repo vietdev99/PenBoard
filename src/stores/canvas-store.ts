@@ -16,6 +16,7 @@ export type RightPanelTab = 'design' | 'code'
 interface CanvasPreferences {
   layerPanelOpen: boolean
   variablesPanelOpen: boolean
+  dataPanelOpen: boolean
   codePanelOpen: boolean
   rightPanelTab?: RightPanelTab
 }
@@ -28,11 +29,13 @@ interface CanvasStoreState {
   clipboard: PenNode[]
   layerPanelOpen: boolean
   variablesPanelOpen: boolean
+  dataPanelOpen: boolean
   codePanelOpen: boolean
   rightPanelTab: RightPanelTab
   figmaImportDialogOpen: boolean
   pendingFigmaFile: File | null
   activePageId: string | null
+  dataFocusEntityId: string | null
 
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
@@ -47,6 +50,9 @@ interface CanvasStoreState {
   setClipboard: (nodes: PenNode[]) => void
   toggleLayerPanel: () => void
   toggleVariablesPanel: () => void
+  toggleDataPanel: () => void
+  setDataPanelOpen: (open: boolean) => void
+  setDataFocusEntityId: (id: string | null) => void
   toggleCodePanel: () => void
   setCodePanelOpen: (open: boolean) => void
   setRightPanelTab: (tab: RightPanelTab) => void
@@ -75,11 +81,13 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   clipboard: [],
   layerPanelOpen: true,
   variablesPanelOpen: false,
+  dataPanelOpen: false,
   codePanelOpen: false,
   rightPanelTab: 'design',
   figmaImportDialogOpen: false,
   pendingFigmaFile: null,
   activePageId: DEFAULT_PAGE_ID,
+  dataFocusEntityId: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -145,30 +153,42 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   toggleLayerPanel: () => {
     const next = !get().layerPanelOpen
     set({ layerPanelOpen: next })
-    const { variablesPanelOpen, codePanelOpen } = get()
-    persistPrefs({ layerPanelOpen: next, variablesPanelOpen, codePanelOpen })
+    const { variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen: next, variablesPanelOpen, dataPanelOpen, codePanelOpen })
   },
   toggleVariablesPanel: () => {
     const next = !get().variablesPanelOpen
     set({ variablesPanelOpen: next })
-    const { layerPanelOpen, codePanelOpen } = get()
-    persistPrefs({ layerPanelOpen, variablesPanelOpen: next, codePanelOpen })
+    const { layerPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen: next, dataPanelOpen, codePanelOpen })
   },
+  toggleDataPanel: () => {
+    const next = !get().dataPanelOpen
+    set({ dataPanelOpen: next })
+    const { layerPanelOpen, variablesPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen: next, codePanelOpen })
+  },
+  setDataPanelOpen: (open) => {
+    set({ dataPanelOpen: open })
+    const { layerPanelOpen, variablesPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen: open, codePanelOpen })
+  },
+  setDataFocusEntityId: (id) => set({ dataFocusEntityId: id }),
   toggleCodePanel: () => {
     const next = !get().codePanelOpen
     set({ codePanelOpen: next })
-    const { layerPanelOpen, variablesPanelOpen } = get()
-    persistPrefs({ layerPanelOpen, variablesPanelOpen, codePanelOpen: next })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen: next })
   },
   setCodePanelOpen: (open) => {
     set({ codePanelOpen: open })
-    const { layerPanelOpen, variablesPanelOpen } = get()
-    persistPrefs({ layerPanelOpen, variablesPanelOpen, codePanelOpen: open })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen: open })
   },
   setRightPanelTab: (tab) => {
     set({ rightPanelTab: tab })
-    const { layerPanelOpen, variablesPanelOpen, codePanelOpen } = get()
-    persistPrefs({ layerPanelOpen, variablesPanelOpen, codePanelOpen, rightPanelTab: tab })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen, rightPanelTab: tab })
   },
   setFigmaImportDialogOpen: (open) => set({ figmaImportDialogOpen: open, ...(!open && { pendingFigmaFile: null }) }),
   setPendingFigmaFile: (file) => set({ pendingFigmaFile: file }),
@@ -181,6 +201,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       const data = JSON.parse(raw) as Partial<CanvasPreferences>
       if (typeof data.layerPanelOpen === 'boolean') set({ layerPanelOpen: data.layerPanelOpen })
       if (typeof data.variablesPanelOpen === 'boolean') set({ variablesPanelOpen: data.variablesPanelOpen })
+      if (typeof data.dataPanelOpen === 'boolean') set({ dataPanelOpen: data.dataPanelOpen })
       if (typeof data.codePanelOpen === 'boolean') set({ codePanelOpen: data.codePanelOpen })
       if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code') set({ rightPanelTab: data.rightPanelTab })
     } catch { /* ignore */ }

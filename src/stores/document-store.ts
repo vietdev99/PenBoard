@@ -28,6 +28,7 @@ import {
 } from './document-tree-utils'
 import { createPageActions } from './document-store-pages'
 import { createConnectionActions } from './document-store-connections'
+import { createDataActions, type DataActions } from './document-store-data'
 
 interface DocumentStoreState {
   document: PenDocument
@@ -90,11 +91,27 @@ interface DocumentStoreState {
   getConnectionsForPage: (pageId: string) => ScreenConnection[]
 
   // Page management
-  addPage: () => string
+  addPage: (type?: 'screen' | 'erd') => string
   removePage: (pageId: string) => void
   renamePage: (pageId: string, name: string) => void
   reorderPage: (pageId: string, direction: 'left' | 'right') => void
   duplicatePage: (pageId: string) => string | null
+
+  // Data entity management
+  addEntity: DataActions['addEntity']
+  removeEntity: DataActions['removeEntity']
+  updateEntity: DataActions['updateEntity']
+  addField: DataActions['addField']
+  removeField: DataActions['removeField']
+  updateField: DataActions['updateField']
+  reorderField: DataActions['reorderField']
+  addRow: DataActions['addRow']
+  removeRow: DataActions['removeRow']
+  updateRowValue: DataActions['updateRowValue']
+  updateEntityErdPosition: DataActions['updateEntityErdPosition']
+  addView: DataActions['addView']
+  removeView: DataActions['removeView']
+  updateView: DataActions['updateView']
 
   applyExternalDocument: (doc: PenDocument) => void
   applyHistoryState: (doc: PenDocument) => void
@@ -706,6 +723,9 @@ export const useDocumentStore = create<DocumentStoreState>(
 
     // --- Page management (extracted to document-store-pages.ts) ---
     ...createPageActions(set, get),
+
+    // --- Data entity management (extracted to document-store-data.ts) ---
+    ...createDataActions(set, get),
 
     applyExternalDocument: (doc) => {
       // Push current state to history so MCP changes are undoable

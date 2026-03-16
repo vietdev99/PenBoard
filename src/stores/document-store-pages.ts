@@ -4,7 +4,7 @@ import { useHistoryStore } from '@/stores/history-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 
 interface PageActions {
-  addPage: () => string
+  addPage: (type?: 'screen' | 'erd') => string
   removePage: (pageId: string) => void
   renamePage: (pageId: string, name: string) => void
   reorderPage: (pageId: string, direction: 'left' | 'right') => void
@@ -16,30 +16,42 @@ export function createPageActions(
   get: () => { document: PenDocument },
 ): PageActions {
   return {
-    addPage: () => {
+    addPage: (type) => {
       const state = get()
       useHistoryStore.getState().pushState(state.document)
       const doc = state.document
       const pages = doc.pages ?? []
       const pageNum = pages.length + 1
       const newPageId = nanoid()
-      const newPage: PenPage = {
-        id: newPageId,
-        name: `Page ${pageNum}`,
-        children: [
-          {
-            id: nanoid(),
-            type: 'frame',
-            name: 'Frame',
-            x: 0,
-            y: 0,
-            width: 1200,
-            height: 800,
-            fill: [{ type: 'solid', color: '#FFFFFF' }],
-            children: [],
-          },
-        ],
+
+      let newPage: PenPage
+      if (type === 'erd') {
+        newPage = {
+          id: newPageId,
+          name: 'ERD',
+          type: 'erd',
+          children: [],
+        }
+      } else {
+        newPage = {
+          id: newPageId,
+          name: `Page ${pageNum}`,
+          children: [
+            {
+              id: nanoid(),
+              type: 'frame',
+              name: 'Frame',
+              x: 0,
+              y: 0,
+              width: 1200,
+              height: 800,
+              fill: [{ type: 'solid', color: '#FFFFFF' }],
+              children: [],
+            },
+          ],
+        }
       }
+
       set({
         document: { ...doc, pages: [...pages, newPage] },
         isDirty: true,

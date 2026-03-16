@@ -79,6 +79,13 @@ export default function EditorLayout() {
         return
       }
 
+      // Cmd+Shift+D: toggle data panel
+      if (isMod && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        useCanvasStore.getState().toggleDataPanel()
+        return
+      }
+
       // Cmd+Shift+K: toggle UIKit browser
       if (isMod && e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()

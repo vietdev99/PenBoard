@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Database, Monitor } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useCanvasStore } from '@/stores/canvas-store'
@@ -24,7 +24,9 @@ export default function PageTabs() {
     y: number
     pageId: string
   } | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const addMenuRef = useRef<HTMLDivElement>(null)
 
   if (!pages || pages.length === 0) return null
 
@@ -56,10 +58,29 @@ export default function PageTabs() {
     setContextMenu({ x: e.clientX, y: e.clientY, pageId })
   }
 
-  const handleAdd = () => {
-    addPage()
+  const handleAddScreen = () => {
+    addPage('screen')
+    setAddMenuOpen(false)
     requestAnimationFrame(() => zoomToFitContent())
   }
+
+  const handleAddErd = () => {
+    addPage('erd')
+    setAddMenuOpen(false)
+    requestAnimationFrame(() => zoomToFitContent())
+  }
+
+  // Close add menu on outside click
+  useEffect(() => {
+    if (!addMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [addMenuOpen])
 
   const handleClose = (e: React.MouseEvent, pageId: string) => {
     e.stopPropagation()
@@ -76,13 +97,36 @@ export default function PageTabs() {
           <span className="text-xs font-medium text-muted-foreground tracking-wider">
             {t('pages.title')}
           </span>
-          <button
-            className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded transition-colors"
-            onClick={handleAdd}
-            title={t('pages.addPage')}
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <div className="relative">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded transition-colors"
+              onClick={() => setAddMenuOpen((v) => !v)}
+              title={t('pages.addPage')}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            {addMenuOpen && (
+              <div
+                ref={addMenuRef}
+                className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]"
+              >
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                  onClick={handleAddScreen}
+                >
+                  <Monitor className="w-3 h-3 shrink-0" />
+                  {t('page.addScreen')}
+                </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                  onClick={handleAddErd}
+                >
+                  <Database className="w-3 h-3 shrink-0" />
+                  {t('page.addErd')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Page list */}
@@ -117,6 +161,9 @@ export default function PageTabs() {
                   />
                 ) : (
                   <>
+                    {page.type === 'erd' && (
+                      <Database className="w-3 h-3 shrink-0 mr-1" />
+                    )}
                     <span className="flex-1 text-left truncate">{page.name}</span>
                     {canDelete && (
                       <span

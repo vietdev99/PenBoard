@@ -256,7 +256,7 @@ describe('Data Store Actions', () => {
 
     it('uses custom name when provided', () => {
       const entityId = actions.addEntity('Users')
-      const viewId = actions.addView(entityId, 'Admins only')
+      actions.addView(entityId, 'Admins only')
       const view = state.document.dataEntities![0].views[0]
       expect(view.name).toBe('Admins only')
     })
