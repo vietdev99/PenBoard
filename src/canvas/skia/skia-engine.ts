@@ -404,6 +404,9 @@ export class SkiaEngine {
   } | null = null
   penPreview: import('./skia-overlays').PenPreviewData | null = null
 
+  /** Active alignment guide lines to render during drag. Set by canvas event handler. */
+  activeGuides: { x1: number; y1: number; x2: number; y2: number }[] = []
+
   constructor(ck: CanvasKit) {
     this.ck = ck
     this.renderer = new SkiaRenderer(ck)
@@ -652,6 +655,11 @@ export class SkiaEngine {
     // Pen tool preview
     if (this.penPreview) {
       this.renderer.drawPenPreview(canvas, this.penPreview, this.zoom)
+    }
+
+    // Alignment guides
+    for (const g of this.activeGuides) {
+      this.renderer.drawGuide(canvas, g.x1, g.y1, g.x2, g.y2, this.zoom)
     }
 
     // Selection marquee
