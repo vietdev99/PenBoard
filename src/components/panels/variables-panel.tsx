@@ -7,6 +7,7 @@ import { useCanvasStore } from '@/stores/canvas-store'
 import { useThemePresetStore } from '@/stores/theme-preset-store'
 import { exportThemePreset, importThemePreset } from '@/utils/theme-preset-io'
 import VariableRow from './variable-row'
+import VariableGroup from './variable-group'
 import type { VariableDefinition, ThemedValue } from '@/types/variables'
 
 const DEFAULT_THEME_AXIS = 'Theme-1'
@@ -158,6 +159,42 @@ export default function VariablesPanel() {
       .filter(([n]) => !search || n.toLowerCase().includes(search.toLowerCase()))
       .sort(([a], [b]) => a.localeCompare(b))
   }, [variables, search])
+
+  // Group variables by type category
+  const groupedVariables = useMemo(() => {
+    const groups: Record<string, [string, VariableDefinition][]> = {
+      Colors: [],
+      Spacing: [],
+      Typography: [],
+      Other: [],
+    }
+
+    for (const entry of entries) {
+      const [name, def] = entry
+      if (def.type === 'color') {
+        groups.Colors.push(entry)
+      } else if (def.type === 'number') {
+        // Heuristic: typography vars have font/size/line/letter/text in name
+        const lowerName = name.toLowerCase()
+        if (lowerName.includes('font') || lowerName.includes('size') || lowerName.includes('line') || lowerName.includes('letter') || lowerName.includes('text') || lowerName.includes('typo')) {
+          groups.Typography.push(entry)
+        } else {
+          groups.Spacing.push(entry)
+        }
+      } else if (def.type === 'string') {
+        const lowerName = name.toLowerCase()
+        if (lowerName.includes('font')) {
+          groups.Typography.push(entry)
+        } else {
+          groups.Other.push(entry)
+        }
+      } else {
+        groups.Other.push(entry)
+      }
+    }
+
+    return groups
+  }, [entries])
 
   /* --- Theme actions --- */
   const handleAddTheme = () => {
@@ -585,18 +622,25 @@ export default function VariablesPanel() {
             </span>
           </div>
         )}
-        {entries.map(([varName, def]) => (
-          <VariableRow
-            key={varName}
-            name={varName}
-            definition={def}
-            themeValues={themeValues}
-            themeAxis={themeAxis}
-            onUpdateValue={(n, d) => setVariable(n, d)}
-            onRename={(o, n) => renameVariable(o, n)}
-            onDelete={(n) => removeVariable(n)}
-          />
-        ))}
+        {Object.entries(groupedVariables).map(([groupName, groupEntries]) => {
+          if (groupEntries.length === 0) return null
+          return (
+            <VariableGroup key={groupName} title={groupName} count={groupEntries.length}>
+              {groupEntries.map(([varName, def]) => (
+                <VariableRow
+                  key={varName}
+                  name={varName}
+                  definition={def}
+                  themeValues={themeValues}
+                  themeAxis={themeAxis}
+                  onUpdateValue={(n, d) => setVariable(n, d)}
+                  onRename={(o, n) => renameVariable(o, n)}
+                  onDelete={(n) => removeVariable(n)}
+                />
+              ))}
+            </VariableGroup>
+          )
+        })}
       </div>
 
       {/* ── Footer ── */}
