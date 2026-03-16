@@ -7,7 +7,7 @@ PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard 
 ## Phases
 
 - [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
-- [ ] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
+- [x] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
 - [ ] **Phase 3: Shared Views & Design Tokens** - Reusable layouts via component system, token management UI via variables system
 - [ ] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
 
@@ -55,7 +55,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
 - [x] 02-02-PLAN.md — Data entities: Notion-like tables, field management, ERD page rendering, filter/sort views
-- [ ] 02-03-PLAN.md — Gap closure: Connection targets Page > Frame, same-page connections, badge shows target name
+- [x] 02-03-PLAN.md — Gap closure: Connection targets Page > Frame, same-page connections, badge shows target name
 
 ### Phase 3: Shared Components & Design Tokens
 **Goal**: Reusable components with arguments (props) and global design tokens
@@ -92,6 +92,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
-| 2. Storyboard Connections & Data Entities | 2/3 | Gap closure | - |
+| 2. Storyboard Connections & Data Entities | 3/3 | Complete | 2026-03-16 |
 | 3. Shared Views & Design Tokens | 0/1 | Not started | - |
 | 4. E2E Tests & Polish | 0/1 | Not started | - |

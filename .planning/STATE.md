@@ -5,20 +5,20 @@ milestone_name: milestone
 current_phase: 3
 current_plan: 1
 status: not_started
-last_updated: "2026-03-16T14:34:00Z"
+last_updated: "2026-03-16T15:25:04Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T14:34:00Z
+**Last Updated:** 2026-03-16T15:25:04Z
 **Current Phase:** 3 — Shared Components & Design Tokens
 **Current Plan:** Plan 01 (TBD)
-**Overall Status:** Phase 2 Complete — Ready for Phase 3
+**Overall Status:** Phase 2 Complete (including gap closure) — Ready for Phase 3
 
 ## What's Done
 
@@ -29,6 +29,7 @@ progress:
 - [x] Requirements updated (removed auth/project/screen, added data entity reqs)
 - [x] Phase 2 Plan 01: Screen Connections (types, store CRUD, UI, canvas badge)
 - [x] Phase 2 Plan 02: Data Entities & ERD (Notion-like tables, field CRUD, ERD page renderer, filter/sort views)
+- [x] Phase 2 Plan 03: Connection Gap Closure (targetFrameId, same-page connections, badge target name)
 
 ## Roadmap Change (2026-03-16)
 
@@ -53,7 +54,8 @@ progress:
 | App model | **Local-only, file-based** | No auth, no DB, no server persistence |
 | Screen model | **Page = Screen** | Existing PenPage is a storyboard screen |
 | Connections | **Property panel** | Select element -> "Navigate to" -> pick target screen |
-| Connection data | **PenDocument.connections[]** | Detailed: sourceElement, targetPage, trigger, transition |
+| Connection data | **PenDocument.connections[]** | Detailed: sourceElement, targetPage/Frame, trigger, transition |
+| Connection target | **Page > Frame picker** | Grouped hierarchy, same-page allowed, pageId::frameId format |
 | Data entities | **In .pb file** | PenDocument.dataEntities[] — Notion-like tables |
 | Data entity features | **Full** | Tables + fields + sample data + relations + views |
 | Data entity UI | **Panel + ERD page** | Sidebar panel for management, ERD page for visualization |
@@ -68,11 +70,16 @@ progress:
 
 ## Context for Next Session
 
-Phase 2 (Storyboard Connections & Data Entities) is fully complete.
+Phase 2 (Storyboard Connections & Data Entities) is fully complete, including gap closure.
+
+Gap closure (Plan 03) fixed 3 verification issues:
+- Connections now target specific frames within pages (targetFrameId)
+- Same-page connections are allowed (removed same-page filter)
+- Canvas badge shows target frame/page name in dark pill label
 
 All 14 Phase 2 requirements satisfied:
 
-- CONN-01..05: Screen connections via property panel
+- CONN-01..05: Screen connections via property panel (including frame targeting)
 - DATA-01..05: Data entities panel, Notion-like tables, filter/sort, persistence, ERD page type
 - ERD-01..04: ERD page with table nodes, relation edges, PK/FK badges, drag-to-rearrange
 
@@ -113,7 +120,7 @@ None currently.
 - Requirements: 35 (v1, was 44 — removed 17, added 8)
 - Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
 - Phase 1 status: COMPLETE (5/5 plans done)
-- Phase 2 status: COMPLETE (2/2 plans done)
+- Phase 2 status: COMPLETE (3/3 plans done, including gap closure)
 
 ## Performance Metrics
 
@@ -126,3 +133,4 @@ None currently.
 | 01-05 | 1min | 1 | 1 |
 | 02-01 | 10min | 2 | 29 |
 | 02-02 | 20min | 5 | 23 |
+| 02-03 | 6min | 2 | 22 |
