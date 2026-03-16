@@ -4,6 +4,7 @@ import { SkiaEngine, screenToScene } from './skia-engine'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore } from '@/stores/document-store'
 import { createNodeForTool, isDrawingTool } from '../canvas-node-creator'
+import { SNAP_THRESHOLD } from '../canvas-constants'
 import { inferLayout } from '../canvas-layout-engine'
 import { SkiaPenTool } from './skia-pen-tool'
 import { setSkiaEngineRef } from '../skia-engine-ref'
@@ -29,6 +30,102 @@ function toolToCursor(tool: ToolType): string {
     case 'select': return 'default'
     default: return 'crosshair'
   }
+}
+
+interface GuideSpec { x1: number; y1: number; x2: number; y2: number }
+
+/**
+ * Compute alignment guides by comparing the bounding box of the dragged node(s)
+ * against all other render nodes. Checks 5 axes per dimension:
+ * left-left, left-right, center-center, right-left, right-right (and same for Y).
+ * Returns guide lines and optional snap deltas.
+ */
+function computeGuides(
+  dragBounds: { x: number; y: number; w: number; h: number },
+  renderNodes: import('./skia-renderer').RenderNode[],
+  dragIds: Set<string>,
+  threshold: number,
+): { guides: GuideSpec[]; snapDx: number; snapDy: number } {
+  const guides: GuideSpec[] = []
+  let snapDx = 0
+  let snapDy = 0
+  let foundX = false
+  let foundY = false
+
+  const dragLeft = dragBounds.x
+  const dragRight = dragBounds.x + dragBounds.w
+  const dragCenterX = dragBounds.x + dragBounds.w / 2
+  const dragTop = dragBounds.y
+  const dragBottom = dragBounds.y + dragBounds.h
+  const dragCenterY = dragBounds.y + dragBounds.h / 2
+
+  // Canvas extent for drawing guide lines edge-to-edge
+  let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity
+  for (const rn of renderNodes) {
+    if (dragIds.has(rn.node.id)) continue
+    minY = Math.min(minY, rn.absY)
+    maxY = Math.max(maxY, rn.absY + rn.absH)
+    minX = Math.min(minX, rn.absX)
+    maxX = Math.max(maxX, rn.absX + rn.absW)
+  }
+  // Include drag bounds in extent
+  minY = Math.min(minY, dragTop)
+  maxY = Math.max(maxY, dragBottom)
+  minX = Math.min(minX, dragLeft)
+  maxX = Math.max(maxX, dragRight)
+
+  for (const rn of renderNodes) {
+    if (dragIds.has(rn.node.id)) continue
+
+    const tLeft = rn.absX
+    const tRight = rn.absX + rn.absW
+    const tCenterX = rn.absX + rn.absW / 2
+    const tTop = rn.absY
+    const tBottom = rn.absY + rn.absH
+    const tCenterY = rn.absY + rn.absH / 2
+
+    // Vertical guides (X-axis alignment)
+    if (!foundX) {
+      const xPairs: [number, number][] = [
+        [dragLeft, tLeft], [dragLeft, tRight],
+        [dragRight, tLeft], [dragRight, tRight],
+        [dragCenterX, tCenterX],
+      ]
+      for (const [dv, tv] of xPairs) {
+        const diff = tv - dv
+        if (Math.abs(diff) <= threshold) {
+          snapDx = diff
+          foundX = true
+          // Draw vertical line at the target X
+          guides.push({ x1: tv, y1: minY - 20, x2: tv, y2: maxY + 20 })
+          break
+        }
+      }
+    }
+
+    // Horizontal guides (Y-axis alignment)
+    if (!foundY) {
+      const yPairs: [number, number][] = [
+        [dragTop, tTop], [dragTop, tBottom],
+        [dragBottom, tTop], [dragBottom, tBottom],
+        [dragCenterY, tCenterY],
+      ]
+      for (const [dv, tv] of yPairs) {
+        const diff = tv - dv
+        if (Math.abs(diff) <= threshold) {
+          snapDy = diff
+          foundY = true
+          // Draw horizontal line at the target Y
+          guides.push({ x1: minX - 20, y1: tv, x2: maxX + 20, y2: tv })
+          break
+        }
+      }
+    }
+
+    if (foundX && foundY) break
+  }
+
+  return { guides, snapDx, snapDy }
 }
 
 export default function SkiaCanvas() {
@@ -614,6 +711,36 @@ export default function SkiaCanvas() {
             rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
           }
         }
+
+        // --- Alignment guides: compute and snap ---
+        // Compute bounding box of all dragged nodes
+        let dMinX = Infinity, dMinY = Infinity, dMaxX = -Infinity, dMaxY = -Infinity
+        for (const rn of engine.renderNodes) {
+          if (dragAllIds!.has(rn.node.id)) {
+            dMinX = Math.min(dMinX, rn.absX)
+            dMinY = Math.min(dMinY, rn.absY)
+            dMaxX = Math.max(dMaxX, rn.absX + rn.absW)
+            dMaxY = Math.max(dMaxY, rn.absY + rn.absH)
+          }
+        }
+        const dragBounds = { x: dMinX, y: dMinY, w: dMaxX - dMinX, h: dMaxY - dMinY }
+        const threshold = SNAP_THRESHOLD / engine.zoom
+        const { guides, snapDx, snapDy } = computeGuides(dragBounds, engine.renderNodes, dragAllIds!, threshold)
+        engine.activeGuides = guides
+
+        // Apply snap offset to dragged nodes
+        if (snapDx !== 0 || snapDy !== 0) {
+          for (const rn of engine.renderNodes) {
+            if (dragAllIds!.has(rn.node.id)) {
+              rn.absX += snapDx
+              rn.absY += snapDy
+              rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
+            }
+          }
+          dragPrevDx += snapDx
+          dragPrevDy += snapDy
+        }
+
         engine.spatialIndex.rebuild(engine.renderNodes)
         engine.markDirty()
         return
@@ -710,6 +837,9 @@ export default function SkiaCanvas() {
       isDrawing = false
 
       // --- Select tool: end drag / marquee ---
+      // Clear alignment guides
+      if (engine) engine.activeGuides = []
+
       if (isDragging && dragMoved && dragOrigPositions.length > 0 && engine) {
         const dx = dragPrevDx
         const dy = dragPrevDy
