@@ -59,7 +59,7 @@ export async function saveDocumentAs(
       types: [
         {
           description: 'PenBoard File',
-          accept: { 'application/json': ['.pb', '.op'] },
+          accept: { 'application/json': ['.pb'] },
         },
       ],
     })
