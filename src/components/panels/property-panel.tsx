@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren } from '@/stores/document-store'
 import { Separator } from '@/components/ui/separator'
-import type { PenNode, ContainerProps, RefNode, PathNode, ImageNode, IconFontNode } from '@/types/pen'
+import type { PenNode, ContainerProps, RefNode, PathNode, ImageNode, IconFontNode, FrameNode } from '@/types/pen'
 import { Component, Diamond, ArrowUpRight, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import SizeSection from './size-section'
@@ -18,6 +18,7 @@ import ExportSection from './export-section'
 import ConnectionSection from './connection-section'
 import IconSection from './icon-section'
 import ImageSection from './image-section'
+import ArgumentSection from './argument-section'
 
 /** Properties stored directly on the RefNode (instance-level), not as overrides. */
 const INSTANCE_DIRECT_PROPS = new Set([
@@ -245,6 +246,15 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
               </Button>
             )}
           </div>
+        )}
+
+        {nodeIsReusable && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              <ArgumentSection node={displayNode as FrameNode} />
+            </div>
+          </>
         )}
 
         <div className="px-3 py-2">

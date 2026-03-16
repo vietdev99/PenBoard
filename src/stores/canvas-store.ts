@@ -5,7 +5,7 @@ import type {
   SelectionState,
   CanvasInteraction,
 } from '@/types/canvas'
-import type { PenNode } from '@/types/pen'
+import type { PenNode, ComponentArgument } from '@/types/pen'
 import { DEFAULT_PAGE_ID } from '@/stores/document-tree-utils'
 import { appStorage } from '@/utils/app-storage'
 
@@ -19,6 +19,14 @@ interface CanvasPreferences {
   dataPanelOpen: boolean
   codePanelOpen: boolean
   rightPanelTab?: RightPanelTab
+}
+
+export interface DragConnectState {
+  sourceNodeId: string
+  argId: string
+  argType: ComponentArgument['type']
+  startX: number
+  startY: number
 }
 
 interface CanvasStoreState {
@@ -36,6 +44,7 @@ interface CanvasStoreState {
   pendingFigmaFile: File | null
   activePageId: string | null
   dataFocusEntityId: string | null
+  dragConnectState: DragConnectState | null
 
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
@@ -59,6 +68,7 @@ interface CanvasStoreState {
   setFigmaImportDialogOpen: (open: boolean) => void
   setPendingFigmaFile: (file: File | null) => void
   setActivePageId: (pageId: string | null) => void
+  setDragConnectState: (state: DragConnectState | null) => void
   hydrate: () => void
 }
 
@@ -88,6 +98,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   pendingFigmaFile: null,
   activePageId: DEFAULT_PAGE_ID,
   dataFocusEntityId: null,
+  dragConnectState: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -193,6 +204,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   setFigmaImportDialogOpen: (open) => set({ figmaImportDialogOpen: open, ...(!open && { pendingFigmaFile: null }) }),
   setPendingFigmaFile: (file) => set({ pendingFigmaFile: file }),
   setActivePageId: (activePageId) => set({ activePageId }),
+  setDragConnectState: (dragConnectState) => set({ dragConnectState }),
 
   hydrate: () => {
     try {
