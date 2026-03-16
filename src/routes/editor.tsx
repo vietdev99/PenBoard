@@ -1,0 +1,17 @@
+import { createFileRoute } from '@tanstack/react-router'
+import EditorLayout from '@/components/editor/editor-layout'
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
+
+export const Route = createFileRoute('/editor')({
+  component: EditorPage,
+  ssr: false,
+  head: () => ({
+    meta: [{ title: 'PenBoard Editor' }],
+  }),
+})
+
+function EditorPage() {
+  useKeyboardShortcuts()
+
+  return <EditorLayout />
+}
