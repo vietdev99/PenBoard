@@ -721,6 +721,16 @@ export class SkiaEngine {
       }
     }
 
+    // Draw component badges for reusable frames
+    for (const rn of this.renderNodes) {
+      if (this.reusableIds.has(rn.node.id)) {
+        this.renderer.drawComponentBadge(
+          canvas, rn.absX, rn.absY, rn.absW, rn.absH,
+          this.zoom,
+        )
+      }
+    }
+
     // Hover outline
     if (this.hoveredNodeId && !selectedIds.has(this.hoveredNodeId)) {
       const hovered = this.spatialIndex.get(this.hoveredNodeId)

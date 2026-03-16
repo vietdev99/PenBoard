@@ -31,6 +31,7 @@ import {
   drawAgentNodeBorder as _drawAgentNodeBorder,
   drawAgentPreviewFill as _drawAgentPreviewFill,
   drawConnectionBadge as _drawConnectionBadge,
+  drawComponentBadge as _drawComponentBadge,
   type PenPreviewData,
 } from './skia-overlays'
 
@@ -1559,5 +1560,12 @@ export class SkiaRenderer {
     zoom: number, connectionCount: number, targetName?: string,
   ) {
     _drawConnectionBadge(this.ck, canvas, x, y, w, h, zoom, connectionCount, targetName)
+  }
+
+  drawComponentBadge(
+    canvas: Canvas, x: number, y: number, w: number, h: number,
+    zoom: number,
+  ) {
+    _drawComponentBadge(this.ck, canvas, x, y, w, h, zoom)
   }
 }

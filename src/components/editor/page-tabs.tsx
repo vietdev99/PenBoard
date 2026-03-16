@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Database, Monitor } from 'lucide-react'
+import { Plus, X, Database, Monitor, Component } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useCanvasStore } from '@/stores/canvas-store'
@@ -70,6 +70,12 @@ export default function PageTabs() {
     requestAnimationFrame(() => zoomToFitContent())
   }
 
+  const handleAddComponent = () => {
+    addPage('component')
+    setAddMenuOpen(false)
+    requestAnimationFrame(() => zoomToFitContent())
+  }
+
   // Close add menu on outside click
   useEffect(() => {
     if (!addMenuOpen) return
@@ -124,6 +130,13 @@ export default function PageTabs() {
                   <Database className="w-3 h-3 shrink-0" />
                   {t('page.addErd')}
                 </button>
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                  onClick={handleAddComponent}
+                >
+                  <Component className="w-3 h-3 shrink-0 text-purple-400" />
+                  {t('page.addComponent', 'Component Page')}
+                </button>
               </div>
             )}
           </div>
@@ -161,9 +174,11 @@ export default function PageTabs() {
                   />
                 ) : (
                   <>
-                    {page.type === 'erd' && (
+                    {page.type === 'component' ? (
+                      <Component className="w-3 h-3 shrink-0 mr-1 text-purple-400" />
+                    ) : page.type === 'erd' ? (
                       <Database className="w-3 h-3 shrink-0 mr-1" />
-                    )}
+                    ) : null}
                     <span className="flex-1 text-left truncate">{page.name}</span>
                     {canDelete && (
                       <span

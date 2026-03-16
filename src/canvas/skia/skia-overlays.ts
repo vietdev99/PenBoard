@@ -658,3 +658,37 @@ export function drawConnectionBadge(
     )
   }
 }
+
+/**
+ * Draw a small faded diamond badge at the top-left corner of reusable component frames.
+ * Per user decision: "small faded badge at corner, low-opacity".
+ */
+export function drawComponentBadge(
+  ck: CanvasKit, canvas: Canvas,
+  x: number, y: number, _w: number, _h: number,
+  zoom: number,
+): void {
+  const invZ = 1 / zoom
+  const badgeR = 5 * invZ  // diamond radius
+  const offsetX = 8 * invZ
+  const offsetY = -8 * invZ
+  const cx = x + offsetX
+  const cy = y + offsetY
+
+  const paint = new ck.Paint()
+  paint.setStyle(ck.PaintStyle.Fill)
+  paint.setAntiAlias(true)
+  // Purple-ish color matching the tab icon, faded per user requirement
+  paint.setColor(ck.Color4f(0.6, 0.4, 0.9, 0.4))
+
+  const path = new ck.Path()
+  path.moveTo(cx, cy - badgeR)       // top
+  path.lineTo(cx + badgeR, cy)       // right
+  path.lineTo(cx, cy + badgeR)       // bottom
+  path.lineTo(cx - badgeR, cy)       // left
+  path.close()
+  canvas.drawPath(path, paint)
+
+  path.delete()
+  paint.delete()
+}
