@@ -29,12 +29,12 @@
 
 ### Canvas (inherited from OpenPencil — already working)
 
-- [ ] **CANVAS-01**: User can place shapes at any x,y position on infinite pan/zoom canvas
-- [ ] **CANVAS-02**: User can select, move, and resize shapes with handles
-- [ ] **CANVAS-03**: User can multi-select via box selection or shift-click
-- [ ] **CANVAS-04**: User can undo/redo any operation
-- [ ] **CANVAS-05**: User can copy/paste shapes within and across screens
-- [ ] **CANVAS-06**: Shapes snap to grid and show alignment guides
+- [x] **CANVAS-01**: User can place shapes at any x,y position on infinite pan/zoom canvas
+- [x] **CANVAS-02**: User can select, move, and resize shapes with handles
+- [x] **CANVAS-03**: User can multi-select via box selection or shift-click
+- [x] **CANVAS-04**: User can undo/redo any operation
+- [x] **CANVAS-05**: User can copy/paste shapes within and across screens
+- [x] **CANVAS-06**: Shapes snap to grid and show alignment guides
 - [x] **CANVAS-07**: Canvas renders with CanvasKit/Skia WebGL
 
 ### Storyboard Overview
@@ -124,13 +124,13 @@
 | SCR-03 | Phase 2 | Pending |
 | SCR-04 | Phase 2 | Pending |
 | SCR-05 | Phase 2 | Pending |
-| CANVAS-01 | Phase 1 | Pending |
-| CANVAS-02 | Phase 1 | Pending |
-| CANVAS-03 | Phase 1 | Pending |
-| CANVAS-04 | Phase 1 | Pending |
-| CANVAS-05 | Phase 1 | Pending |
-| CANVAS-06 | Phase 1 | Pending |
-| CANVAS-07 | Phase 1 | Pending |
+| CANVAS-01 | Phase 1 | Complete |
+| CANVAS-02 | Phase 1 | Complete |
+| CANVAS-03 | Phase 1 | Complete |
+| CANVAS-04 | Phase 1 | Complete |
+| CANVAS-05 | Phase 1 | Complete |
+| CANVAS-06 | Phase 1 | Complete |
+| CANVAS-07 | Phase 1 | Complete |
 | OVER-01 | Phase 3 | Pending |
 | OVER-02 | Phase 3 | Pending |
 | OVER-03 | Phase 3 | Pending |
@@ -165,4 +165,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after project initialization*
+*Last updated: 2026-03-16 after Phase 1 completion (CANVAS-01 through CANVAS-07 verified)*
