@@ -1,8 +1,8 @@
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-16T09:15:00Z
+**Last Updated:** 2026-03-16T11:40:29Z
 **Current Phase:** Phase 1 — Clone, Rebrand & Verify (COMPLETE)
-**Current Plan:** 3 of 3 (DONE)
+**Current Plan:** 5 of 5 (DONE)
 **Overall Status:** Phase 1 Complete — Ready for Phase 2
 
 ## What's Done
@@ -18,6 +18,8 @@
 - [x] Dev server verified working with canvas (01-03)
 - [x] All 6 canvas interaction types verified (CANVAS-01 through CANVAS-06) (01-03)
 - [x] Fresh git init with PenBoard identity commit (01-03)
+- [x] Alignment guides wired into drag handler and render loop (01-04)
+- [x] Save dialog restricted to .pb only, .op removed from save accept list (01-05)
 
 ## Active Decisions
 
@@ -29,15 +31,18 @@
 | Package manager | Bun | OpenPencil default, fast |
 | File format | .pb (default), .op (legacy) | .pb is PenBoard native; .op for backward compat |
 | File save default | .pb extension | PenBoard identity; .op still accepted for open |
+| Save dialog | .pb only | .op removed from save accept list; open dialogs unchanged |
 | Landing page | Redirect to /editor | No landing page needed for dev tool |
 | Test runner (Windows) | bun vitest run | bun --bun run test has pre-existing Windows issue |
 
 ## Context for Next Session
 
-Phase 1 (Clone, Rebrand & Verify) is fully complete. All 3 plans executed successfully:
+Phase 1 (Clone, Rebrand & Verify) is fully complete. All 5 plans executed successfully:
 - 01-01: Config/code rebrand (42 files)
 - 01-02: i18n/docs rebrand (34 files)
 - 01-03: File extension, build verification, canvas verification (11 files)
+- 01-04: Gap closure — alignment guides wired into drag handler and render loop
+- 01-05: Gap closure — save dialog restricted to .pb only
 
 Next steps:
 1. Plan Phase 2 (Backend Foundation: Auth, Projects, Screen Persistence)
@@ -58,6 +63,7 @@ Next steps:
 | `src/types/pen.ts` | Document model types |
 | `src/constants/app.ts` | App constants |
 | `src/routes/index.tsx` | Landing page redirect |
+| `src/utils/file-operations.ts` | File save/open dialogs (.pb default) |
 | `server/` | Nitro server routes |
 
 ## Blockers
@@ -68,9 +74,9 @@ None currently.
 
 - Requirements: 44 (v1)
 - Phases: 6
-- Phase 1 status: COMPLETE (3/3 plans done)
-- Phase 1 duration: ~65 min total (01-01: 25min, 01-02: 5min, 01-03: 35min)
-- Phase 1 files modified: 87 total (42 + 34 + 11)
+- Phase 1 status: COMPLETE (5/5 plans done)
+- Phase 1 duration: ~66 min total (01-01: 25min, 01-02: 5min, 01-03: 35min, 01-04: ~TBD, 01-05: 1min)
+- Phase 1 files modified: 88+ total
 
 ## Performance Metrics
 
@@ -79,3 +85,4 @@ None currently.
 | 01-01 | 25min | 2 | 42 |
 | 01-02 | 5min | 2 | 34 |
 | 01-03 | 35min | 4 | 11 |
+| 01-05 | 1min | 1 | 1 |

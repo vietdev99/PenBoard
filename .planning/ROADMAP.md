@@ -6,7 +6,7 @@ PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard 
 
 ## Phases
 
-- [ ] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
+- [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
 - [ ] **Phase 2: Backend Foundation** - Auth, projects, screens persistence with Prisma + SQLite via Nitro
 - [ ] **Phase 3: Storyboard Overview & Connections** - Overview canvas with screen thumbnails, directional arrows, drill-down navigation
 - [ ] **Phase 4: Data Entities & ERD** - Visual ERD with tables/relations, data entity shapes on design canvas
@@ -33,7 +33,7 @@ Plans:
 - [x] 01-02-PLAN.md — i18n locale files and documentation rebrand (15 locales, 15 READMEs, templates)
 - [x] 01-03-PLAN.md — File extension .pb support, landing page redirect, build verification, canvas verification
 - [ ] 01-04-PLAN.md — Gap closure: Wire alignment guides into drag handler and render loop (CANVAS-06)
-- [ ] 01-05-PLAN.md — Gap closure: Remove .op from save dialog accept list
+- [x] 01-05-PLAN.md — Gap closure: Remove .op from save dialog accept list
 
 ### Phase 2: Backend Foundation
 **Goal**: Users can register, login, create projects, and persist screen designs to database
@@ -112,7 +112,7 @@ Note: Phase 4 (ERD) and Phase 5 (Shared Views) can potentially run in parallel a
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Clone, Rebrand & Verify | 3/5 | Gap closure | - |
+| 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
 | 2. Backend Foundation | 0/2 | Not started | - |
 | 3. Storyboard Overview & Connections | 0/2 | Not started | - |
 | 4. Data Entities & ERD | 0/1 | Not started | - |
