@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { loadCanvasKit } from './skia-init'
 import { SkiaEngine, screenToScene } from './skia-engine'
 import { erdHitTest, computeAllNodeBounds } from './skia-erd-renderer'
@@ -11,6 +11,20 @@ import { SkiaPenTool } from './skia-pen-tool'
 import { setSkiaEngineRef } from '../skia-engine-ref'
 import type { ToolType } from '@/types/canvas'
 import type { PenNode, ContainerProps, TextNode } from '@/types/pen'
+
+// --- Drag-connect helpers ---
+
+function getDefaultBindingProperty(argType: string, targetNodeId: string): string {
+  const node = useDocumentStore.getState().getNodeById(targetNodeId)
+  switch (argType) {
+    case 'text': return node?.type === 'text' ? 'content' : 'name'
+    case 'number': return 'opacity'
+    case 'boolean': return 'visible'
+    case 'select': return 'variant'
+    case 'color': return 'fill.0.color'
+    default: return 'visible'
+  }
+}
 
 interface TextEditState {
   nodeId: string
@@ -127,6 +141,109 @@ function computeGuides(
   }
 
   return { guides, snapDx, snapDy }
+}
+
+/**
+ * SVG overlay for drag-connect wire from property panel argument to canvas element.
+ * Bridges DOM (panel) and canvas coordinate spaces via a screen-space SVG.
+ */
+function DragConnectOverlay({
+  containerRef,
+  engineRef,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  engineRef: React.RefObject<SkiaEngine | null>
+}) {
+  const dragConnectState = useCanvasStore((s) => s.dragConnectState)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+
+      // Hit test to find element under cursor
+      const engine = engineRef.current
+      if (!engine) return
+      const scene = screenToScene(e.clientX, e.clientY, rect, {
+        zoom: engine.zoom,
+        panX: engine.panX,
+        panY: engine.panY,
+      })
+      const hits = engine.spatialIndex.hitTest(scene.x, scene.y)
+      const hitId = hits.length > 0 ? hits[hits.length - 1].node.id : null
+      setHoveredId(hitId)
+    },
+    [containerRef, engineRef],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    const state = useCanvasStore.getState().dragConnectState
+    if (!state) return
+
+    if (hoveredId) {
+      // Strip virtual ID prefix to get original child ID
+      // Virtual IDs look like "refId__childId" — we need the original childId
+      const originalId = hoveredId.includes('__')
+        ? hoveredId.split('__').pop()!
+        : hoveredId
+
+      const defaultProperty = getDefaultBindingProperty(state.argType, originalId)
+      useDocumentStore.getState().addArgumentBinding(state.sourceNodeId, state.argId, {
+        targetNodeId: originalId,
+        targetProperty: defaultProperty,
+      })
+    }
+
+    useCanvasStore.getState().setDragConnectState(null)
+    setHoveredId(null)
+  }, [hoveredId])
+
+  // Global listeners when drag-connect is active
+  useEffect(() => {
+    if (!dragConnectState) return
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragConnectState, handleMouseMove, handleMouseUp])
+
+  if (!dragConnectState) return null
+
+  const rect = containerRef.current?.getBoundingClientRect()
+  const startX = rect ? dragConnectState.startX - rect.left : 0
+  const startY = rect ? dragConnectState.startY - rect.top : 0
+
+  return (
+    <svg
+      className="absolute inset-0 pointer-events-none z-50"
+      style={{ width: '100%', height: '100%' }}
+    >
+      <line
+        x1={startX}
+        y1={startY}
+        x2={mousePos.x}
+        y2={mousePos.y}
+        stroke="#9b7aeb"
+        strokeWidth={2}
+        strokeDasharray="6 3"
+        opacity={0.8}
+      />
+      {hoveredId && (
+        <circle
+          cx={mousePos.x}
+          cy={mousePos.y}
+          r={6}
+          fill="#9b7aeb"
+          opacity={0.6}
+        />
+      )}
+    </svg>
+  )
 }
 
 export default function SkiaCanvas() {
@@ -614,6 +731,11 @@ export default function SkiaCanvas() {
       const engine = getEngine()
       if (!engine) return
 
+      // --- Drag-connect: skip normal move handling ---
+      if (useCanvasStore.getState().dragConnectState) {
+        return // DragConnectOverlay handles its own mouse tracking
+      }
+
       if (isPanning) {
         const dx = e.clientX - lastX
         const dy = e.clientY - lastY
@@ -910,6 +1032,11 @@ export default function SkiaCanvas() {
     const onMouseUp = () => {
       const engine = getEngine()
 
+      // --- Drag-connect: handled by DragConnectOverlay ---
+      if (useCanvasStore.getState().dragConnectState) {
+        return // DragConnectOverlay handles its own mouseup
+      }
+
       // --- ERD page: end entity drag ---
       if (erdDragging && erdDragEntityId && engine) {
         if (erdDragMoved && engine.erdDragOffset) {
@@ -1168,6 +1295,7 @@ export default function SkiaCanvas() {
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
       />
+      <DragConnectOverlay containerRef={containerRef} engineRef={engineRef} />
       {editingText && (
         <textarea
           autoFocus
