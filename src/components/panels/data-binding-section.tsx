@@ -19,9 +19,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Database, Unlink, AlertCircle } from 'lucide-react'
 import type { PenNode } from '@/types/pen'
-import type { DataBinding, FieldMapping } from '@/types/data-entity'
+import type { DataBinding, DataEntity, FieldMapping } from '@/types/data-entity'
 import { BINDABLE_ROLES } from '@/variables/resolve-data-binding'
 import { buildAutoFieldMappings } from '@/utils/binding-utils'
+
+/** Stable empty array to avoid new-reference-per-render in Zustand selector */
+const EMPTY_ENTITIES: DataEntity[] = []
 
 interface DataBindingSectionProps {
   node: PenNode
@@ -35,7 +38,7 @@ export default function DataBindingSection({ node }: DataBindingSectionProps) {
   const setPendingBindNodeId = useCanvasStore((s) => s.setPendingBindNodeId)
   const setDataBinding = useDocumentStore((s) => s.setDataBinding)
   const clearDataBinding = useDocumentStore((s) => s.clearDataBinding)
-  const dataEntities = useDocumentStore((s) => s.document.dataEntities ?? [])
+  const dataEntities = useDocumentStore((s) => s.document.dataEntities ?? EMPTY_ENTITIES)
 
   const binding = node.dataBinding
   const boundEntity = binding ? dataEntities.find((e) => e.id === binding.entityId) : undefined
@@ -44,15 +47,17 @@ export default function DataBindingSection({ node }: DataBindingSectionProps) {
   // Only show this section for bindable roles or if already bound
   const role = node.role ?? ''
   const isBindable = BINDABLE_ROLES.includes(role as (typeof BINDABLE_ROLES)[number]) || !!binding
-  if (!isBindable) return null
 
   // Auto-open entity selector when triggered from context menu
+  // NOTE: useEffect MUST be before any conditional return (React Rules of Hooks)
   useEffect(() => {
     if (pendingBindNodeId && pendingBindNodeId === activeId) {
       setSelectorOpen(true)
       setPendingBindNodeId(null)
     }
   }, [pendingBindNodeId, activeId, setPendingBindNodeId])
+
+  if (!isBindable) return null
 
   const handleBind = (entityId: string) => {
     if (!activeId) return
