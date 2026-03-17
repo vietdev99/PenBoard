@@ -110,6 +110,8 @@ interface DocumentStoreState {
   removeRow: DataActions['removeRow']
   updateRowValue: DataActions['updateRowValue']
   updateEntityErdPosition: DataActions['updateEntityErdPosition']
+  setDataBinding: DataActions['setDataBinding']
+  clearDataBinding: DataActions['clearDataBinding']
   addView: DataActions['addView']
   removeView: DataActions['removeView']
   updateView: DataActions['updateView']

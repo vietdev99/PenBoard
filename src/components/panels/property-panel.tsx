@@ -19,6 +19,7 @@ import IconSection from './icon-section'
 import ImageSection from './image-section'
 import ArgumentSection from './argument-section'
 import ArgumentValuesSection from './argument-values-section'
+import DataBindingSection from './data-binding-section'
 
 /** Properties stored directly on the RefNode (instance-level), not as overrides. */
 const INSTANCE_DIRECT_PROPS = new Set([
@@ -265,6 +266,12 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
             </div>
           </>
         )}
+
+        {/* Data Binding — shown for bindable roles (table, dropdown, list, select, table-row) or already-bound nodes */}
+        <Separator />
+        <div className="px-3 py-2">
+          <DataBindingSection node={displayNode} onUpdate={handleUpdate} />
+        </div>
 
         <div className="px-3 py-2">
           <SizeSection

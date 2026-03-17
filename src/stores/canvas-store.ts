@@ -46,6 +46,7 @@ interface CanvasStoreState {
   dataFocusEntityId: string | null
   showConnections: boolean
   dragConnectState: DragConnectState | null
+  pendingBindNodeId: string | null
 
   toggleShowConnections: () => void
   setActiveTool: (tool: ToolType) => void
@@ -71,6 +72,7 @@ interface CanvasStoreState {
   setPendingFigmaFile: (file: File | null) => void
   setActivePageId: (pageId: string | null) => void
   setDragConnectState: (state: DragConnectState | null) => void
+  setPendingBindNodeId: (id: string | null) => void
   hydrate: () => void
 }
 
@@ -102,6 +104,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   showConnections: true,
   dataFocusEntityId: null,
   dragConnectState: null,
+  pendingBindNodeId: null,
 
   toggleShowConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -209,6 +212,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   setPendingFigmaFile: (file) => set({ pendingFigmaFile: file }),
   setActivePageId: (activePageId) => set({ activePageId }),
   setDragConnectState: (dragConnectState) => set({ dragConnectState }),
+  setPendingBindNodeId: (pendingBindNodeId) => set({ pendingBindNodeId }),
 
   hydrate: () => {
     try {

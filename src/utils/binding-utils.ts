@@ -94,8 +94,8 @@ export function clearStaleBindingsInTree(nodes: PenNode[], entities: DataEntity[
 
     // Check if this node has a binding to a non-existent entity
     if (node.dataBinding && !entityIds.has(node.dataBinding.entityId)) {
-      const { dataBinding: _removed, ...rest } = node as Record<string, unknown>
-      cleaned = rest as PenNode
+      const { dataBinding: _removed, ...rest } = node as unknown as Record<string, unknown>
+      cleaned = rest as unknown as PenNode
     }
 
     // Recurse into children
