@@ -119,6 +119,8 @@ const vi: TranslationKeys = {
   'layerMenu.toggleLock': 'Bật/Tắt khoá',
   'layerMenu.toggleVisibility': 'Bật/Tắt hiển thị',
   'layerMenu.insertFromComponents': 'Chèn từ thành phần',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Component Picker ──
   'componentPicker.noComponents': 'Chưa có thành phần nào. Tạo thành phần ở trang Component trước.',

@@ -119,6 +119,8 @@ const th: TranslationKeys = {
   'layerMenu.toggleLock': 'สลับล็อก',
   'layerMenu.toggleVisibility': 'สลับการมองเห็น',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'สร้างคอมโพเนนต์',

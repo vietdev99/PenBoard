@@ -119,6 +119,8 @@ const id: TranslationKeys = {
   'layerMenu.toggleLock': 'Alihkan Kunci',
   'layerMenu.toggleVisibility': 'Alihkan Visibilitas',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'Buat Komponen',

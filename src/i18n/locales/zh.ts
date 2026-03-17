@@ -116,6 +116,8 @@ const zh: TranslationKeys = {
   'layerMenu.toggleLock': '切换锁定',
   'layerMenu.toggleVisibility': '切换可见性',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': '创建组件',

@@ -121,6 +121,8 @@ const ru: TranslationKeys = {
   'layerMenu.toggleLock': 'Переключить блокировку',
   'layerMenu.toggleVisibility': 'Переключить видимость',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'Создать компонент',

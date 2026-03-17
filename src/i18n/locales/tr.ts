@@ -119,6 +119,8 @@ const tr: TranslationKeys = {
   'layerMenu.toggleLock': 'Kilidi Aç/Kapat',
   'layerMenu.toggleVisibility': 'Görünürlüğü Aç/Kapat',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'Bileşen Oluştur',

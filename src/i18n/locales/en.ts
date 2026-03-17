@@ -118,6 +118,8 @@ const en = {
   'layerMenu.toggleLock': 'Toggle Lock',
   'layerMenu.toggleVisibility': 'Toggle Visibility',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'Create Component',

@@ -12,6 +12,7 @@ import {
   SquaresSubtract,
   SquaresIntersect,
   PackagePlus,
+  Database,
 } from 'lucide-react'
 
 interface LayerContextMenuProps {
@@ -25,6 +26,8 @@ interface LayerContextMenuProps {
   isInstance: boolean
   isContainer: boolean
   hasComponents: boolean
+  isBindable: boolean
+  hasBoundData: boolean
   onAction: (action: string) => void
   onClose: () => void
 }
@@ -41,6 +44,8 @@ const MENU_ITEMS = [
   { action: 'insert-from-components', labelKey: 'layerMenu.insertFromComponents', icon: PackagePlus, requireContainer: true, requireHasComponents: true },
   { action: 'detach-component', labelKey: 'layerMenu.detachComponent', icon: Unlink, requireReusable: true },
   { action: 'detach-component', labelKey: 'layerMenu.detachInstance', icon: Unlink, requireInstance: true },
+  { action: 'bind-data', labelKey: 'layerMenu.bindToData', icon: Database, requireBindable: true },
+  { action: 'unbind-data', labelKey: 'layerMenu.removeBinding', icon: Unlink, requireBoundData: true },
   { action: 'lock', labelKey: 'layerMenu.toggleLock', icon: Lock },
   { action: 'hide', labelKey: 'layerMenu.toggleVisibility', icon: EyeOff },
 ]
@@ -55,6 +60,8 @@ export default function LayerContextMenu({
   isInstance,
   isContainer,
   hasComponents,
+  isBindable,
+  hasBoundData,
   onAction,
   onClose,
 }: LayerContextMenuProps) {
@@ -92,7 +99,9 @@ export default function LayerContextMenu({
           (!('requireReusable' in item) || isReusable) &&
           (!('requireInstance' in item) || isInstance) &&
           (!('requireContainer' in item) || isContainer) &&
-          (!('requireHasComponents' in item) || hasComponents),
+          (!('requireHasComponents' in item) || hasComponents) &&
+          (!('requireBindable' in item) || isBindable) &&
+          (!('requireBoundData' in item) || hasBoundData),
       ).map((item) => (
         <button
           key={item.action}

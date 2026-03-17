@@ -121,6 +121,8 @@ const fr: TranslationKeys = {
   'layerMenu.toggleLock': 'Verrouiller / Déverrouiller',
   'layerMenu.toggleVisibility': 'Afficher / Masquer',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'Créer un composant',

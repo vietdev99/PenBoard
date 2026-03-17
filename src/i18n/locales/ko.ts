@@ -119,6 +119,8 @@ const ko: TranslationKeys = {
   'layerMenu.toggleLock': '잠금 전환',
   'layerMenu.toggleVisibility': '표시 전환',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': '컴포넌트 만들기',

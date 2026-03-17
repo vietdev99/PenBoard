@@ -10,6 +10,7 @@ import { flattenNodes } from '@/stores/document-tree-utils'
 import LayerItem from './layer-item'
 import type { DropPosition } from './layer-item'
 import LayerContextMenu from './layer-context-menu'
+import { BINDABLE_ROLES } from '@/variables/resolve-data-binding'
 import ComponentPickerDialog from './component-picker-dialog'
 import ComponentListSection from './component-list-section'
 import PageTabs from '@/components/editor/page-tabs'
@@ -445,6 +446,13 @@ export default function LayerPanel() {
         case 'detach-component':
           detachComponent(nodeId)
           break
+        case 'bind-data':
+          // Trigger the entity selector dialog in DataBindingSection via pendingBindNodeId
+          useCanvasStore.getState().setPendingBindNodeId(nodeId)
+          break
+        case 'unbind-data':
+          useDocumentStore.getState().clearDataBinding(nodeId)
+          break
         case 'boolean-union':
         case 'boolean-subtract':
         case 'boolean-intersect': {
@@ -546,6 +554,9 @@ export default function LayerPanel() {
         const hasComponents = flattenNodes(allChildren).some(
           (n: PenNode) => 'reusable' in n && n.reusable === true,
         )
+        const nodeRole = contextNode?.role ?? ''
+        const nodeIsBindable = BINDABLE_ROLES.includes(nodeRole as (typeof BINDABLE_ROLES)[number]) || !!contextNode?.dataBinding
+        const nodeHasBoundData = !!contextNode?.dataBinding
         return (
           <LayerContextMenu
             x={contextMenu.x}
@@ -558,6 +569,8 @@ export default function LayerPanel() {
             isInstance={nodeIsInstance}
             isContainer={isContainer}
             hasComponents={hasComponents}
+            isBindable={nodeIsBindable}
+            hasBoundData={nodeHasBoundData}
             onAction={handleContextAction}
             onClose={() => setContextMenu(null)}
           />

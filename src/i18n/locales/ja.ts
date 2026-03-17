@@ -123,6 +123,8 @@ const ja: TranslationKeys = {
   'layerMenu.toggleLock': 'ロックの切り替え',
   'layerMenu.toggleVisibility': '表示の切り替え',
   'layerMenu.insertFromComponents': 'Insert from Components',
+  'layerMenu.bindToData': 'Bind to data...',
+  'layerMenu.removeBinding': 'Remove binding',
 
   // ── Property Panel ──
   'property.createComponent': 'コンポーネントを作成',
