@@ -2,105 +2,31 @@
 
 ## Overview
 
-PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard intelligence: screen connections, data entities, shared views, and design tokens. The app is local-only and file-based (.pb files). Development focuses on adding storyboard-specific features and data modeling to the existing design canvas.
+PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard intelligence: screen connections, data entities, shared views, and design tokens. The app is local-only and file-based (.pb files).
+
+## Milestones
+
+- ✅ **v1.0 PenBoard MVP** — Phases 1-4 (shipped 2026-03-17)
 
 ## Phases
 
-- [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
-- [x] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
-- [x] **Phase 3: Shared Components & Design Tokens** - Reusable components with rich arguments, token management UI, connection highlight mode
-- [x] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
+<details>
+<summary>✅ v1.0 PenBoard MVP (Phases 1-4) — SHIPPED 2026-03-17</summary>
 
-## Removed Phases
+- [x] Phase 1: Clone, Rebrand & Verify (5/5 plans) — completed 2026-03-16
+- [x] Phase 2: Storyboard Connections & Data Entities (3/3 plans) — completed 2026-03-16
+- [x] Phase 3: Shared Components & Design Tokens (5/5 plans) — completed 2026-03-16
+- [x] Phase 4: E2E Tests & Polish (3/3 plans) — completed 2026-03-17
 
-- ~~Backend Foundation (Auth, Projects, Screen Persistence)~~ — Removed. App is local-only, file-based. No auth, no database, no server persistence needed.
+Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
-## Phase Details
-
-### Phase 1: Clone, Rebrand & Verify
-**Goal**: PenBoard runs locally with all OpenPencil features working under new brand
-**Depends on**: Nothing (first phase)
-**Requirements**: CANVAS-01, CANVAS-02, CANVAS-03, CANVAS-04, CANVAS-05, CANVAS-06, CANVAS-07
-**Plans:** 5 plans
-**Success Criteria**:
-  1. `bun run dev` starts PenBoard at localhost:3000 with working canvas
-  2. All 11 shape types render, select, resize correctly
-  3. Undo/redo, copy/paste, multi-select work
-  4. App shows "PenBoard" branding everywhere
-  5. Electron desktop build works (`bun run electron:dev`)
-  6. MCP server responds with "penboard" identity
-
-Plans:
-- [x] 01-01-PLAN.md — Core rebrand: config, Electron, server, and client source code (openpencil → penboard)
-- [x] 01-02-PLAN.md — i18n locale files and documentation rebrand (15 locales, 15 READMEs, templates)
-- [x] 01-03-PLAN.md — File extension .pb support, landing page redirect, build verification, canvas verification
-- [x] 01-04-PLAN.md — Gap closure: Wire alignment guides into drag handler and render loop (CANVAS-06)
-- [x] 01-05-PLAN.md — Gap closure: Remove .op from save dialog accept list
-
-### Phase 2: Storyboard Connections & Data Entities
-**Goal**: Users can connect screen elements to other screens via property panel, and manage Notion-like data entities (tables, fields, sample data, relations, views) within .pb files
-**Depends on**: Phase 1
-**Requirements**: CONN-01, CONN-02, CONN-03, CONN-04, CONN-05, ERD-01, ERD-02, ERD-03, ERD-04, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
-**Plans:** 3 plans
-**Success Criteria**:
-  1. Select element → property panel "Navigate to" → pick target screen/frame
-  2. Connections persist in .pb file and reload correctly
-  3. Visual indicator on elements that have connections (with target name)
-  4. Data entities panel: create tables, add typed fields, enter sample data rows
-  5. ERD page: tables as visual nodes, drag to arrange, draw relation edges
-  6. Relations display cardinality (1:1, 1:N, N:M)
-  7. Data views with filter and sort
-  8. All data persists in .pb file
-
-Plans:
-- [x] 02-01-PLAN.md — Screen connections: types, store CRUD, property panel UI, canvas badge overlay
-- [x] 02-02-PLAN.md — Data entities: Notion-like tables, field management, ERD page rendering, filter/sort views
-- [x] 02-03-PLAN.md — Gap closure: Connection targets Page > Frame, same-page connections, badge shows target name
-
-### Phase 3: Shared Components & Design Tokens
-**Goal**: Reusable components with rich arguments (props), connection highlight mode, and expanded design token management
-**Depends on**: Phase 1, Phase 2
-**Requirements**: SHARED-01, SHARED-02, SHARED-03, SHARED-04, SHARED-05, SHARED-06, SHARED-07, SHARED-08, TOKEN-01, TOKEN-02, TOKEN-03, TOKEN-04, TOKEN-05
-**Plans:** 5/5 plans complete
-**Success Criteria**:
-  1. User can create shared component (navbar, sidebar, footer) on dedicated component page
-  2. Shared component instances on screen canvases update when source is edited
-  3. Components support rich arguments (text, number, boolean, select, color)
-  4. User can set argument values when including component (e.g., Sidebar with activeItem="Dashboard")
-  5. Design tokens panel grouped by type (Colors, Spacing, Typography, Other)
-  6. Token picker on size and text property fields, $variable references resolve at render
-  7. Highlight mode shows connection flow arrows with focus+dim
-  8. Navigate picker redesigned as tab/list modal
-
-Plans:
-- [x] 03-01-PLAN.md — Types, component page, component store, badge overlay (SHARED-01, SHARED-03)
-- [x] 03-02-PLAN.md — Argument definitions, drag-connect binding UI (SHARED-06)
-- [x] 03-03-PLAN.md — Argument values on instances, render pipeline, navigate-to-source (SHARED-07, SHARED-08, SHARED-05)
-- [x] 03-04-PLAN.md — Token expansion: grouped variables panel, VariablePicker on size/text fields (TOKEN-01..05)
-- [x] 03-05-PLAN.md — Highlight mode, connection arrows, navigate modal redesign (SHARED-02, SHARED-05)
-
-### Phase 4: E2E Tests & Polish
-**Goal**: Comprehensive test coverage, Electron validation, performance
-**Depends on**: All previous phases
-**Requirements**: (implicit — testing all features)
-**Success Criteria**:
-  1. Playwright E2E tests cover canvas, connections, ERD, shared views, tokens
-  2. Electron desktop app works correctly
-  3. Canvas renders at 60fps (< 16ms per frame)
-  4. MCP server works from Claude Code
-
-Plans:
-- [x] 04-01-PLAN.md — Unit tests: document-store, connections, data entities, shared components, tokens
-- [x] 04-02-PLAN.md — Playwright E2E test suites: canvas tools, design tokens, editor loads, file operations
-- [x] 04-03-PLAN.md — Performance benchmark + Electron compile validation + MCP unit tests
+</details>
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4
-
-| Phase | Plans Complete | Status | Completed |
-|-------|---------------|--------|-----------|
-| 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
-| 2. Storyboard Connections & Data Entities | 3/3 | Complete | 2026-03-16 |
-| 3. Shared Components & Design Tokens | 5/5 | Complete | 2026-03-16 |
-| 4. E2E Tests & Polish | 3/3 | Complete | 2026-03-17 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+| ----- | --------- | -------------- | ------ | --------- |
+| 1. Clone, Rebrand & Verify | v1.0 | 5/5 | Complete | 2026-03-16 |
+| 2. Storyboard Connections & Data Entities | v1.0 | 3/3 | Complete | 2026-03-16 |
+| 3. Shared Components & Design Tokens | v1.0 | 5/5 | Complete | 2026-03-16 |
+| 4. E2E Tests & Polish | v1.0 | 3/3 | Complete | 2026-03-17 |

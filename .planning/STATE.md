@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: PenBoard MVP
 current_phase: 4
 current_plan: 3 of 3
-status: complete
-last_updated: "2026-03-17T07:11:00Z"
+status: milestone_complete
+last_updated: "2026-03-17T08:30:00Z"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -15,148 +15,21 @@ progress:
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-17T07:11:00Z
-**Current Phase:** 4
-**Current Plan:** 3 of 3
-**Overall Status:** Phase 4 Complete — All 16 plans done. All 35 requirements satisfied. v1.0 complete.
+**Last Updated:** 2026-03-17
+**Milestone:** v1.0 PenBoard MVP — SHIPPED
+**Overall Status:** Milestone complete. All 4 phases, 16 plans, 35 requirements done.
 
-## What's Done
+## Project Reference
 
-- [x] Phase 4: E2E Tests & Polish (3/3 plans complete, 2026-03-17)
-  - [x] Plan 04-01: Unit tests for all feature stores and components
-  - [x] Plan 04-02: Playwright E2E suites (canvas tools, design tokens, editor, file ops)
-  - [x] Plan 04-03: Performance benchmark (< 16ms 100-node syncFromDocument), Electron compile validated, MCP unit tests (21 passing)
-- [x] Phase 1: Clone, Rebrand & Verify (5/5 plans, all verified)
-- [x] Resize alignment guides + size matching (bonus feature)
-- [x] Phase 2 CONTEXT.md created with all decisions
-- [x] Roadmap restructured (removed Backend Foundation phase)
-- [x] Requirements updated (removed auth/project/screen, added data entity reqs)
-- [x] Phase 2 Plan 01: Screen Connections (types, store CRUD, UI, canvas badge)
-- [x] Phase 2 Plan 02: Data Entities & ERD (Notion-like tables, field CRUD, ERD page renderer, filter/sort views)
-- [x] Phase 2 Plan 03: Connection Gap Closure (targetFrameId, same-page connections, badge target name)
-- [x] Phase 3 Plan 01: Component Types, Store & Badge (ComponentArgument types, store CRUD, component page, diamond badge)
-- [x] Phase 3 Plan 02: Component Argument UI & Drag-Connect Binding (ArgumentSection panel, SVG wire overlay, binding creation)
-- [x] Phase 3 Plan 04: Design Token Panel & Picker Expansion (grouped variables panel, VariablePicker on 7 new fields, numeric $ref resolution)
-- [x] Phase 3 Plan 03: Argument Values & Resolution Pipeline (ArgumentValuesSection, applyArgumentValues in resolveRefs, navigate-to-source)
-- [x] Phase 3 Plan 05: Connection Highlight Mode & Navigate Modal (Focus+Dim arrows, NavigateModal tab picker, quick-navigate)
+See: .planning/PROJECT.md (updated 2026-03-17)
 
-## Roadmap Change (2026-03-16)
+**Core value:** Visual design canvas + storyboard intelligence
+**Current focus:** Planning next milestone
 
-**Removed Phase 2 (Backend Foundation)** — App is local-only, file-based. No auth, no database, no server persistence.
+## Milestone History
 
-**New roadmap:**
-1. Clone, Rebrand & Verify (DONE)
-2. Storyboard Connections & Data Entities (DONE)
-3. Shared Components & Design Tokens (NEXT)
-4. E2E Tests & Polish
-
-## Active Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Canvas engine | CanvasKit/Skia (from OpenPencil) | Full source, MIT, GPU-accelerated |
-| Base project | Fork OpenPencil v0.4.1 | Already has canvas, shapes, MCP, code gen |
-| Package manager | Bun | OpenPencil default, fast |
-| File format | .pb (default), .op (legacy) | .pb is PenBoard native; .op for backward compat |
-| Save dialog | .pb only | .op removed from save accept list |
-| Landing page | Redirect to /editor | No landing page needed for dev tool |
-| App model | **Local-only, file-based** | No auth, no DB, no server persistence |
-| Screen model | **Page = Screen** | Existing PenPage is a storyboard screen |
-| Connections | **Property panel** | Select element -> "Navigate to" -> pick target screen |
-| Connection data | **PenDocument.connections[]** | Detailed: sourceElement, targetPage/Frame, trigger, transition |
-| Connection target | **Page > Frame picker** | Grouped hierarchy, same-page allowed, pageId::frameId format |
-| Data entities | **In .pb file** | PenDocument.dataEntities[] — Notion-like tables |
-| Data entity features | **Full** | Tables + fields + sample data + relations + views |
-| Data entity UI | **Panel + ERD page** | Sidebar panel for management, ERD page for visualization |
-| Shared components | **With rich args** | Props: text, number, boolean, select, color (Phase 3) |
-| Connection storage | **Document-level array** | PenDocument.connections[] for easy querying and cascade |
-| Connection cascade | **Auto-delete on node/page remove** | Ensures data integrity without orphaned connections |
-| ERD page exclusion | **No connections on ERD** | Connections are screen-to-screen only |
-| Data actions pattern | **createDataActions extracted** | Same pattern as connections and pages for consistency |
-| ERD renderer | **Dedicated SkiaErdRenderer class** | Keeps skia-engine.ts focused, clean delegation |
-| ERD auto-layout | **Grid: 250px H x 300px V, 3/row** | Sensible defaults when no erdPosition set |
-| ERD tool restriction | **Select + hand only** | Drawing tools disabled on ERD pages |
-| Component args | **5 types: text/number/boolean/select/color** | Rich arg system per SHARED-01 |
-| Component badge | **Faded purple diamond (0.4 alpha)** | Low-opacity corner badge per user decision |
-| Component store pattern | **createComponentActions with updater-function tree traversal** | Cross-page node lookup for argument mutations |
-| Variable grouping | **Name-based heuristic** | font/size/line/letter -> Typography, rest -> Spacing |
-| VariablePicker placement | **Adjacent flex container (gap-0.5)** | Matches existing fill-section/appearance-section pattern |
-| Drag-connect wire | **SVG overlay** | Bridges DOM panel and SkiaCanvas coordinate spaces |
-| DragConnectOverlay | **Separate React component** | Owns mouse tracking, avoids polluting main canvas event loop |
-| Binding properties | **BINDABLE_PROPERTIES whitelist** | Type-safe bindings per argument type |
-| Highlight mode shortcut | **Shift+H** | 'H' alone is hand tool, Shift+H avoids conflict |
-| Navigate picker | **Tab/list modal** | Dropdown doesn't scale with many pages/frames |
-| Overlay drawing pattern | **SkiaRenderer wrapper methods** | Consistent with existing drawConnectionBadge pattern |
-
-## Context for Next Session
-
-Phase 3 COMPLETE (all 5 plans done). Component system, argument resolution, design token expansion, and connection highlight mode all implemented.
-
-What was built in Plan 05:
-
-- Highlight mode toggle (toolbar Highlighter button + Shift+H shortcut)
-- Focus+Dim visualization: connection arrows for same-page, off-screen indicators for cross-page, dim unrelated
-- NavigateModal: tab/list modal with vertical page tabs, frame list, search filter
-- Quick-navigate button on each connection row (switches page and selects target)
-- SHARED-02 (highlight connected), SHARED-05 (navigate to connections) satisfied
-
-Next steps:
-
-1. Phase 4: E2E Tests & Polish
-
-## Key File Locations
-
-| File | Purpose |
-|------|---------|
-| `package.json` | Dependencies, scripts |
-| `vite.config.ts` | Vite + TanStack Start + Nitro config |
-| `electron/main.ts` | Electron main process |
-| `src/canvas/skia/skia-engine.ts` | Canvas rendering engine (+ ERD delegation) |
-| `src/canvas/skia/skia-canvas.tsx` | Canvas component + event handling (+ ERD interaction) |
-| `src/canvas/skia/skia-erd-renderer.ts` | ERD page renderer (table nodes, edges) |
-| `src/stores/document-store.ts` | Document state management |
-| `src/stores/document-store-data.ts` | Data entity CRUD actions |
-| `src/stores/document-store-connections.ts` | Connection CRUD actions |
-| `src/stores/document-store-pages.ts` | Multi-page management (screen + erd types) |
-| `src/stores/canvas-store.ts` | UI state (dataPanelOpen, dataFocusEntityId) |
-| `src/types/pen.ts` | Document model types |
-| `src/types/data-entity.ts` | DataEntity/DataField/DataRow/DataView types |
-| `src/components/panels/data-panel.tsx` | Data entities floating panel |
-| `src/components/panels/data-entity-table.tsx` | Notion-like inline table |
-| `src/components/panels/connection-section.tsx` | Connection section UI (with NavigateModal) |
-| `src/components/panels/navigate-modal.tsx` | Tab/list modal for page>frame navigation |
-| `src/stores/document-store-components.ts` | Component argument CRUD actions |
-| `src/components/panels/variable-group.tsx` | Collapsible group component for variables panel |
-| `src/components/editor/page-tabs.tsx` | Page tabs (screens + ERD + component) |
-| `.planning/phases/02-storyboard-data/02-CONTEXT.md` | Phase 2 decisions |
+- **v1.0 PenBoard MVP** — Shipped 2026-03-17 (4 phases, 16 plans, 35 requirements)
 
 ## Blockers
 
-None currently.
-
-## Metrics
-
-- Requirements: 35 (v1, was 44 — removed 17, added 8)
-- Phases: 4 (was 6 — removed Backend Foundation, merged Storyboard+ERD)
-- Phase 1 status: COMPLETE (5/5 plans done)
-- Phase 2 status: COMPLETE (3/3 plans done, including gap closure)
-- Phase 3 status: COMPLETE (5/5 plans done)
-- Phase 4 status: COMPLETE (3/3 plans done)
-
-## Performance Metrics
-
-| Phase-Plan | Duration | Tasks | Files |
-|-----------|----------|-------|-------|
-| 01-01 | 25min | 2 | 42 |
-| 01-02 | 5min | 2 | 34 |
-| 01-03 | 35min | 4 | 11 |
-| 01-04 | 3min | 2 | 2 |
-| 01-05 | 1min | 1 | 1 |
-| 02-01 | 10min | 2 | 29 |
-| 02-02 | 20min | 5 | 23 |
-| 02-03 | 6min | 2 | 22 |
-| 03-01 | 6min | 2 | 8 |
-| 03-02 | 8min | 2 | 4 |
-| 03-03 | 8min | 2 | 4 |
-| 03-04 | 5min | 2 | 6 |
-| 03-05 | 8min | 2 | 8 |
+None.
