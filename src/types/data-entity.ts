@@ -65,3 +65,20 @@ export interface DataEntity {
   /** Position on the ERD page canvas */
   erdPosition?: { x: number; y: number }
 }
+
+// --- Data Binding Types ---
+// Maps a data entity field to a visual slot on a bound node.
+
+export interface FieldMapping {
+  /** Key identifying the visual slot (e.g. 'col-0', 'col-1') */
+  slotKey: string
+  /** ID of the DataField to bind to this slot */
+  fieldId: string
+}
+
+export interface DataBinding {
+  /** ID of the DataEntity this node is bound to */
+  entityId: string
+  /** Maps entity fields to visual slots on the node */
+  fieldMappings: FieldMapping[]
+}
