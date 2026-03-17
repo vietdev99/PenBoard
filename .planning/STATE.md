@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Data-Driven Design
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-17T17:00:09.123Z"
-last_activity: 2026-03-17 -- Completed Plan 05-01 (data binding test scaffold)
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-17T17:08:15.000Z"
+last_activity: 2026-03-17 -- Completed Plan 05-02 (data binding implementation)
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 66
 ---
 
 # Project State: PenBoard
@@ -23,11 +23,11 @@ progress:
 ## Current Position
 
 Phase: 5 of 9 (Data Binding) -- first phase of v1.1
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-17 -- Completed Plan 05-01 (data binding test scaffold)
+Last activity: 2026-03-17 -- Completed Plan 05-02 (data binding implementation)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 66%
 
 ## Project Reference
 
@@ -55,6 +55,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 *v1.1 metrics will be tracked from Phase 5 onward*
 | Phase 05 P01 | 5min | 1 tasks | 3 files |
+| Phase 05 P02 | 6min | 3 tasks | 4 files |
 
 ## Milestone History
 
@@ -70,6 +71,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - [05-01] Added DataBinding/FieldMapping types and resolve-data-binding stub as Rule 3 auto-fixes for test compilation
 - [05-01] Accepted 1/7 test passing in RED state (stub coincidentally satisfies entity-missing edge case)
 - [Phase 05]: Added DataBinding/FieldMapping types and resolve-data-binding stub as Rule 3 auto-fixes for test compilation
+- [05-02] No previewRowCount field: all entity rows shown without limit (per user decision)
+- [05-02] Data binding resolves BEFORE variable resolution in canvas pipeline (per user decision)
+- [05-02] Positional field matching as fallback when fieldMappings array is empty
 
 ### Pending Todos
 
@@ -81,7 +85,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T16:59:55.073Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-17T17:08:15.000Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
-Next step: Execute Plan 05-02 (data binding implementation)
+Next step: Execute Plan 05-03 (data binding UI panel)
