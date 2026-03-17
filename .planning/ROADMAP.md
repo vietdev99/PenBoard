@@ -52,9 +52,9 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 Plans:
 
-- [ ] 05-01-PLAN.md — Wave 0 test scaffold: 7 failing stubs for BIND-01 through BIND-04
-- [ ] 05-02-PLAN.md — Core binding layer: types, store actions, cascade cleanup, resolveDataBinding + canvas integration
-- [ ] 05-03-PLAN.md — UI layer: DataBindingSection component, entity selector modal, field mapping, property panel wiring
+- [x] 05-01-PLAN.md — Wave 0 test scaffold: 7 failing stubs for BIND-01 through BIND-04
+- [x] 05-02-PLAN.md — Core binding layer: types, store actions, cascade cleanup, resolveDataBinding + canvas integration
+- [x] 05-03-PLAN.md — UI layer: DataBindingSection component, entity selector modal, field mapping, property panel wiring (checkpoint pending)
 
 ### Phase 6: Context & AI
 
@@ -140,7 +140,7 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 2. Storyboard Connections & Data Entities | v1.0 | 3/3 | Complete | 2026-03-16 |
 | 3. Shared Components & Design Tokens | v1.0 | 5/5 | Complete | 2026-03-16 |
 | 4. E2E Tests & Polish | v1.0 | 3/3 | Complete | 2026-03-17 |
-| 5. Data Binding | 2/3 | In Progress|  | - |
+| 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 0/0 | Not started | - |
 | 7. Interactive Preview | v1.1 | 0/0 | Not started | - |
 | 8. Workflow Visualization | v1.1 | 0/0 | Not started | - |
