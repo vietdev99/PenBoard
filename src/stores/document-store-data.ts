@@ -1,7 +1,8 @@
 import { nanoid } from 'nanoid'
-import type { PenDocument } from '@/types/pen'
+import type { PenDocument, PenNode } from '@/types/pen'
 import type {
   DataEntity,
+  DataBinding,
   DataField,
   DataRow,
   DataView,
@@ -9,6 +10,7 @@ import type {
   DataSort,
 } from '@/types/data-entity'
 import { useHistoryStore } from '@/stores/history-store'
+import { updateNodeInTree } from '@/stores/document-tree-utils'
 
 export interface DataActions {
   // Entity CRUD
@@ -30,10 +32,34 @@ export interface DataActions {
   // ERD position
   updateEntityErdPosition: (entityId: string, position: { x: number; y: number }) => void
 
+  // Data Binding
+  setDataBinding: (nodeId: string, binding: DataBinding) => void
+  clearDataBinding: (nodeId: string) => void
+
   // View management
   addView: (entityId: string, name?: string) => string
   removeView: (entityId: string, viewId: string) => void
   updateView: (entityId: string, viewId: string, updates: Partial<DataView>) => void
+}
+
+/** Pure tree walker: removes dataBinding from any node bound to the given entityId.
+ * Returns a new array; does not mutate inputs. Recurses into children. */
+function clearDataBindingInTree(nodes: PenNode[], entityId: string): PenNode[] {
+  return nodes.map((node) => {
+    let cleaned = node
+    if (node.dataBinding?.entityId === entityId) {
+      const { dataBinding: _removed, ...rest } = node as Record<string, unknown>
+      cleaned = rest as PenNode
+    }
+    if ('children' in cleaned && (cleaned as PenNode & { children?: PenNode[] }).children) {
+      const newChildren = clearDataBindingInTree(
+        (cleaned as PenNode & { children: PenNode[] }).children,
+        entityId,
+      )
+      return { ...cleaned, children: newChildren } as PenNode
+    }
+    return cleaned
+  })
 }
 
 export function createDataActions(
@@ -86,10 +112,19 @@ export function createDataActions(
           fields: e.fields.filter((f) => f.relatedEntityId !== entityId),
         }))
 
+      // Walk all pages' node trees and clear dangling data binding references
+      const cleanedPages = (state.document.pages ?? []).map((page) => ({
+        ...page,
+        children: clearDataBindingInTree(page.children, entityId),
+      }))
+      const cleanedChildren = clearDataBindingInTree(state.document.children, entityId)
+
       set({
         document: {
           ...state.document,
           dataEntities: remaining,
+          pages: cleanedPages.length > 0 ? cleanedPages : state.document.pages,
+          children: cleanedChildren,
         },
         isDirty: true,
       })
@@ -263,6 +298,40 @@ export function createDataActions(
             ...e,
             erdPosition: position,
           })),
+        },
+        isDirty: true,
+      })
+    },
+
+    setDataBinding: (nodeId, binding) => {
+      const state = get()
+      useHistoryStore.getState().pushState(state.document)
+      const pages = (state.document.pages ?? []).map((page) => ({
+        ...page,
+        children: updateNodeInTree(page.children, nodeId, { dataBinding: binding } as Partial<PenNode>),
+      }))
+      set({
+        document: {
+          ...state.document,
+          pages: pages.length > 0 ? pages : state.document.pages,
+          children: updateNodeInTree(state.document.children, nodeId, { dataBinding: binding } as Partial<PenNode>),
+        },
+        isDirty: true,
+      })
+    },
+
+    clearDataBinding: (nodeId) => {
+      const state = get()
+      useHistoryStore.getState().pushState(state.document)
+      const pages = (state.document.pages ?? []).map((page) => ({
+        ...page,
+        children: updateNodeInTree(page.children, nodeId, { dataBinding: undefined } as Partial<PenNode>),
+      }))
+      set({
+        document: {
+          ...state.document,
+          pages: pages.length > 0 ? pages : state.document.pages,
+          children: updateNodeInTree(state.document.children, nodeId, { dataBinding: undefined } as Partial<PenNode>),
         },
         isDirty: true,
       })
