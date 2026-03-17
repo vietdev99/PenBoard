@@ -16,6 +16,7 @@ const ru: TranslationKeys = {
   'common.untitled': 'Без названия',
   'common.best': 'Лучшее',
   'common.selected': '{{count}} выбрано',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Выделение',
@@ -111,6 +112,7 @@ const ru: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Сгруппировать выделение',
   'layerMenu.createComponent': 'Создать компонент',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Отсоединить компонент',
   'layerMenu.detachInstance': 'Отсоединить экземпляр',
   'layerMenu.booleanUnion': 'Объединение',
@@ -118,6 +120,7 @@ const ru: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Пересечение',
   'layerMenu.toggleLock': 'Переключить блокировку',
   'layerMenu.toggleVisibility': 'Переключить видимость',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Создать компонент',
@@ -268,6 +271,10 @@ const ru: TranslationKeys = {
   'variables.exportPreset': 'Экспорт в файл…',
   'variables.presetName': 'Название пресета',
   'variables.noPresets': 'Нет сохранённых пресетов',
+  'variables.tokenColor': 'Цветовой токен',
+  'variables.tokenSpacing': 'Токен отступа',
+  'variables.tokenTypography': 'Типографический токен',
+  'variables.tokenNumber': 'Числовой токен',
 
   // ── AI Chat ──
   'ai.newChat': 'Новый чат',
@@ -410,6 +417,13 @@ const ru: TranslationKeys = {
   'componentBrowser.category.feedback': 'Обратная связь',
   'componentBrowser.category.data': 'Данные',
   'componentBrowser.category.other': 'Прочее',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'Привязано к --{{name}}',

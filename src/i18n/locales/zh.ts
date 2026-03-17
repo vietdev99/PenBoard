@@ -16,6 +16,7 @@ const zh: TranslationKeys = {
   'common.untitled': '未命名',
   'common.best': '最佳',
   'common.selected': '已选择 {{count}} 个',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': '选择',
@@ -106,6 +107,7 @@ const zh: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': '编组选中项',
   'layerMenu.createComponent': '创建组件',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': '分离组件',
   'layerMenu.detachInstance': '分离实例',
   'layerMenu.booleanUnion': '联合',
@@ -113,6 +115,7 @@ const zh: TranslationKeys = {
   'layerMenu.booleanIntersect': '交集',
   'layerMenu.toggleLock': '切换锁定',
   'layerMenu.toggleVisibility': '切换可见性',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': '创建组件',
@@ -261,6 +264,10 @@ const zh: TranslationKeys = {
   'variables.exportPreset': '导出到文件…',
   'variables.presetName': '预设名称',
   'variables.noPresets': '没有保存的预设',
+  'variables.tokenColor': '颜色令牌',
+  'variables.tokenSpacing': '间距令牌',
+  'variables.tokenTypography': '字体令牌',
+  'variables.tokenNumber': '数值令牌',
 
   // ── AI Chat ──
   'ai.newChat': '新对话',
@@ -398,6 +405,13 @@ const zh: TranslationKeys = {
   'componentBrowser.category.feedback': '反馈',
   'componentBrowser.category.data': '数据',
   'componentBrowser.category.other': '其他',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': '已绑定到 --{{name}}',

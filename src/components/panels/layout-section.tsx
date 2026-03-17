@@ -1,4 +1,5 @@
 import NumberInput from '@/components/shared/number-input'
+import VariablePicker from '@/components/shared/variable-picker'
 import type { PenNode, ContainerProps, SizingBehavior } from '@/types/pen'
 import { cn } from '@/lib/utils'
 import {
@@ -195,11 +196,13 @@ function AlignmentGrid({
 
 function GapSection({
   gap,
+  rawGap,
   gapMode,
   onGapModeChange,
   onUpdate,
 }: {
   gap: number
+  rawGap: number | string | undefined
   gapMode: GapMode
   onGapModeChange: (mode: GapMode) => void
   onUpdate: (updates: Partial<PenNode>) => void
@@ -213,7 +216,7 @@ function GapSection({
       >
         <RadioCircle selected={gapMode === 'numeric'} />
         <div
-          className="flex-1"
+          className="flex items-center gap-0.5 flex-1"
           onClick={(e) => e.stopPropagation()}
         >
           <NumberInput
@@ -222,6 +225,12 @@ function GapSection({
               onUpdate({ gap: v } as Partial<PenNode>)
             }
             min={0}
+          />
+          <VariablePicker
+            type="number"
+            currentValue={typeof rawGap === 'string' ? rawGap : rawGap}
+            onBind={(ref) => onUpdate({ gap: ref } as Partial<PenNode>)}
+            onUnbind={(val) => onUpdate({ gap: Number(val) } as Partial<PenNode>)}
           />
         </div>
       </div>
@@ -386,7 +395,7 @@ export default function LayoutSection({
   const justifyContent = normalizeJustifyValue(node.justifyContent)
   const alignItems = normalizeAlignValue(node.alignItems)
   const rawGap = node.gap
-  const gap = typeof rawGap === 'number' ? rawGap : 0
+  const gap = typeof rawGap === 'number' ? rawGap : (typeof rawGap === 'string' && !rawGap.startsWith('$') ? Number(rawGap) || 0 : 0)
 
   const gapMode: GapMode =
     justifyContent === 'space_between'
@@ -487,6 +496,7 @@ export default function LayoutSection({
               </span>
               <GapSection
                 gap={gap}
+                rawGap={rawGap}
                 gapMode={gapMode}
                 onGapModeChange={handleGapModeChange}
                 onUpdate={onUpdate}

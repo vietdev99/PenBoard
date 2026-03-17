@@ -31,6 +31,8 @@ import {
   drawAgentNodeBorder as _drawAgentNodeBorder,
   drawAgentPreviewFill as _drawAgentPreviewFill,
   drawConnectionBadge as _drawConnectionBadge,
+  drawStoryboardArrow as _drawStoryboardArrow,
+  drawCrossPageArrow as _drawCrossPageArrow,
   drawComponentBadge as _drawComponentBadge,
   drawDimOverlay as _drawDimOverlay,
   drawConnectionArrow as _drawConnectionArrow,
@@ -1563,6 +1565,23 @@ export class SkiaRenderer {
     zoom: number, connectionCount: number, targetName?: string,
   ) {
     _drawConnectionBadge(this.ck, canvas, x, y, w, h, zoom, connectionCount, targetName)
+  }
+
+  drawStoryboardArrow(
+    canvas: Canvas,
+    sx: number, sy: number, sw: number, sh: number,
+    tx: number, ty: number, tw: number, th: number,
+    zoom: number, label?: string,
+  ) {
+    _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label)
+  }
+
+  drawCrossPageArrow(
+    canvas: Canvas,
+    sx: number, sy: number, sw: number, sh: number,
+    zoom: number, targetName: string,
+  ) {
+    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName)
   }
 
   drawComponentBadge(

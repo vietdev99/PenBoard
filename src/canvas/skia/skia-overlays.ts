@@ -12,7 +12,6 @@ import {
   PEN_RUBBER_BAND_STROKE,
   PEN_RUBBER_BAND_DASH,
   CONNECTION_BADGE_COLOR,
-  CONNECTION_BADGE_ICON_COLOR,
 } from '../canvas-constants'
 import { parseColor } from './skia-paint-utils'
 
@@ -563,100 +562,211 @@ export function drawAgentPreviewFill(
 }
 
 // ---------------------------------------------------------------------------
-// Connection badge (green circle at top-right of elements with connections)
+// Connection arrows (storyboard-style arrows between elements)
 // ---------------------------------------------------------------------------
 
 /**
  * Draw a connection badge at the top-right corner of an element.
- * Shows a green circle with an arrow icon. If connectionCount > 1,
- * displays the count.
+ * Kept for backwards compat but now just draws a small green dot indicator.
  */
 export function drawConnectionBadge(
   ck: CanvasKit, canvas: Canvas,
   x: number, y: number, w: number, _h: number,
   zoom: number,
-  connectionCount: number,
-  targetName?: string,
+  _connectionCount: number,
+  _targetName?: string,
+): void {
+  // Small green dot at top-right corner as subtle indicator
+  const invZ = 1 / zoom
+  const dotR = 4 * invZ
+  const paint = new ck.Paint()
+  paint.setStyle(ck.PaintStyle.Fill)
+  paint.setAntiAlias(true)
+  paint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  paint.setAlphaf(0.8)
+  canvas.drawCircle(x + w - dotR, y - dotR, dotR, paint)
+  paint.delete()
+}
+
+/**
+ * Draw a storyboard-style arrow from source element to target element.
+ * Finds the best edge pair (closest sides) and draws a curved path with arrowhead.
+ */
+export function drawStoryboardArrow(
+  ck: CanvasKit, canvas: Canvas,
+  sx: number, sy: number, sw: number, sh: number,
+  tx: number, ty: number, tw: number, th: number,
+  zoom: number,
+  label?: string,
 ): void {
   const invZ = 1 / zoom
-  const badgeR = 8 * invZ // 16px diameter
-  const badgeX = x + w - badgeR * 0.5
-  const badgeY = y - badgeR * 0.5
 
-  // Green circle background
+  // Source and target centers
+  const sCx = sx + sw / 2, sCy = sy + sh / 2
+  const tCx = tx + tw / 2, tCy = ty + th / 2
+
+  // Pick exit/entry edges: prefer horizontal (right→left) like Xcode
+  let x1: number, y1: number, x2: number, y2: number
+  if (tCx >= sCx) {
+    // Target is to the right: exit right, enter left
+    x1 = sx + sw; y1 = sCy
+    x2 = tx;      y2 = tCy
+  } else {
+    // Target is to the left: exit left, enter right
+    x1 = sx;      y1 = sCy
+    x2 = tx + tw; y2 = tCy
+  }
+
+  // Control points for a smooth cubic bezier
+  const dx = Math.abs(x2 - x1)
+  const cp = Math.max(40 * invZ, dx * 0.4)
+  const cpx1 = tCx >= sCx ? x1 + cp : x1 - cp
+  const cpx2 = tCx >= sCx ? x2 - cp : x2 + cp
+
+  // Draw the curve
+  const linePaint = new ck.Paint()
+  linePaint.setStyle(ck.PaintStyle.Stroke)
+  linePaint.setAntiAlias(true)
+  linePaint.setStrokeWidth(2 * invZ)
+  linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  linePaint.setAlphaf(0.85)
+  linePaint.setStrokeCap(ck.StrokeCap.Round)
+
+  const path = new ck.Path()
+  path.moveTo(x1, y1)
+  path.cubicTo(cpx1, y1, cpx2, y2, x2, y2)
+  canvas.drawPath(path, linePaint)
+  path.delete()
+  linePaint.delete()
+
+  // Arrowhead at target end
+  const arrowSize = 8 * invZ
+  // Arrow points in the direction of entry
+  const dir = tCx >= sCx ? -1 : 1
+  const ax = x2, ay = y2
+
+  const arrowPaint = new ck.Paint()
+  arrowPaint.setStyle(ck.PaintStyle.Fill)
+  arrowPaint.setAntiAlias(true)
+  arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  arrowPaint.setAlphaf(0.85)
+
+  const arrowPath = new ck.Path()
+  arrowPath.moveTo(ax, ay)
+  arrowPath.lineTo(ax + dir * arrowSize, ay - arrowSize * 0.5)
+  arrowPath.lineTo(ax + dir * arrowSize, ay + arrowSize * 0.5)
+  arrowPath.close()
+  canvas.drawPath(arrowPath, arrowPaint)
+  arrowPath.delete()
+  arrowPaint.delete()
+
+  // Label at midpoint of the curve
+  if (label) {
+    const midX = (x1 + x2) / 2
+    const midY = (y1 + y2) / 2 - 10 * invZ
+    const fontSize = 10 * invZ
+    const padX = 4 * invZ
+    const padY = 2 * invZ
+    const textW = measureText(label, 10, '500') * invZ
+    const bgW = textW + padX * 2
+    const bgH = fontSize + padY * 2
+    const bgX = midX - bgW / 2
+    const bgY = midY - bgH / 2
+
+    const bgPaint = new ck.Paint()
+    bgPaint.setStyle(ck.PaintStyle.Fill)
+    bgPaint.setAntiAlias(true)
+    bgPaint.setColor(parseColor(ck, '#1e293b'))
+    bgPaint.setAlphaf(0.8)
+    const r = 3 * invZ
+    canvas.drawRRect(ck.RRectXY(ck.LTRBRect(bgX, bgY, bgX + bgW, bgY + bgH), r, r), bgPaint)
+    bgPaint.delete()
+
+    drawText2D(ck, canvas, label, bgX + padX, bgY + padY, '#e2e8f0', fontSize, '500')
+  }
+}
+
+/**
+ * Draw a storyboard arrow that goes off-screen to indicate a cross-page connection.
+ * Shows a short arrow from the source element going right, ending with a label pill.
+ */
+export function drawCrossPageArrow(
+  ck: CanvasKit, canvas: Canvas,
+  sx: number, sy: number, sw: number, sh: number,
+  zoom: number,
+  targetName: string,
+): void {
+  const invZ = 1 / zoom
+  const sCy = sy + sh / 2
+
+  // Start from right edge of source
+  const x1 = sx + sw
+  const y1 = sCy
+  const arrowLen = 60 * invZ
+  const x2 = x1 + arrowLen
+  const y2 = y1
+
+  // Dashed line
+  const linePaint = new ck.Paint()
+  linePaint.setStyle(ck.PaintStyle.Stroke)
+  linePaint.setAntiAlias(true)
+  linePaint.setStrokeWidth(2 * invZ)
+  linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  linePaint.setAlphaf(0.7)
+  linePaint.setStrokeCap(ck.StrokeCap.Round)
+  const dashLen = 6 * invZ
+  const effect = ck.PathEffect.MakeDash([dashLen, 4 * invZ], 0)
+  if (effect) linePaint.setPathEffect(effect)
+  canvas.drawLine(x1, y1, x2, y2, linePaint)
+  linePaint.delete()
+
+  // Arrowhead
+  const arrowSize = 7 * invZ
+  const arrowPaint = new ck.Paint()
+  arrowPaint.setStyle(ck.PaintStyle.Fill)
+  arrowPaint.setAntiAlias(true)
+  arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  arrowPaint.setAlphaf(0.7)
+  const arrowPath = new ck.Path()
+  arrowPath.moveTo(x2, y2)
+  arrowPath.lineTo(x2 - arrowSize, y2 - arrowSize * 0.5)
+  arrowPath.lineTo(x2 - arrowSize, y2 + arrowSize * 0.5)
+  arrowPath.close()
+  canvas.drawPath(arrowPath, arrowPaint)
+  arrowPath.delete()
+  arrowPaint.delete()
+
+  // Target page label pill after arrow
+  const fontSize = 10 * invZ
+  const padX = 5 * invZ
+  const padY = 3 * invZ
+  const gap = 4 * invZ
+  const textW = measureText(targetName, 10, '500') * invZ
+  const pillW = textW + padX * 2
+  const pillH = fontSize + padY * 2
+  const pillX = x2 + gap
+  const pillY = y2 - pillH / 2
+
   const bgPaint = new ck.Paint()
   bgPaint.setStyle(ck.PaintStyle.Fill)
   bgPaint.setAntiAlias(true)
   bgPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  canvas.drawCircle(badgeX, badgeY, badgeR, bgPaint)
+  bgPaint.setAlphaf(0.15)
+  const r = 4 * invZ
+  canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), bgPaint)
   bgPaint.delete()
 
-  // Arrow icon (arrow-up-right) inside the circle
-  const iconPaint = new ck.Paint()
-  iconPaint.setStyle(ck.PaintStyle.Stroke)
-  iconPaint.setAntiAlias(true)
-  iconPaint.setStrokeWidth(1.5 * invZ)
-  iconPaint.setColor(parseColor(ck, CONNECTION_BADGE_ICON_COLOR))
-  iconPaint.setStrokeCap(ck.StrokeCap.Round)
+  // Border
+  const borderPaint = new ck.Paint()
+  borderPaint.setStyle(ck.PaintStyle.Stroke)
+  borderPaint.setAntiAlias(true)
+  borderPaint.setStrokeWidth(1 * invZ)
+  borderPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  borderPaint.setAlphaf(0.5)
+  canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), borderPaint)
+  borderPaint.delete()
 
-  const iconSize = badgeR * 0.7
-  const ix = badgeX - iconSize * 0.4
-  const iy = badgeY + iconSize * 0.4
-  // Arrow shaft: bottom-left to top-right
-  canvas.drawLine(ix, iy, ix + iconSize, iy - iconSize, iconPaint)
-  // Arrow head: horizontal line from tip
-  canvas.drawLine(ix + iconSize * 0.4, iy - iconSize, ix + iconSize, iy - iconSize, iconPaint)
-  // Arrow head: vertical line from tip
-  canvas.drawLine(ix + iconSize, iy - iconSize + iconSize * 0.6, ix + iconSize, iy - iconSize, iconPaint)
-  iconPaint.delete()
-
-  // Count text if > 1
-  if (connectionCount > 1) {
-    const fontSize = 9 * invZ
-    drawText2D(
-      ck, canvas, String(connectionCount),
-      badgeX + badgeR * 0.3, badgeY + badgeR * 0.1,
-      CONNECTION_BADGE_ICON_COLOR, fontSize, '700',
-    )
-  }
-
-  // Target name label to the right of the badge circle
-  if (targetName) {
-    const labelFontSize = 10 * invZ
-    const labelPadX = 4 * invZ
-    const labelPadY = 2 * invZ
-    const labelGap = 2 * invZ
-
-    // Measure label text width
-    const labelTextW = measureText(targetName, 10, '500') * invZ
-    const labelW = labelTextW + labelPadX * 2
-    const labelH = labelFontSize + labelPadY * 2
-
-    // Position: to the right of the badge circle
-    const labelX = badgeX + badgeR + labelGap
-    const labelY = badgeY - labelH / 2
-
-    // Background pill (dark semi-transparent)
-    const labelBgPaint = new ck.Paint()
-    labelBgPaint.setStyle(ck.PaintStyle.Fill)
-    labelBgPaint.setAntiAlias(true)
-    labelBgPaint.setColor(parseColor(ck, '#1e293b'))
-    labelBgPaint.setAlphaf(0.85)
-    const labelRadius = 3 * invZ
-    const labelRRect = ck.RRectXY(
-      ck.LTRBRect(labelX, labelY, labelX + labelW, labelY + labelH),
-      labelRadius, labelRadius,
-    )
-    canvas.drawRRect(labelRRect, labelBgPaint)
-    labelBgPaint.delete()
-
-    // Text
-    drawText2D(
-      ck, canvas, targetName,
-      labelX + labelPadX, labelY + labelPadY,
-      '#e2e8f0', labelFontSize, '500',
-    )
-  }
+  drawText2D(ck, canvas, targetName, pillX + padX, pillY + padY, CONNECTION_BADGE_COLOR, fontSize, '500')
 }
 
 /**

@@ -16,6 +16,7 @@ const ja: TranslationKeys = {
   'common.untitled': '無題',
   'common.best': '最適',
   'common.selected': '{{count}} 件選択中',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': '選択',
@@ -113,6 +114,7 @@ const ja: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': '選択をグループ化',
   'layerMenu.createComponent': 'コンポーネントを作成',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'コンポーネントを解除',
   'layerMenu.detachInstance': 'インスタンスを解除',
   'layerMenu.booleanUnion': '合体',
@@ -120,6 +122,7 @@ const ja: TranslationKeys = {
   'layerMenu.booleanIntersect': '交差',
   'layerMenu.toggleLock': 'ロックの切り替え',
   'layerMenu.toggleVisibility': '表示の切り替え',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'コンポーネントを作成',
@@ -270,6 +273,10 @@ const ja: TranslationKeys = {
   'variables.exportPreset': 'ファイルにエクスポート…',
   'variables.presetName': 'プリセット名',
   'variables.noPresets': '保存されたプリセットはありません',
+  'variables.tokenColor': 'カラートークン',
+  'variables.tokenSpacing': 'スペーシングトークン',
+  'variables.tokenTypography': 'タイポグラフィトークン',
+  'variables.tokenNumber': '数値トークン',
 
   // ── AI Chat ──
   'ai.newChat': '新しいチャット',
@@ -413,6 +420,13 @@ const ja: TranslationKeys = {
   'componentBrowser.category.feedback': 'フィードバック',
   'componentBrowser.category.data': 'データ',
   'componentBrowser.category.other': 'その他',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': '--{{name}} にバインド済み',

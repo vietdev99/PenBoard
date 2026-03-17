@@ -5,6 +5,7 @@ import { useCanvasStore } from '@/stores/canvas-store'
 import type { RightPanelTab } from '@/stores/canvas-store'
 import PropertyPanel from './property-panel'
 import CodePanel from './code-panel'
+import NavigatePanel from './navigate-panel'
 
 const MIN_WIDTH = 256   // 16rem (w-64)
 const MAX_WIDTH = 640   // 40rem
@@ -49,6 +50,7 @@ export default function RightPanel() {
 
   const tabs: { key: RightPanelTab; label: string }[] = [
     { key: 'design', label: t('rightPanel.design') },
+    { key: 'navigate', label: t('rightPanel.navigate', 'Navigate') },
     { key: 'code', label: t('rightPanel.code') },
   ]
 
@@ -82,6 +84,8 @@ export default function RightPanel() {
       {/* Content */}
       {activeTab === 'design' ? (
         <PropertyPanel embedded />
+      ) : activeTab === 'navigate' ? (
+        <NavigatePanel />
       ) : (
         <CodePanel />
       )}

@@ -16,6 +16,7 @@ const th: TranslationKeys = {
   'common.untitled': 'ไม่มีชื่อ',
   'common.best': 'ดีที่สุด',
   'common.selected': 'เลือกแล้ว {{count}} รายการ',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'เลือก',
@@ -109,6 +110,7 @@ const th: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'จัดกลุ่มที่เลือก',
   'layerMenu.createComponent': 'สร้างคอมโพเนนต์',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'แยกคอมโพเนนต์',
   'layerMenu.detachInstance': 'แยกอินสแตนซ์',
   'layerMenu.booleanUnion': 'รวม',
@@ -116,6 +118,7 @@ const th: TranslationKeys = {
   'layerMenu.booleanIntersect': 'ตัดกัน',
   'layerMenu.toggleLock': 'สลับล็อก',
   'layerMenu.toggleVisibility': 'สลับการมองเห็น',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'สร้างคอมโพเนนต์',
@@ -266,6 +269,10 @@ const th: TranslationKeys = {
   'variables.exportPreset': 'ส่งออกเป็นไฟล์…',
   'variables.presetName': 'ชื่อพรีเซ็ต',
   'variables.noPresets': 'ไม่มีพรีเซ็ตที่บันทึกไว้',
+  'variables.tokenColor': 'โทเค็นสี',
+  'variables.tokenSpacing': 'โทเค็นระยะห่าง',
+  'variables.tokenTypography': 'โทเค็นตัวพิมพ์',
+  'variables.tokenNumber': 'โทเค็นตัวเลข',
 
   // ── AI Chat ──
   'ai.newChat': 'แชทใหม่',
@@ -407,6 +414,13 @@ const th: TranslationKeys = {
   'componentBrowser.category.feedback': 'การตอบกลับ',
   'componentBrowser.category.data': 'ข้อมูล',
   'componentBrowser.category.other': 'อื่น ๆ',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'ผูกกับ --{{name}}',

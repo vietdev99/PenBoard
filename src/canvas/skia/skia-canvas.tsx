@@ -3,7 +3,7 @@ import { loadCanvasKit } from './skia-init'
 import { SkiaEngine, screenToScene } from './skia-engine'
 import { erdHitTest, computeAllNodeBounds } from './skia-erd-renderer'
 import { useCanvasStore } from '@/stores/canvas-store'
-import { useDocumentStore } from '@/stores/document-store'
+import { useDocumentStore, generateId } from '@/stores/document-store'
 import { createNodeForTool, isDrawingTool } from '../canvas-node-creator'
 import { SNAP_THRESHOLD } from '../canvas-constants'
 import { inferLayout } from '../canvas-layout-engine'
@@ -12,6 +12,10 @@ import { setSkiaEngineRef } from '../skia-engine-ref'
 import type { ToolType } from '@/types/canvas'
 import type { PenNode, ContainerProps, TextNode } from '@/types/pen'
 import { findNodeInTree } from '@/stores/document-tree-utils'
+import { useUIKitStore } from '@/stores/uikit-store'
+import { prepareKitNode } from '@/components/panels/component-browser-card'
+import CanvasContextMenu from './canvas-context-menu'
+import ComponentPickerDialog from '@/components/panels/component-picker-dialog'
 
 // --- Drag-connect helpers ---
 
@@ -253,6 +257,10 @@ export default function SkiaCanvas() {
   const engineRef = useRef<SkiaEngine | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editingText, setEditingText] = useState<TextEditState | null>(null)
+  const [canvasCtxMenu, setCanvasCtxMenu] = useState<{
+    x: number; y: number; nodeId: string | null; isFrame: boolean; frameId: string | null
+  } | null>(null)
+  const [componentPickerTarget, setComponentPickerTarget] = useState<string | null>(null)
 
   // Initialize CanvasKit + engine
   useEffect(() => {
@@ -1092,7 +1100,34 @@ export default function SkiaCanvas() {
         if (minSize) {
           const node = createNodeForTool(drawTool, x, y, w, h)
           if (node) {
-            useDocumentStore.getState().addNode(null, node)
+            // Auto-parent: if the drawn shape center is inside a frame, make it a child
+            let parentId: string | null = null
+            if (engine) {
+              const cx = x + w / 2
+              const cy = y + h / 2
+              // Find the smallest (deepest) frame containing the center
+              let bestArea = Infinity
+              for (const rn of engine.renderNodes) {
+                if (rn.node.type !== 'frame') continue
+                if (cx >= rn.absX && cx <= rn.absX + rn.absW &&
+                    cy >= rn.absY && cy <= rn.absY + rn.absH) {
+                  const area = rn.absW * rn.absH
+                  if (area < bestArea) {
+                    bestArea = area
+                    parentId = rn.node.id
+                  }
+                }
+              }
+              // Adjust to relative position within parent
+              if (parentId) {
+                const parentRn = engine.renderNodes.find(r => r.node.id === parentId)
+                if (parentRn) {
+                  node.x = x - parentRn.absX
+                  node.y = y - parentRn.absY
+                }
+              }
+            }
+            useDocumentStore.getState().addNode(parentId, node)
             useCanvasStore.getState().setSelection([node.id], node.id)
           }
         }
@@ -1135,6 +1170,28 @@ export default function SkiaCanvas() {
                 continue
               }
             }
+          }
+
+          // Check if dragged into a different frame (reparent into frame)
+          const dropTargetFrame = engine.renderNodes.find((rn) => {
+            if (rn.node.id === orig.id) return false
+            if (rn.node.type !== 'frame') return false
+            if (parent && rn.node.id === parent.id) return false // already a child
+            if (docStore.isDescendantOf(rn.node.id, orig.id)) return false // can't drop into own descendant
+            // Node center must be inside the frame
+            const cx = objBounds.x + objBounds.w / 2
+            const cy = objBounds.y + objBounds.h / 2
+            return cx >= rn.absX && cx <= rn.absX + rn.absW &&
+                   cy >= rn.absY && cy <= rn.absY + rn.absH
+          })
+
+          if (dropTargetFrame && !parent) {
+            // Reparent into the target frame with position relative to frame
+            const relX = objBounds.x - dropTargetFrame.absX
+            const relY = objBounds.y - dropTargetFrame.absY
+            docStore.updateNode(orig.id, { x: relX, y: relY } as Partial<PenNode>)
+            docStore.moveNode(orig.id, dropTargetFrame.node.id, 999999)
+            continue
           }
 
           // Check if node is inside a layout container
@@ -1288,7 +1345,59 @@ export default function SkiaCanvas() {
       })
     }
 
-    const onContextMenu = (e: MouseEvent) => e.preventDefault()
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      const engine = engineRef.current
+      if (!engine) return
+      const rect = canvasEl.getBoundingClientRect()
+      const { viewport } = useCanvasStore.getState()
+      const scene = screenToScene(e.clientX, e.clientY, rect, viewport)
+      const hits = engine.spatialIndex?.hitTest(scene.x, scene.y) ?? []
+      const topHit = hits[0] ?? null
+      const docStore = useDocumentStore.getState()
+      const hitNode = topHit ? docStore.getNodeById(topHit.node.id) : null
+
+      // Find closest frame: check top hit, then walk up parents, then check other hits
+      let frameId: string | null = null
+      if (hitNode) {
+        if (hitNode.type === 'frame' || hitNode.type === 'group') {
+          frameId = hitNode.id
+        } else {
+          // Walk up parent chain to find containing frame
+          let parent = docStore.getParentOf(topHit!.node.id)
+          while (parent) {
+            if (parent.type === 'frame' || parent.type === 'group') {
+              frameId = parent.id
+              break
+            }
+            parent = docStore.getParentOf(parent.id)
+          }
+        }
+      }
+      // Also check other hits (frame background behind children)
+      if (!frameId) {
+        for (const h of hits) {
+          const n = docStore.getNodeById(h.node.id)
+          if (n && (n.type === 'frame' || n.type === 'group')) {
+            frameId = n.id
+            break
+          }
+        }
+      }
+
+      // If hit a node, select it
+      if (topHit) {
+        useCanvasStore.getState().setSelection([topHit.node.id], topHit.node.id)
+      }
+
+      setCanvasCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        nodeId: topHit?.node.id ?? null,
+        isFrame: !!frameId,
+        frameId,
+      })
+    }
 
     canvasEl.addEventListener('mousedown', onMouseDown)
     canvasEl.addEventListener('dblclick', onDblClick)
@@ -1308,10 +1417,106 @@ export default function SkiaCanvas() {
     }
   }, [])
 
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/x-penboard-uikit') ||
+        e.dataTransfer.types.includes('application/x-penboard-component')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }, [])
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    // Handle UIKit component drop
+    const rawUikit = e.dataTransfer.getData('application/x-penboard-uikit')
+    // Handle document component drop (from Components page sidebar)
+    const rawComponent = e.dataTransfer.getData('application/x-penboard-component')
+
+    if (!rawUikit && !rawComponent) return
+    e.preventDefault()
+
+    const engine = engineRef.current
+    if (!engine) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const { viewport } = useCanvasStore.getState()
+    const scenePos = screenToScene(e.clientX, e.clientY, rect, viewport)
+    const docStore = useDocumentStore.getState()
+
+    if (rawComponent) {
+      // Drop a document component → create ref node
+      const { componentId } = JSON.parse(rawComponent) as { componentId: string }
+      const component = docStore.getNodeById(componentId)
+      if (!component) return
+      const w = 'width' in component ? (component.width as number) ?? 200 : 200
+      const h = 'height' in component ? (component.height as number) ?? 100 : 100
+
+      let parentId: string | null = null
+      let relX = scenePos.x - w / 2
+      let relY = scenePos.y - h / 2
+
+      // Find smallest containing frame
+      for (const rn of engine.renderNodes) {
+        if (rn.node.type !== 'frame') continue
+        if (scenePos.x >= rn.absX && scenePos.x <= rn.absX + rn.absW &&
+            scenePos.y >= rn.absY && scenePos.y <= rn.absY + rn.absH) {
+          parentId = rn.node.id
+          relX = scenePos.x - rn.absX - w / 2
+          relY = scenePos.y - rn.absY - h / 2
+        }
+      }
+
+      const refNode: PenNode = {
+        id: generateId(),
+        type: 'ref',
+        ref: componentId,
+        name: component.name,
+        x: relX,
+        y: relY,
+        width: w,
+        height: h,
+      } as PenNode
+      docStore.addNode(parentId, refNode)
+      useCanvasStore.getState().setSelection([refNode.id], refNode.id)
+      return
+    }
+
+    // UIKit component drop
+    const { componentId, kitId } = JSON.parse(rawUikit) as { componentId: string; kitId: string }
+    const kit = useUIKitStore.getState().kits.find((k: { id: string }) => k.id === kitId)
+    if (!kit) return
+    const comp = kit.components.find((c: { id: string }) => c.id === componentId)
+    if (!comp) return
+
+    const cloned = prepareKitNode(comp, kit)
+    if (!cloned) return
+
+    cloned.x = scenePos.x - comp.width / 2
+    cloned.y = scenePos.y - comp.height / 2
+
+    // Check if dropped onto a frame → reparent as child
+    let parentId: string | null = null
+    for (const rn of engine.renderNodes) {
+      if (rn.node.type !== 'frame') continue
+      if (scenePos.x >= rn.absX && scenePos.x <= rn.absX + rn.absW &&
+          scenePos.y >= rn.absY && scenePos.y <= rn.absY + rn.absH) {
+        parentId = rn.node.id
+        // Adjust to relative position within parent
+        cloned.x = scenePos.x - rn.absX - comp.width / 2
+        cloned.y = scenePos.y - rn.absY - comp.height / 2
+        break
+      }
+    }
+
+    docStore.addNode(parentId, cloned)
+    useCanvasStore.getState().setSelection([cloned.id], cloned.id)
+  }, [])
+
   return (
     <div
       ref={containerRef}
       className="flex-1 relative overflow-hidden bg-muted"
+      onDragOver={handleCanvasDragOver}
+      onDrop={handleCanvasDrop}
     >
       <canvas
         ref={canvasRef}
@@ -1365,6 +1570,48 @@ export default function SkiaCanvas() {
         <div className="absolute inset-0 flex items-center justify-center text-destructive">
           Failed to load CanvasKit: {error}
         </div>
+      )}
+
+      {canvasCtxMenu && (
+        <CanvasContextMenu
+          x={canvasCtxMenu.x}
+          y={canvasCtxMenu.y}
+          nodeId={canvasCtxMenu.nodeId}
+          isFrame={canvasCtxMenu.isFrame}
+          frameId={canvasCtxMenu.frameId}
+          onInsertFromComponents={(targetId) => {
+            setCanvasCtxMenu(null)
+            setComponentPickerTarget(targetId)
+          }}
+          onClose={() => setCanvasCtxMenu(null)}
+        />
+      )}
+
+      {componentPickerTarget && (
+        <ComponentPickerDialog
+          open={!!componentPickerTarget}
+          targetNodeId={componentPickerTarget}
+          onClose={() => setComponentPickerTarget(null)}
+          onInsert={(compId: string) => {
+            const component = useDocumentStore.getState().getNodeById(compId)
+            if (!component) return
+            const w = 'width' in component ? (component.width as number) ?? 200 : 200
+            const h = 'height' in component ? (component.height as number) ?? 100 : 100
+            const refNode: PenNode = {
+              id: generateId(),
+              type: 'ref',
+              ref: compId,
+              name: component.name,
+              x: 0,
+              y: 0,
+              width: w,
+              height: h,
+            } as PenNode
+            useDocumentStore.getState().addNode(componentPickerTarget, refNode)
+            useCanvasStore.getState().setSelection([refNode.id], refNode.id)
+            setComponentPickerTarget(null)
+          }}
+        />
       )}
     </div>
   )

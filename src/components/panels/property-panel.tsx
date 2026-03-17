@@ -15,7 +15,6 @@ import TextSection from './text-section'
 import TextLayoutSection from './text-layout-section'
 import EffectsSection from './effects-section'
 import ExportSection from './export-section'
-import ConnectionSection from './connection-section'
 import IconSection from './icon-section'
 import ImageSection from './image-section'
 import ArgumentSection from './argument-section'
@@ -32,7 +31,6 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
   const setSelection = useCanvasStore((s) => s.setSelection)
   const activePageId = useCanvasStore((s) => s.activePageId)
   const children = useDocumentStore((s) => getActivePageChildren(s.document, activePageId))
-  const pages = useDocumentStore((s) => s.document.pages)
   const getNodeById = useDocumentStore((s) => s.getNodeById)
   const updateNode = useDocumentStore((s) => s.updateNode)
   const makeReusable = useDocumentStore((s) => s.makeReusable)
@@ -139,8 +137,9 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
   const handleNameBlur = () => {
     setIsEditingName(false)
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== (node.name ?? node.type)) {
-      updateNode(activeId!, { name: trimmed } as Partial<PenNode>)
+    if (trimmed !== (node.name ?? node.type)) {
+      // Allow clearing name (empty string removes frame label from canvas)
+      updateNode(activeId!, { name: trimmed || undefined } as Partial<PenNode>)
     }
   }
 
@@ -157,7 +156,7 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
       {/* Header */}
       <div className="h-8 flex items-center px-2 border-b border-border gap-1 shrink-0">
         {(nodeIsReusable || nodeIsInstance) && (
-          <Diamond size={12} className={`shrink-0 ${nodeIsReusable ? 'text-purple-400' : 'text-[#9281f7]'}`} />
+          <Diamond size={12} className="shrink-0 text-purple-400" />
         )}
         {isEditingName ? (
           <input
@@ -170,7 +169,7 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
               nodeIsReusable
                 ? 'text-purple-400'
                 : nodeIsInstance
-                  ? 'text-[#9281f7]'
+                  ? 'text-purple-400'
                   : 'text-foreground'
             }`}
             autoFocus
@@ -181,7 +180,7 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
               nodeIsReusable
                 ? 'text-purple-400 border border-purple-400/50 rounded px-1.5 py-0.5'
                 : nodeIsInstance
-                  ? 'text-[#9281f7] border border-dashed border-[#9281f7]/50 rounded px-1.5 py-0.5'
+                  ? 'text-purple-400 border border-dashed border-purple-400/50 rounded px-1.5 py-0.5'
                   : 'text-foreground px-1'
             }`}
             onClick={handleNameClick}
@@ -367,16 +366,6 @@ export default function PropertyPanel({ embedded }: { embedded?: boolean } = {})
                 effects={'effects' in displayNode ? displayNode.effects : undefined}
                 onUpdate={handleUpdate}
               />
-            </div>
-          </>
-        )}
-
-        {/* Connection section: only on non-ERD pages */}
-        {activePageId && (pages ?? []).find((p) => p.id === activePageId)?.type !== 'erd' && (
-          <>
-            <Separator />
-            <div className="px-3 py-2">
-              <ConnectionSection nodeId={node.id} pageId={activePageId} />
             </div>
           </>
         )}

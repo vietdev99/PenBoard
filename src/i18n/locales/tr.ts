@@ -16,6 +16,7 @@ const tr: TranslationKeys = {
   'common.untitled': 'Adsız',
   'common.best': 'En İyi',
   'common.selected': '{{count}} seçili',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Seç',
@@ -109,6 +110,7 @@ const tr: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Seçimi Grupla',
   'layerMenu.createComponent': 'Bileşen Oluştur',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Bileşeni Ayır',
   'layerMenu.detachInstance': 'Örneği Ayır',
   'layerMenu.booleanUnion': 'Birleştir',
@@ -116,6 +118,7 @@ const tr: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Kesiştir',
   'layerMenu.toggleLock': 'Kilidi Aç/Kapat',
   'layerMenu.toggleVisibility': 'Görünürlüğü Aç/Kapat',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Bileşen Oluştur',
@@ -266,6 +269,10 @@ const tr: TranslationKeys = {
   'variables.exportPreset': 'Dosyaya dışa aktar…',
   'variables.presetName': 'Ön ayar adı',
   'variables.noPresets': 'Kayıtlı ön ayar yok',
+  'variables.tokenColor': 'Renk Tokeni',
+  'variables.tokenSpacing': 'Boşluk Tokeni',
+  'variables.tokenTypography': 'Tipografi Tokeni',
+  'variables.tokenNumber': 'Sayı Tokeni',
 
   // ── AI Chat ──
   'ai.newChat': 'Yeni sohbet',
@@ -407,6 +414,13 @@ const tr: TranslationKeys = {
   'componentBrowser.category.feedback': 'Geri Bildirim',
   'componentBrowser.category.data': 'Veri',
   'componentBrowser.category.other': 'Diğer',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': '--{{name}} ile bağlı',

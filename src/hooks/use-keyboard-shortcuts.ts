@@ -298,10 +298,10 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // Highlight mode toggle: Shift+H
+      // Connection visibility toggle: Shift+H
       if (e.key === 'H' && e.shiftKey && !isMod && !e.altKey) {
         e.preventDefault()
-        useCanvasStore.getState().toggleHighlightMode()
+        useCanvasStore.getState().toggleShowConnections()
         return
       }
 

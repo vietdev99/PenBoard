@@ -9,7 +9,7 @@ import {
   Braces,
   LayoutGrid,
   Database,
-  Highlighter,
+  Cable,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ToolButton from './tool-button'
@@ -37,8 +37,8 @@ export default function Toolbar() {
   const toggleVariablesPanel = useCanvasStore((s) => s.toggleVariablesPanel)
   const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
   const toggleDataPanel = useCanvasStore((s) => s.toggleDataPanel)
-  const highlightMode = useCanvasStore((s) => s.highlightMode)
-  const toggleHighlightMode = useCanvasStore((s) => s.toggleHighlightMode)
+  const showConnections = useCanvasStore((s) => s.showConnections)
+  const toggleShowConnections = useCanvasStore((s) => s.toggleShowConnections)
   const browserOpen = useUIKitStore((s) => s.browserOpen)
   const toggleBrowser = useUIKitStore((s) => s.toggleBrowser)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -279,25 +279,25 @@ export default function Toolbar() {
         </TooltipContent>
       </Tooltip>
 
-      {/* Highlight Connections */}
+      {/* Toggle Connections */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={toggleHighlightMode}
-            aria-label="Highlight Connections"
-            aria-pressed={highlightMode}
+            onClick={toggleShowConnections}
+            aria-label="Show Connections"
+            aria-pressed={showConnections}
             className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
-              highlightMode
+              showConnections
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
-            <Highlighter size={20} strokeWidth={1.5} />
+            <Cable size={20} strokeWidth={1.5} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Highlight Connections (Shift+H)
+          Toggle Connections
         </TooltipContent>
       </Tooltip>
 

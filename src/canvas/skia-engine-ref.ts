@@ -25,6 +25,11 @@ export function zoomToFitContent() {
   _engine?.zoomToFitContent()
 }
 
+/** Pan (and optionally zoom) so a specific node is centered in the viewport. */
+export function panToNode(nodeId: string) {
+  _engine?.panToNode(nodeId)
+}
+
 /**
  * Returns the canvas element dimensions in CSS pixels.
  * Falls back to 800x600 if no engine is mounted.

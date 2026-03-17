@@ -1,13 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useDocumentStore, findNodeInTree, getActivePageChildren } from '@/stores/document-store'
+import { useDocumentStore, findNodeInTree, getActivePageChildren, generateId } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import type { PenNode } from '@/types/pen'
 import { useHistoryStore } from '@/stores/history-store'
 import { canBooleanOp, executeBooleanOp, type BooleanOpType } from '@/utils/boolean-ops'
+import { panToNode, getSkiaEngineRef, getCanvasSize } from '@/canvas/skia-engine-ref'
+import { flattenNodes } from '@/stores/document-tree-utils'
 import LayerItem from './layer-item'
 import type { DropPosition } from './layer-item'
 import LayerContextMenu from './layer-context-menu'
+import ComponentPickerDialog from './component-picker-dialog'
+import ComponentListSection from './component-list-section'
 import PageTabs from '@/components/editor/page-tabs'
 
 const CONTAINER_TYPES = new Set(['frame', 'group', 'ref'])
@@ -260,6 +264,7 @@ export default function LayerPanel() {
   const handleSelect = useCallback(
     (id: string) => {
       setSelection([id], id)
+      requestAnimationFrame(() => panToNode(id))
     },
     [setSelection],
   )
@@ -328,6 +333,17 @@ export default function LayerPanel() {
       const targetIdx = siblings.findIndex((n) => n.id === overId)
 
       if (pos === 'inside') {
+        // Adjust x,y from absolute to relative position within new parent
+        const engine = getSkiaEngineRef()
+        if (engine) {
+          const dragRn = engine.renderNodes.find(r => r.node.id === dragId)
+          const parentRn = engine.renderNodes.find(r => r.node.id === overId)
+          if (dragRn && parentRn) {
+            const relX = dragRn.absX - parentRn.absX
+            const relY = dragRn.absY - parentRn.absY
+            updateNode(dragId, { x: relX, y: relY } as Partial<PenNode>)
+          }
+        }
         moveNode(dragId, overId, 0)
         // Auto-expand the target so the dropped item is visible
         setCollapsedIds((prev) => {
@@ -336,6 +352,26 @@ export default function LayerPanel() {
           return next
         })
       } else if (targetIdx !== -1) {
+        // Adjust position when reparenting between different parents
+        const dragParent = getParentOf(dragId)
+        const dragParentId = dragParent ? dragParent.id : null
+        if (dragParentId !== parentId) {
+          const engine = getSkiaEngineRef()
+          if (engine) {
+            const dragRn = engine.renderNodes.find(r => r.node.id === dragId)
+            if (dragRn) {
+              if (parentId) {
+                const newParentRn = engine.renderNodes.find(r => r.node.id === parentId)
+                if (newParentRn) {
+                  updateNode(dragId, { x: dragRn.absX - newParentRn.absX, y: dragRn.absY - newParentRn.absY } as Partial<PenNode>)
+                }
+              } else {
+                // Moving to root: use absolute position
+                updateNode(dragId, { x: dragRn.absX, y: dragRn.absY } as Partial<PenNode>)
+              }
+            }
+          }
+        }
         const insertIdx = pos === 'above' ? targetIdx : targetIdx + 1
         moveNode(dragId, parentId, insertIdx)
       }
@@ -347,6 +383,7 @@ export default function LayerPanel() {
 
   const makeReusable = useDocumentStore((s) => s.makeReusable)
   const detachComponent = useDocumentStore((s) => s.detachComponent)
+  const [componentPickerTarget, setComponentPickerTarget] = useState<string | null>(null)
 
   const handleContextAction = useCallback(
     (action: string) => {
@@ -376,6 +413,35 @@ export default function LayerPanel() {
         case 'make-component':
           makeReusable(nodeId)
           break
+        case 'insert-instance': {
+          // Insert a ref node (instance) of this reusable component into the active page
+          const node = getNodeById(nodeId)
+          if (node && 'reusable' in node && node.reusable) {
+            const { viewport } = useCanvasStore.getState()
+            const { width: canvasW, height: canvasH } = getCanvasSize()
+            const centerX = (-viewport.panX + canvasW / 2) / viewport.zoom
+            const centerY = (-viewport.panY + canvasH / 2) / viewport.zoom
+            const w = 'width' in node ? (node.width as number) ?? 200 : 200
+            const h = 'height' in node ? (node.height as number) ?? 100 : 100
+            const refNode: PenNode = {
+              id: generateId(),
+              type: 'ref',
+              ref: nodeId,
+              name: node.name,
+              x: centerX - w / 2,
+              y: centerY - h / 2,
+              width: w,
+              height: h,
+            } as PenNode
+            useDocumentStore.getState().addNode(null, refNode)
+            setSelection([refNode.id], refNode.id)
+          }
+          break
+        }
+        case 'insert-from-components': {
+          setComponentPickerTarget(nodeId)
+          break
+        }
         case 'detach-component':
           detachComponent(nodeId)
           break
@@ -459,6 +525,8 @@ export default function LayerPanel() {
         )}
       </div>
 
+      <ComponentListSection />
+
       {contextMenu && (() => {
         const contextNode = getNodeById(contextMenu.nodeId)
         const isContainer = contextNode
@@ -471,6 +539,13 @@ export default function LayerPanel() {
         const booleanNodes = selectedIds
           .map((id) => getNodeById(id))
           .filter((n): n is PenNode => n != null)
+        // Check if there are any reusable components in the document
+        const allDocNodes = useDocumentStore.getState().document
+        const allPages = allDocNodes.pages ?? []
+        const allChildren = allPages.flatMap((p) => p.children ?? []).concat(allDocNodes.children ?? [])
+        const hasComponents = flattenNodes(allChildren).some(
+          (n: PenNode) => 'reusable' in n && n.reusable === true,
+        )
         return (
           <LayerContextMenu
             x={contextMenu.x}
@@ -481,11 +556,39 @@ export default function LayerPanel() {
             canCreateComponent={isContainer && !nodeIsReusable}
             isReusable={nodeIsReusable}
             isInstance={nodeIsInstance}
+            isContainer={isContainer}
+            hasComponents={hasComponents}
             onAction={handleContextAction}
             onClose={() => setContextMenu(null)}
           />
         )
       })()}
+      {componentPickerTarget && (
+        <ComponentPickerDialog
+          open={!!componentPickerTarget}
+          targetNodeId={componentPickerTarget}
+          onClose={() => setComponentPickerTarget(null)}
+          onInsert={(componentId: string) => {
+            const component = getNodeById(componentId)
+            if (!component) return
+            const w = 'width' in component ? (component.width as number) ?? 200 : 200
+            const h = 'height' in component ? (component.height as number) ?? 100 : 100
+            const refNode: PenNode = {
+              id: generateId(),
+              type: 'ref',
+              ref: componentId,
+              name: component.name,
+              x: 0,
+              y: 0,
+              width: w,
+              height: h,
+            } as PenNode
+            useDocumentStore.getState().addNode(componentPickerTarget, refNode)
+            setSelection([refNode.id], refNode.id)
+            setComponentPickerTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

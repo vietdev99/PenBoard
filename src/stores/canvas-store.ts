@@ -11,7 +11,7 @@ import { appStorage } from '@/utils/app-storage'
 
 const PREFS_KEY = 'penboard-canvas-preferences'
 
-export type RightPanelTab = 'design' | 'code'
+export type RightPanelTab = 'design' | 'code' | 'navigate'
 
 interface CanvasPreferences {
   layerPanelOpen: boolean
@@ -44,10 +44,10 @@ interface CanvasStoreState {
   pendingFigmaFile: File | null
   activePageId: string | null
   dataFocusEntityId: string | null
-  highlightMode: boolean
+  showConnections: boolean
   dragConnectState: DragConnectState | null
 
-  toggleHighlightMode: () => void
+  toggleShowConnections: () => void
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
@@ -99,11 +99,11 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   figmaImportDialogOpen: false,
   pendingFigmaFile: null,
   activePageId: DEFAULT_PAGE_ID,
-  highlightMode: false,
+  showConnections: true,
   dataFocusEntityId: null,
   dragConnectState: null,
 
-  toggleHighlightMode: () => set((s) => ({ highlightMode: !s.highlightMode })),
+  toggleShowConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   setZoom: (zoom) =>
@@ -219,7 +219,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       if (typeof data.variablesPanelOpen === 'boolean') set({ variablesPanelOpen: data.variablesPanelOpen })
       if (typeof data.dataPanelOpen === 'boolean') set({ dataPanelOpen: data.dataPanelOpen })
       if (typeof data.codePanelOpen === 'boolean') set({ codePanelOpen: data.codePanelOpen })
-      if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code') set({ rightPanelTab: data.rightPanelTab })
+      if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code' || data.rightPanelTab === 'navigate') set({ rightPanelTab: data.rightPanelTab })
     } catch { /* ignore */ }
   },
 }))

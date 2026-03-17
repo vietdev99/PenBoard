@@ -178,7 +178,9 @@ export default function PageTabs() {
                       <Component className="w-3 h-3 shrink-0 mr-1 text-purple-400" />
                     ) : page.type === 'erd' ? (
                       <Database className="w-3 h-3 shrink-0 mr-1" />
-                    ) : null}
+                    ) : (
+                      <Monitor className="w-3 h-3 shrink-0 mr-1" />
+                    )}
                     <span className="flex-1 text-left truncate">{page.name}</span>
                     {canDelete && (
                       <span

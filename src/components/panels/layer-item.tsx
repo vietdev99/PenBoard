@@ -117,12 +117,12 @@ export default function LayerItem({
   }
 
   const dropInsideHighlight =
-    dropPosition === 'inside' ? 'ring-2 ring-inset ring-blue-500 bg-blue-500/10' : ''
+    dropPosition === 'inside' ? 'ring-2 ring-inset ring-primary bg-primary/10' : ''
 
   return (
     <div className="relative" data-layer-id={id}>
       {dropPosition === 'above' && (
-        <div className="absolute top-0 left-2 right-2 h-0.5 bg-blue-500 rounded-full z-10" />
+        <div className="absolute top-0 left-2 right-2 h-0.5 bg-primary rounded-full z-10" />
       )}
       <div
         className={`group/layer flex items-center h-7 px-1 gap-1 cursor-pointer rounded text-xs transition-colors ${
@@ -130,12 +130,12 @@ export default function LayerItem({
             ? isReusable
               ? 'bg-purple-500/15 text-purple-400'
               : isInstance
-                ? 'bg-[#9281f7]/10 text-[#9281f7]'
+                ? 'bg-purple-400/10 text-purple-400'
                 : 'bg-primary/15 text-primary'
             : isReusable
               ? 'text-purple-400 hover:bg-purple-500/10'
               : isInstance
-                ? 'text-[#9281f7] hover:bg-[#9281f7]/10'
+                ? 'text-purple-400 hover:bg-purple-400/10'
                 : 'text-muted-foreground hover:bg-accent/50'
         } ${!visible ? 'opacity-40' : ''} ${dropInsideHighlight}`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -161,7 +161,7 @@ export default function LayerItem({
           <span className="shrink-0 w-3" />
         )}
 
-        <Icon size={12} className={`shrink-0 ${isReusable ? 'text-purple-400' : isInstance ? 'text-[#9281f7]' : 'opacity-60'}`} />
+        <Icon size={12} className={`shrink-0 ${isReusable ? 'text-purple-400' : isInstance ? 'text-purple-400' : 'opacity-60'}`} />
 
         {isEditing ? (
           <input
@@ -209,7 +209,7 @@ export default function LayerItem({
         </button>
       </div>
       {dropPosition === 'below' && (
-        <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-500 rounded-full z-10" />
+        <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full z-10" />
       )}
     </div>
   )

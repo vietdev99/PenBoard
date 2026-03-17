@@ -16,6 +16,7 @@ const ko: TranslationKeys = {
   'common.untitled': '제목 없음',
   'common.best': '추천',
   'common.selected': '{{count}}개 선택됨',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': '선택',
@@ -109,6 +110,7 @@ const ko: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': '선택 항목 그룹화',
   'layerMenu.createComponent': '컴포넌트 만들기',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': '컴포넌트 분리',
   'layerMenu.detachInstance': '인스턴스 분리',
   'layerMenu.booleanUnion': '합치기',
@@ -116,6 +118,7 @@ const ko: TranslationKeys = {
   'layerMenu.booleanIntersect': '교차',
   'layerMenu.toggleLock': '잠금 전환',
   'layerMenu.toggleVisibility': '표시 전환',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': '컴포넌트 만들기',
@@ -266,6 +269,10 @@ const ko: TranslationKeys = {
   'variables.exportPreset': '파일로 내보내기…',
   'variables.presetName': '프리셋 이름',
   'variables.noPresets': '저장된 프리셋 없음',
+  'variables.tokenColor': '색상 토큰',
+  'variables.tokenSpacing': '간격 토큰',
+  'variables.tokenTypography': '타이포그래피 토큰',
+  'variables.tokenNumber': '숫자 토큰',
 
   // ── AI Chat ──
   'ai.newChat': '새 대화',
@@ -407,6 +414,13 @@ const ko: TranslationKeys = {
   'componentBrowser.category.feedback': '피드백',
   'componentBrowser.category.data': '데이터',
   'componentBrowser.category.other': '기타',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': '--{{name}}에 바인딩됨',

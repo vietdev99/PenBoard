@@ -16,6 +16,7 @@ const pt: TranslationKeys = {
   'common.untitled': 'Sem título',
   'common.best': 'Melhor',
   'common.selected': '{{count}} selecionado(s)',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Selecionar',
@@ -111,6 +112,7 @@ const pt: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Agrupar seleção',
   'layerMenu.createComponent': 'Criar componente',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Desanexar componente',
   'layerMenu.detachInstance': 'Desanexar instância',
   'layerMenu.booleanUnion': 'União',
@@ -118,6 +120,7 @@ const pt: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Interseção',
   'layerMenu.toggleLock': 'Alternar bloqueio',
   'layerMenu.toggleVisibility': 'Alternar visibilidade',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Criar componente',
@@ -268,6 +271,10 @@ const pt: TranslationKeys = {
   'variables.exportPreset': 'Exportar para arquivo…',
   'variables.presetName': 'Nome da predefinição',
   'variables.noPresets': 'Nenhuma predefinição salva',
+  'variables.tokenColor': 'Token de cor',
+  'variables.tokenSpacing': 'Token de espaçamento',
+  'variables.tokenTypography': 'Token tipográfico',
+  'variables.tokenNumber': 'Token numérico',
 
   // ── AI Chat ──
   'ai.newChat': 'Novo chat',
@@ -410,6 +417,13 @@ const pt: TranslationKeys = {
   'componentBrowser.category.feedback': 'Feedback',
   'componentBrowser.category.data': 'Dados',
   'componentBrowser.category.other': 'Outros',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'Vinculado a --{{name}}',

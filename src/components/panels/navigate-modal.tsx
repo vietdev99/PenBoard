@@ -17,8 +17,6 @@ export default function NavigateModal({ isOpen, onClose, onSelect, excludeErd = 
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  if (!isOpen) return null
-
   // Filter pages: exclude ERD pages per ERD exclusion rule from Phase 2
   const targetPages = pages.filter(p => {
     if (excludeErd && p.type === 'erd') return false
@@ -36,6 +34,8 @@ export default function NavigateModal({ isOpen, onClose, onSelect, excludeErd = 
       .filter(n => n.type === 'frame')
       .filter(n => !search || (n.name ?? '').toLowerCase().includes(search.toLowerCase()))
   }, [currentPage, search])
+
+  if (!isOpen) return null
 
   const getPageIcon = (page: PenPage) => {
     if (page.type === 'component') return <Component className="h-3 w-3 text-purple-400" />
@@ -121,7 +121,7 @@ export default function NavigateModal({ isOpen, onClose, onSelect, excludeErd = 
                   onClose()
                 }}
               >
-                <ArrowRight className="h-3 w-3 text-green-400" />
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
                 <span className="truncate">{frame.name ?? 'Frame'}</span>
               </button>
             ))}

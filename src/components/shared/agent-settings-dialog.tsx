@@ -266,7 +266,7 @@ function ProviderRow({ type }: { type: AIProviderType }) {
               href={installInfo.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-0.5 shrink-0"
+              className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5 shrink-0"
             >
               {t('agents.viewDocs')}
               <ExternalLink size={9} />

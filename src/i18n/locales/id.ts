@@ -16,6 +16,7 @@ const id: TranslationKeys = {
   'common.untitled': 'Tanpa Judul',
   'common.best': 'Terbaik',
   'common.selected': '{{count}} dipilih',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'Pilih',
@@ -109,6 +110,7 @@ const id: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Kelompokkan Pilihan',
   'layerMenu.createComponent': 'Buat Komponen',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'Lepaskan Komponen',
   'layerMenu.detachInstance': 'Lepaskan Instance',
   'layerMenu.booleanUnion': 'Gabungan',
@@ -116,6 +118,7 @@ const id: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Irisan',
   'layerMenu.toggleLock': 'Alihkan Kunci',
   'layerMenu.toggleVisibility': 'Alihkan Visibilitas',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'Buat Komponen',
@@ -266,6 +269,10 @@ const id: TranslationKeys = {
   'variables.exportPreset': 'Ekspor ke file…',
   'variables.presetName': 'Nama preset',
   'variables.noPresets': 'Tidak ada preset tersimpan',
+  'variables.tokenColor': 'Token Warna',
+  'variables.tokenSpacing': 'Token Spasi',
+  'variables.tokenTypography': 'Token Tipografi',
+  'variables.tokenNumber': 'Token Angka',
 
   // ── AI Chat ──
   'ai.newChat': 'Chat baru',
@@ -407,6 +414,13 @@ const id: TranslationKeys = {
   'componentBrowser.category.feedback': 'Umpan Balik',
   'componentBrowser.category.data': 'Data',
   'componentBrowser.category.other': 'Lainnya',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': 'Terikat ke --{{name}}',

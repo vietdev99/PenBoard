@@ -11,6 +11,7 @@ import {
   SquaresUnite,
   SquaresSubtract,
   SquaresIntersect,
+  PackagePlus,
 } from 'lucide-react'
 
 interface LayerContextMenuProps {
@@ -22,6 +23,8 @@ interface LayerContextMenuProps {
   canCreateComponent: boolean
   isReusable: boolean
   isInstance: boolean
+  isContainer: boolean
+  hasComponents: boolean
   onAction: (action: string) => void
   onClose: () => void
 }
@@ -34,6 +37,8 @@ const MENU_ITEMS = [
   { action: 'boolean-subtract', labelKey: 'layerMenu.booleanSubtract', icon: SquaresSubtract, requireBoolean: true },
   { action: 'boolean-intersect', labelKey: 'layerMenu.booleanIntersect', icon: SquaresIntersect, requireBoolean: true },
   { action: 'make-component', labelKey: 'layerMenu.createComponent', icon: Component, requireCreateComponent: true },
+  { action: 'insert-instance', labelKey: 'layerMenu.insertInstance', icon: PackagePlus, requireReusable: true },
+  { action: 'insert-from-components', labelKey: 'layerMenu.insertFromComponents', icon: PackagePlus, requireContainer: true, requireHasComponents: true },
   { action: 'detach-component', labelKey: 'layerMenu.detachComponent', icon: Unlink, requireReusable: true },
   { action: 'detach-component', labelKey: 'layerMenu.detachInstance', icon: Unlink, requireInstance: true },
   { action: 'lock', labelKey: 'layerMenu.toggleLock', icon: Lock },
@@ -48,6 +53,8 @@ export default function LayerContextMenu({
   canCreateComponent,
   isReusable,
   isInstance,
+  isContainer,
+  hasComponents,
   onAction,
   onClose,
 }: LayerContextMenuProps) {
@@ -74,7 +81,7 @@ export default function LayerContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-1 min-w-[160px]"
+      className="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[160px]"
       style={{ left: x, top: y }}
     >
       {MENU_ITEMS.filter(
@@ -83,12 +90,14 @@ export default function LayerContextMenu({
           (!('requireBoolean' in item) || canBoolean) &&
           (!('requireCreateComponent' in item) || canCreateComponent) &&
           (!('requireReusable' in item) || isReusable) &&
-          (!('requireInstance' in item) || isInstance),
+          (!('requireInstance' in item) || isInstance) &&
+          (!('requireContainer' in item) || isContainer) &&
+          (!('requireHasComponents' in item) || hasComponents),
       ).map((item) => (
         <button
           key={item.action}
           type="button"
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white text-left"
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent hover:text-foreground text-left"
           onClick={() => onAction(item.action)}
         >
           <item.icon size={12} />

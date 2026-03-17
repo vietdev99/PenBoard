@@ -16,6 +16,7 @@ const vi: TranslationKeys = {
   'common.untitled': 'Chưa đặt tên',
   'common.best': 'Tốt nhất',
   'common.selected': '{{count}} đã chọn',
+  'common.search': 'Tìm kiếm...',
 
   // ── Toolbar ──
   'toolbar.select': 'Chọn',
@@ -109,6 +110,7 @@ const vi: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'Nhóm các đối tượng đã chọn',
   'layerMenu.createComponent': 'Tạo thành phần',
+  'layerMenu.insertInstance': 'Chèn bản thể',
   'layerMenu.detachComponent': 'Tách thành phần',
   'layerMenu.detachInstance': 'Tách bản thể',
   'layerMenu.booleanUnion': 'Hợp nhất',
@@ -116,6 +118,14 @@ const vi: TranslationKeys = {
   'layerMenu.booleanIntersect': 'Giao nhau',
   'layerMenu.toggleLock': 'Bật/Tắt khoá',
   'layerMenu.toggleVisibility': 'Bật/Tắt hiển thị',
+  'layerMenu.insertFromComponents': 'Chèn từ thành phần',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'Chưa có thành phần nào. Tạo thành phần ở trang Component trước.',
+  'componentPicker.noResults': 'Không tìm thấy thành phần phù hợp.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Thành phần',
 
   // ── Property Panel ──
   'property.createComponent': 'Tạo thành phần',
@@ -266,6 +276,10 @@ const vi: TranslationKeys = {
   'variables.exportPreset': 'Xuất ra tệp…',
   'variables.presetName': 'Tên mẫu',
   'variables.noPresets': 'Chưa có mẫu nào được lưu',
+  'variables.tokenColor': 'Token màu sắc',
+  'variables.tokenSpacing': 'Token khoảng cách',
+  'variables.tokenTypography': 'Token kiểu chữ',
+  'variables.tokenNumber': 'Token số',
 
   // ── AI Chat ──
   'ai.newChat': 'Cuộc trò chuyện mới',

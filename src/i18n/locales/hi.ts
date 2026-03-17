@@ -16,6 +16,7 @@ const hi: TranslationKeys = {
   'common.untitled': 'शीर्षकहीन',
   'common.best': 'सर्वश्रेष्ठ',
   'common.selected': '{{count}} चयनित',
+  'common.search': 'Search...',
 
   // ── Toolbar ──
   'toolbar.select': 'चयन करें',
@@ -109,6 +110,7 @@ const hi: TranslationKeys = {
   // ── Layer Context Menu ──
   'layerMenu.groupSelection': 'चयन को ग्रुप करें',
   'layerMenu.createComponent': 'कंपोनेंट बनाएँ',
+  'layerMenu.insertInstance': 'Insert Instance',
   'layerMenu.detachComponent': 'कंपोनेंट अलग करें',
   'layerMenu.detachInstance': 'इंस्टेंस अलग करें',
   'layerMenu.booleanUnion': 'संयोजन',
@@ -116,6 +118,7 @@ const hi: TranslationKeys = {
   'layerMenu.booleanIntersect': 'प्रतिच्छेदन',
   'layerMenu.toggleLock': 'लॉक टॉगल करें',
   'layerMenu.toggleVisibility': 'दृश्यता टॉगल करें',
+  'layerMenu.insertFromComponents': 'Insert from Components',
 
   // ── Property Panel ──
   'property.createComponent': 'कंपोनेंट बनाएँ',
@@ -266,6 +269,10 @@ const hi: TranslationKeys = {
   'variables.exportPreset': 'फ़ाइल में निर्यात करें…',
   'variables.presetName': 'प्रीसेट का नाम',
   'variables.noPresets': 'कोई सहेजा गया प्रीसेट नहीं',
+  'variables.tokenColor': 'रंग टोकन',
+  'variables.tokenSpacing': 'स्पेसिंग टोकन',
+  'variables.tokenTypography': 'टाइपोग्राफी टोकन',
+  'variables.tokenNumber': 'संख्या टोकन',
 
   // ── AI Chat ──
   'ai.newChat': 'नई चैट',
@@ -407,6 +414,13 @@ const hi: TranslationKeys = {
   'componentBrowser.category.feedback': 'फ़ीडबैक',
   'componentBrowser.category.data': 'डेटा',
   'componentBrowser.category.other': 'अन्य',
+
+  // ── Component Picker ──
+  'componentPicker.noComponents': 'No components defined. Create components on a Component page first.',
+  'componentPicker.noResults': 'No matching components found.',
+
+  // ── Component List (sidebar) ──
+  'componentList.title': 'Components',
 
   // ── Variable Picker ──
   'variablePicker.boundTo': '--{{name}} से बाइंड',
