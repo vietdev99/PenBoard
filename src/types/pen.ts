@@ -5,7 +5,7 @@ import type {
   StyledTextSegment,
 } from './styles'
 import type { VariableDefinition } from './variables'
-import type { DataEntity } from './data-entity'
+import type { DataEntity, DataBinding } from './data-entity'
 
 // --- Screen Connection ---
 
@@ -91,6 +91,8 @@ export interface PenNodeBase {
   flipX?: boolean
   flipY?: boolean
   theme?: Record<string, string>
+  /** Optional data binding: binds this node to a DataEntity for sample data rendering */
+  dataBinding?: DataBinding
 }
 
 // --- Container (shared layout props) ---
