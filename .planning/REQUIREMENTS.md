@@ -9,10 +9,10 @@ Requirements for v1.1 Data-Driven Design milestone. Each maps to roadmap phases.
 
 ### Data Binding
 
-- [ ] **BIND-01**: User can select a data source (entity from ERD) for supported components (table, dropdown) via modal selector
-- [ ] **BIND-02**: Component renders sample rows from bound entity, falls back to placeholder when no data
-- [ ] **BIND-03**: User can map specific entity fields to component columns/options via field mapping UI
-- [ ] **BIND-04**: Deleting an entity auto-cleans all data binding references on bound components
+- [x] **BIND-01**: User can select a data source (entity from ERD) for supported components (table, dropdown) via modal selector
+- [x] **BIND-02**: Component renders sample rows from bound entity, falls back to placeholder when no data
+- [x] **BIND-03**: User can map specific entity fields to component columns/options via field mapping UI
+- [x] **BIND-04**: Deleting an entity auto-cleans all data binding references on bound components
 
 ### Interactive Preview
 
@@ -76,10 +76,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BIND-01 | Phase 5 | Pending |
-| BIND-02 | Phase 5 | Pending |
-| BIND-03 | Phase 5 | Pending |
-| BIND-04 | Phase 5 | Pending |
+| BIND-01 | Phase 5 | Complete |
+| BIND-02 | Phase 5 | Complete |
+| BIND-03 | Phase 5 | Complete |
+| BIND-04 | Phase 5 | Complete |
 | PREV-01 | Phase 7 | Pending |
 | PREV-02 | Phase 7 | Pending |
 | PREV-03 | Phase 7 | Pending |
