@@ -3,6 +3,7 @@ import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren } from '@/stores/document-store'
 import { useHistoryStore } from '@/stores/history-store'
 import { cloneNodesWithNewIds } from '@/utils/node-clone'
+import { clearStaleBindingsInTree } from '@/utils/binding-utils'
 import { canBooleanOp, executeBooleanOp, type BooleanOpType } from '@/utils/boolean-ops'
 import { tryPasteFigmaFromClipboard } from '@/hooks/use-figma-paste'
 import {
@@ -118,8 +119,12 @@ export function useKeyboardShortcuts() {
             }
             // Regular paste for non-reusable nodes
             const [cloned] = cloneNodesWithNewIds([original], 10)
-            useDocumentStore.getState().addNode(null, cloned)
-            newIds.push(cloned.id)
+            // Validate data bindings: clear if entity doesn't exist in target document
+            // (per CONTEXT.md: "Paste clears binding if entity doesn't exist")
+            const dataEntities = useDocumentStore.getState().document.dataEntities ?? []
+            const [validated] = clearStaleBindingsInTree([cloned], dataEntities)
+            useDocumentStore.getState().addNode(null, validated)
+            newIds.push(validated.id)
           }
           useCanvasStore.getState().setSelection(newIds, newIds[0] ?? null)
         } else {
