@@ -3,6 +3,7 @@ import type { PenNode, ContainerProps, FrameNode as FrameNodeType, RefNode as Re
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren, getAllChildren } from '@/stores/document-store'
 import { resolveNodeForCanvas, getDefaultTheme } from '@/variables/resolve-variables'
+import { resolveDataBinding } from '@/variables/resolve-data-binding'
 import { getCanvasBackground, MIN_ZOOM, MAX_ZOOM } from '../canvas-constants'
 import {
   resolvePadding,
@@ -533,11 +534,18 @@ export class SkiaEngine {
     // Resolve refs, variables, then flatten
     const resolved = resolveRefs(pageChildren, allNodes, findInTree)
 
-    // Resolve design variables
+    // Resolve data bindings FIRST: inject sample entity row data into child text nodes
+    // (per CONTEXT.md: "after argument apply, before variable resolution")
+    const dataEntities = docState.document.dataEntities ?? []
+    const bindingResolved = dataEntities.length > 0
+      ? resolved.map((n) => resolveDataBinding(n, dataEntities))
+      : resolved
+
+    // Resolve design variables (AFTER data binding resolution)
     const variables = docState.document.variables ?? {}
     const themes = docState.document.themes
     const defaultTheme = getDefaultTheme(themes)
-    const variableResolved = resolved.map((n) =>
+    const variableResolved = bindingResolved.map((n) =>
       resolveNodeForCanvas(n, variables, defaultTheme),
     )
 
