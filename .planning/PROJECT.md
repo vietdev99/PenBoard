@@ -84,6 +84,17 @@ Previous OpenBoard (Vite React + Express + Prisma) abandoned in favor of this fo
 | Variable grouping | Name-based heuristic | Automatic categorization without config |
 | ERD renderer | Dedicated SkiaErdRenderer | Keeps main engine focused |
 
+## Current Milestone: v1.1 Data-Driven Design
+
+**Goal:** Make designs come alive with real data, interactive preview, AI context, and workflow visualization.
+
+**Target features:**
+- Data binding from ERD entities to UIKit components (table, dropdown, etc.) via data source selector
+- Interactive HTML preview in separate browser tab with navigation and sample data
+- Context tab on right sidebar (textarea per element) for AI generation/comprehension
+- Auto-generated workflow view (mermaid diagram) from screen connections + data flows
+- MCP tool updates for all new capabilities
+
 ## v2 Ideas (Deferred)
 
 - Collaboration (multiple users editing simultaneously)
@@ -95,4 +106,4 @@ Previous OpenBoard (Vite React + Express + Prisma) abandoned in favor of this fo
 - Custom PenBoard logo
 
 ---
-*Last updated: 2026-03-17 after v1.0 milestone*
+*Last updated: 2026-03-17 after v1.1 milestone started*
