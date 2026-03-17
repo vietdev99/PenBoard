@@ -76,31 +76,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BIND-01 | — | Pending |
-| BIND-02 | — | Pending |
-| BIND-03 | — | Pending |
-| BIND-04 | — | Pending |
-| PREV-01 | — | Pending |
-| PREV-02 | — | Pending |
-| PREV-03 | — | Pending |
-| PREV-04 | — | Pending |
-| CTX-01 | — | Pending |
-| CTX-02 | — | Pending |
-| CTX-03 | — | Pending |
-| WF-01 | — | Pending |
-| WF-02 | — | Pending |
-| WF-03 | — | Pending |
-| MCP-01 | — | Pending |
-| MCP-02 | — | Pending |
-| MCP-03 | — | Pending |
-| MCP-04 | — | Pending |
-| MCP-05 | — | Pending |
+| BIND-01 | Phase 5 | Pending |
+| BIND-02 | Phase 5 | Pending |
+| BIND-03 | Phase 5 | Pending |
+| BIND-04 | Phase 5 | Pending |
+| PREV-01 | Phase 7 | Pending |
+| PREV-02 | Phase 7 | Pending |
+| PREV-03 | Phase 7 | Pending |
+| PREV-04 | Phase 7 | Pending |
+| CTX-01 | Phase 6 | Pending |
+| CTX-02 | Phase 6 | Pending |
+| CTX-03 | Phase 6 | Pending |
+| WF-01 | Phase 8 | Pending |
+| WF-02 | Phase 8 | Pending |
+| WF-03 | Phase 8 | Pending |
+| MCP-01 | Phase 9 | Pending |
+| MCP-02 | Phase 9 | Pending |
+| MCP-03 | Phase 9 | Pending |
+| MCP-04 | Phase 9 | Pending |
+| MCP-05 | Phase 9 | Pending |
 
 **Coverage:**
+
 - v1.1 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19 (pending roadmap creation)
+- Mapped to phases: 19
+- Unmapped: 0
 
 ---
+
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after initial definition*
+*Last updated: 2026-03-17 after roadmap creation -- all 19 requirements mapped to phases 5-9*
