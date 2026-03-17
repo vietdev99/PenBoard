@@ -9,7 +9,7 @@ PenBoard is a fork of OpenPencil (MIT, CanvasKit/Skia) extended with storyboard 
 - [x] **Phase 1: Clone, Rebrand & Verify** - OpenPencil fork runs as PenBoard, all canvas features verified working
 - [x] **Phase 2: Storyboard Connections & Data Entities** - Screen connections via property panel, Notion-like data tables with ERD visualization
 - [x] **Phase 3: Shared Components & Design Tokens** - Reusable components with rich arguments, token management UI, connection highlight mode
-- [ ] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
+- [x] **Phase 4: E2E Tests & Polish** - Playwright tests, Electron validation, performance optimization
 
 ## Removed Phases
 
@@ -90,7 +90,9 @@ Plans:
   4. MCP server works from Claude Code
 
 Plans:
-- [ ] 04-01: TBD
+- [x] 04-01-PLAN.md — Unit tests: document-store, connections, data entities, shared components, tokens
+- [x] 04-02-PLAN.md — Playwright E2E test suites: canvas tools, design tokens, editor loads, file operations
+- [x] 04-03-PLAN.md — Performance benchmark + Electron compile validation + MCP unit tests
 
 ## Progress
 
@@ -100,5 +102,5 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Clone, Rebrand & Verify | 5/5 | Complete | 2026-03-16 |
 | 2. Storyboard Connections & Data Entities | 3/3 | Complete | 2026-03-16 |
-| 3. Shared Components & Design Tokens | 5/5 | Complete   | 2026-03-16 |
-| 4. E2E Tests & Polish | 0/1 | Not started | - |
+| 3. Shared Components & Design Tokens | 5/5 | Complete | 2026-03-16 |
+| 4. E2E Tests & Polish | 3/3 | Complete | 2026-03-17 |
