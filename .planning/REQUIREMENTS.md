@@ -23,9 +23,9 @@ Requirements for v1.1 Data-Driven Design milestone. Each maps to roadmap phases.
 
 ### Context & AI
 
-- [ ] **CTX-01**: Every element has a context textarea in right sidebar panel
+- [x] **CTX-01**: Every element has a context textarea in right sidebar panel
 - [ ] **CTX-02**: Element context is injected into AI prompts when generating/reading designs
-- [ ] **CTX-03**: Context persists in .pb file (on PenNode), survives copy/paste/duplicate
+- [x] **CTX-03**: Context persists in .pb file (on PenNode), survives copy/paste/duplicate
 
 ### Workflow
 
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PREV-02 | Phase 7 | Pending |
 | PREV-03 | Phase 7 | Pending |
 | PREV-04 | Phase 7 | Pending |
-| CTX-01 | Phase 6 | Pending |
+| CTX-01 | Phase 6 | Complete |
 | CTX-02 | Phase 6 | Pending |
-| CTX-03 | Phase 6 | Pending |
+| CTX-03 | Phase 6 | Complete |
 | WF-01 | Phase 8 | Pending |
 | WF-02 | Phase 8 | Pending |
 | WF-03 | Phase 8 | Pending |
