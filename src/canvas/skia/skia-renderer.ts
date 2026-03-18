@@ -3,7 +3,7 @@ import type { PenNode, ContainerProps, TextNode, EllipseNode, LineNode, PolygonN
 import type { PenFill, PenStroke, PenEffect, ShadowEffect, ImageFill } from '@/types/styles'
 import { DEFAULT_FILL, DEFAULT_STROKE, DEFAULT_STROKE_WIDTH } from '../canvas-constants'
 import { defaultLineHeight } from '../canvas-text-measure'
-import { lookupIconByName } from '@/services/ai/icon-resolver'
+import { lookupIconByName, tryAsyncIconFontResolution } from '@/services/ai/icon-resolver'
 import { buildEllipseArcPath, isArcEllipse } from '@/utils/arc-path'
 import { SkiaImageLoader } from './skia-image-loader'
 import { SkiaFontManager } from './skia-font-manager'
@@ -47,6 +47,46 @@ export interface RenderNode {
   absW: number
   absH: number
   clipRect?: { x: number; y: number; w: number; h: number; rx: number }
+}
+
+// ---------------------------------------------------------------------------
+// Icon font family detection helpers
+// ---------------------------------------------------------------------------
+
+/** Known icon font families that use Unicode PUA code points, not text glyphs. */
+const ICON_FONT_FAMILIES = new Set([
+  'material symbols outlined', 'material symbols rounded', 'material symbols sharp',
+  'material icons', 'material icons outlined', 'material icons round', 'material icons sharp',
+  'material design icons', 'materialdesignicons',
+  'phosphor', 'phosphor-bold', 'phosphor-fill', 'phosphor-light', 'phosphor-thin',
+  'fontawesome', 'font awesome', 'font awesome 5 free', 'font awesome 6 free',
+  'fa solid', 'fa regular', 'fa brands',
+  'remixicon', 'remix icon', 'ri',
+  'tabler-icons', 'tabler icons',
+  'ionicons', 'ion-icons',
+  'bootstrap-icons', 'bootstrap icons',
+  'heroicons', 'feather icons',
+  'iconpark', 'icon park',
+  'codicon', 'codicons',
+  'fluent system icons', 'fluenticons',
+])
+
+/** Check if a fontFamily string is a known icon font. */
+function isIconFontFamily(fontFamily: string): boolean {
+  if (!fontFamily) return false
+  const normalized = fontFamily.split(',')[0].trim().replace(/['"]/g, '').toLowerCase()
+  return ICON_FONT_FAMILIES.has(normalized)
+}
+
+/** Check if text content is entirely Unicode Private Use Area characters. */
+function isUnicodePUA(content: string): boolean {
+  if (!content) return false
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i)
+    // Unicode PUA: U+E000–U+F8FF (BMP), U+F0000–U+FFFFD, U+100000–U+10FFFD
+    if (code < 0xE000 || (code > 0xF8FF && code < 0xF0000)) return false
+  }
+  return true
 }
 
 export class SkiaRenderer {
@@ -183,7 +223,7 @@ export class SkiaRenderer {
           c[3] *= fillOpacity
           return c
         })
-        const positions = stops.map((s) => Math.max(0, Math.min(1, s.offset)))
+        const positions = stops.map((s, idx) => { const o = Number(s.offset); return Number.isFinite(o) ? Math.max(0, Math.min(1, o)) : idx / Math.max(stops.length - 1, 1) })
         const shader = ck.Shader.MakeLinearGradient(
           [x1, y1], [x2, y2],
           colors, positions,
@@ -201,13 +241,13 @@ export class SkiaRenderer {
       if (stops.length >= 2) {
         const cx = absX + (first.cx ?? 0.5) * w
         const cy = absY + (first.cy ?? 0.5) * h
-        const r = (first.radius ?? 0.5) * Math.max(w, h)
+        const r = Math.max(0.1, (first.radius ?? 0.5) * Math.max(w, h))
         const colors = stops.map((s) => {
           const c = parseColor(ck, s.color)
           c[3] *= fillOpacity
           return c
         })
-        const positions = stops.map((s) => Math.max(0, Math.min(1, s.offset)))
+        const positions = stops.map((s, idx) => { const o = Number(s.offset); return Number.isFinite(o) ? Math.max(0, Math.min(1, o)) : idx / Math.max(stops.length - 1, 1) })
         const shader = ck.Shader.MakeRadialGradient(
           [cx, cy], r,
           colors, positions,
@@ -864,7 +904,21 @@ export class SkiaRenderer {
     const ck = this.ck
     const iNode = node as IconFontNode
     const iconName = iNode.iconFontName ?? iNode.name ?? ''
-    const iconMatch = lookupIconByName(iconName)
+
+    // Detect Unicode code point names (PUA chars) — not resolvable by name
+    const isCodePoint = /^[0-9a-f]{4,5}$/i.test(iconName) ||
+      /^\\u[0-9a-f]{4}/i.test(iconName) ||
+      (iconName.length === 1 && iconName.charCodeAt(0) >= 0xE000)
+
+    const iconMatch = isCodePoint ? null : lookupIconByName(iconName)
+
+    // If icon can't be resolved, trigger async resolution and draw placeholder
+    if (!iconMatch && iconName) {
+      tryAsyncIconFontResolution(node.id, iconName)
+      this.drawIconPlaceholder(canvas, x, y, w, h, iconName, opacity)
+      return
+    }
+
     const iconD = iconMatch?.d ?? 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0'
     const iconStyle = iconMatch?.style ?? 'stroke'
 
@@ -884,7 +938,10 @@ export class SkiaRenderer {
     if (!path) {
       path = tryManualPathParse(ck, iconD)
     }
-    if (!path) return
+    if (!path) {
+      this.drawIconPlaceholder(canvas, x, y, w, h, iconName, opacity)
+      return
+    }
 
     const bounds = path.getBounds()
     const nativeW = bounds[2] - bounds[0]
@@ -925,6 +982,41 @@ export class SkiaRenderer {
     }
 
     path.delete()
+  }
+
+  /** Draw a gray placeholder rectangle for unresolved icons */
+  private drawIconPlaceholder(
+    canvas: Canvas,
+    x: number, y: number, w: number, h: number,
+    _iconName: string, opacity: number,
+  ) {
+    const ck = this.ck
+    const rw = w > 0 ? w : 24
+    const rh = h > 0 ? h : 24
+
+    // Light gray rounded rectangle
+    const paint = new ck.Paint()
+    paint.setStyle(ck.PaintStyle.Fill)
+    paint.setAntiAlias(true)
+    paint.setColor(ck.Color(200, 200, 200, opacity))
+    const rrect = ck.RRectXY(ck.LTRBRect(x, y, x + rw, y + rh), 3, 3)
+    canvas.drawRRect(rrect, paint)
+
+    // Draw a generic "diamond" shape inside to indicate icon
+    const cx = x + rw / 2
+    const cy = y + rh / 2
+    const s = Math.min(rw, rh) * 0.3
+    const iconPath = new ck.Path()
+    iconPath.moveTo(cx, cy - s)
+    iconPath.lineTo(cx + s, cy)
+    iconPath.lineTo(cx, cy + s)
+    iconPath.lineTo(cx - s, cy)
+    iconPath.close()
+    paint.setColor(ck.Color(120, 120, 120, opacity))
+    canvas.drawPath(iconPath, paint)
+
+    iconPath.delete()
+    paint.delete()
   }
 
   /**
@@ -1159,6 +1251,25 @@ export class SkiaRenderer {
     opacity: number,
     effects?: PenEffect[],
   ) {
+    const tNode = node as TextNode
+
+    // Detect text nodes that use icon font families (Material Symbols, Phosphor, etc.)
+    // These have Unicode PUA content that renders as "NO GLYPH" boxes in regular fonts.
+    const fontFamily = tNode.fontFamily ?? ''
+    if (isIconFontFamily(fontFamily)) {
+      const iconName = tNode.name ?? tNode.content?.toString() ?? ''
+      this.drawIconPlaceholder(canvas, x, y, w > 0 ? w : h > 0 ? h : 24, h > 0 ? h : w > 0 ? w : 24, iconName, opacity)
+      return
+    }
+
+    // Detect text content that's entirely Unicode PUA characters (icon code points)
+    const content = typeof tNode.content === 'string' ? tNode.content : ''
+    if (content && isUnicodePUA(content)) {
+      const iconName = tNode.name ?? fontFamily.split(',')[0].trim() ?? ''
+      this.drawIconPlaceholder(canvas, x, y, w > 0 ? w : h > 0 ? h : 24, h > 0 ? h : w > 0 ? w : 24, iconName, opacity)
+      return
+    }
+
     // Draw text shadow as blurred copy of the text glyphs (not a rectangle)
     const shadow = effects?.find((e): e is ShadowEffect => e.type === 'shadow')
     if (shadow) {

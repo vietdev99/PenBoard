@@ -410,8 +410,10 @@ export function drawFrameLabelColored(
   isReusable: boolean, isInstance: boolean,
   zoom = 1,
 ) {
+  // Guard: skip if coordinates are invalid or name too long (prevents WASM OOM)
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !name || name.length > 200) return
   const color = isReusable ? COMPONENT_COLOR : isInstance ? INSTANCE_COLOR : FRAME_LABEL_COLOR
-  const fontSize = 12 / zoom
+  const fontSize = Math.max(4, Math.min(120, 12 / zoom))
   const labelH = (fontSize + 6) // approximate label height
   drawText2D(ck, canvas, name, x, y - labelH, color, fontSize, '500')
 }

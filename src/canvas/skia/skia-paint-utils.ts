@@ -55,10 +55,24 @@ export function cornerRadiusValue(cr: number | [number, number, number, number] 
   return cr[0]
 }
 
-export function cornerRadii(cr: number | [number, number, number, number] | undefined): [number, number, number, number] {
-  if (cr === undefined) return [0, 0, 0, 0]
+export function cornerRadii(cr: unknown): [number, number, number, number] {
+  if (cr == null) return [0, 0, 0, 0]
   if (typeof cr === 'number') return [cr, cr, cr, cr]
-  return cr
+  // String: parse as number (handles "8", "8px", "$variable" → 0)
+  if (typeof cr === 'string') {
+    const n = parseFloat(cr)
+    const v = isNaN(n) ? 0 : n
+    return [v, v, v, v]
+  }
+  // Array: normalize to 4-tuple
+  if (Array.isArray(cr)) {
+    const a = cr.map((v: unknown) => (typeof v === 'number' ? v : (typeof v === 'string' ? (parseFloat(v) || 0) : 0)))
+    if (a.length >= 4) return [a[0], a[1], a[2], a[3]]
+    if (a.length === 2) return [a[0], a[1], a[0], a[1]]
+    if (a.length === 1) return [a[0], a[0], a[0], a[0]]
+    return [0, 0, 0, 0]
+  }
+  return [0, 0, 0, 0]
 }
 
 // ---------------------------------------------------------------------------

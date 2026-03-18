@@ -68,10 +68,16 @@ export function setActivePageChildren(
   return { ...doc, children }
 }
 
-/** Get all children across all pages (for cross-page component resolution). */
+/** Get all children across all pages (for cross-page component resolution).
+ *  Also includes doc.children for .pen files that store reusable components there. */
 export function getAllChildren(doc: PenDocument): PenNode[] {
   if (doc.pages && doc.pages.length > 0) {
-    return doc.pages.flatMap((p) => p.children)
+    const pageChildren = doc.pages.flatMap((p) => p.children)
+    // .pen files may store reusable components in doc.children alongside pages
+    if (doc.children && doc.children.length > 0) {
+      return [...pageChildren, ...doc.children]
+    }
+    return pageChildren
   }
   return doc.children
 }

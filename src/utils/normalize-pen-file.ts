@@ -67,6 +67,11 @@ function normalizeNode(node: PenNode): PenNode {
 
   // opacity — pass through ($variable strings preserved)
 
+  // cornerRadius — normalize non-standard formats from .pen files
+  if ('cornerRadius' in out && out.cornerRadius !== undefined) {
+    out.cornerRadius = normalizeCornerRadius(out.cornerRadius)
+  }
+
   // icon_font: default to lucide family
   if (out.type === 'icon_font' && !out.iconFontFamily) {
     out.iconFontFamily = 'lucide'
@@ -276,6 +281,29 @@ function normalizePadding(
       }
       return 0
     }) as [number, number] | [number, number, number, number]
+  }
+  return undefined
+}
+
+function normalizeCornerRadius(
+  value: unknown,
+): number | [number, number, number, number] | undefined {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    if (value.startsWith('$')) return 0
+    const num = parseFloat(value)
+    return isNaN(num) ? 0 : num
+  }
+  if (Array.isArray(value)) {
+    const nums = value.map((v: unknown) => {
+      if (typeof v === 'number') return v
+      if (typeof v === 'string') return parseFloat(v) || 0
+      return 0
+    })
+    if (nums.length >= 4) return [nums[0], nums[1], nums[2], nums[3]]
+    if (nums.length === 2) return [nums[0], nums[1], nums[0], nums[1]]
+    if (nums.length === 1) return nums[0]
+    return 0
   }
   return undefined
 }
