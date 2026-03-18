@@ -24,6 +24,7 @@ import { resolvePageForPreview } from '@/services/preview/preview-data-resolver'
 import { getSemanticTag } from '@/services/preview/preview-semantic-tags'
 import { generateNavigationJS, generateNavigationCSS } from '@/services/preview/preview-navigation'
 import { generateToolbarHTML, generateToolbarCSS, generateToolbarJS } from '@/services/preview/preview-toolbar'
+import { lookupIconByName } from '@/services/ai/icon-resolver'
 
 // ---------------------------------------------------------------------------
 // CSS helper functions (replicated from html-generator.ts with preview extensions)
@@ -458,13 +459,25 @@ function generateNodeHTML(
       const size = typeof node.width === 'number' ? node.width : 24
       css.width = `${size}px`
       css.height = `${size}px`
-      if (node.fill?.[0]?.type === 'solid')
-        css.color = varOrLiteral(node.fill[0].color)
+      const iconColor = node.fill?.[0]?.type === 'solid'
+        ? varOrLiteral(node.fill[0].color)
+        : 'currentColor'
       const className = nextClassName(
         node.name?.replace(/\s+/g, '-').toLowerCase() ?? 'icon',
       )
       rules.push({ className, properties: css })
-      return `${pad}<i ${nodeIdAttr} class="${className}" data-lucide="${escapeHTML(node.iconFontName ?? 'circle')}"${connAttrs}></i>`
+
+      // Resolve icon to inline SVG via icon-resolver
+      const iconName = node.iconFontName ?? node.name ?? 'circle'
+      const iconMatch = lookupIconByName(iconName)
+      if (iconMatch) {
+        const strokeOrFill = iconMatch.style === 'stroke'
+          ? `fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`
+          : `fill="${iconColor}"`
+        return `${pad}<svg ${nodeIdAttr} class="${className}" viewBox="0 0 24 24" ${strokeOrFill}${connAttrs}>\n${pad}  <path d="${iconMatch.d}" />\n${pad}</svg>`
+      }
+      // Fallback: render a placeholder circle
+      return `${pad}<svg ${nodeIdAttr} class="${className}" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"${connAttrs}>\n${pad}  <circle cx="12" cy="12" r="10" />\n${pad}</svg>`
     }
 
     case 'ref':
