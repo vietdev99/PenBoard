@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren } from '@/stores/document-store'
 import { useHistoryStore } from '@/stores/history-store'
+import { useAIStore } from '@/stores/ai-store'
 import type { PenNode, PenPage, RefNode } from '@/types/pen'
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,18 @@ async function suggestContext(
         ? (n.children as unknown[]).length
         : 0,
   }
+
+  // Resolve provider and model from AI store (same pattern as ai-chat-handlers)
+  const aiState = useAIStore.getState()
+  const model = aiState.model
+  const provider = aiState.modelGroups.find((g) =>
+    g.models.some((m) => m.value === model),
+  )?.provider
+
+  if (!model || !provider) {
+    throw new Error('No AI model configured. Please select a model in the AI panel first.')
+  }
+
   const response = await fetch('/api/ai/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,11 +49,14 @@ async function suggestContext(
       system:
         'You are a UI/UX context annotator. Given a design element, write a brief 1-3 sentence description of its purpose and behavior. Be specific and actionable. Do not use markdown formatting.',
       message: `Describe the purpose of this UI element:\n${JSON.stringify(nodeInfo, null, 2)}`,
+      model,
+      provider,
     }),
     signal,
   })
   if (!response.ok) throw new Error('AI suggest failed')
-  const data = (await response.json()) as { text?: string }
+  const data = (await response.json()) as { text?: string; error?: string }
+  if (data.error) throw new Error(data.error)
   return data.text?.trim() ?? ''
 }
 
@@ -198,41 +214,55 @@ function PageContextEditor() {
 
   const [localValue, setLocalValue] = useState(page?.context ?? '')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingValueRef = useRef<string | null>(null)
 
   // Reset local value when page changes
   useEffect(() => {
     setLocalValue(page?.context ?? '')
   }, [activePageId, page?.context])
 
+  const flushPageContext = useCallback((value: string) => {
+    if (!activePageId) return
+    const doc = useDocumentStore.getState().document
+    const currentPage = doc.pages?.find((p) => p.id === activePageId)
+    if (!currentPage) return
+    useHistoryStore.getState().pushState(doc)
+    const updatedPages = doc.pages?.map((p) =>
+      p.id === activePageId
+        ? { ...p, context: value || undefined }
+        : p,
+    )
+    useDocumentStore.setState({
+      document: { ...doc, pages: updatedPages },
+      isDirty: true,
+    })
+  }, [activePageId])
+
   const debouncedSave = useCallback(
     (value: string) => {
+      pendingValueRef.current = value
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
-        if (!activePageId) return
-        const doc = useDocumentStore.getState().document
-        const currentPage = doc.pages?.find((p) => p.id === activePageId)
-        if (!currentPage) return
-        useHistoryStore.getState().pushState(doc)
-        const updatedPages = doc.pages?.map((p) =>
-          p.id === activePageId
-            ? { ...p, context: value || undefined }
-            : p,
-        )
-        useDocumentStore.setState({
-          document: { ...doc, pages: updatedPages },
-          isDirty: true,
-        })
+        flushPageContext(value)
+        pendingValueRef.current = null
       }, 500)
     },
-    [activePageId],
+    [flushPageContext],
   )
 
-  // Cleanup on unmount
+  // Flush pending save on unmount
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+        if (pendingValueRef.current !== null) {
+          flushPageContext(pendingValueRef.current)
+          pendingValueRef.current = null
+        }
+      }
     }
-  }, [])
+  }, [flushPageContext])
 
   const handleChange = useCallback(
     (value: string) => {
@@ -275,27 +305,39 @@ function SingleNodeContextEditor({ nodeId }: { nodeId: string }) {
 
   const [localValue, setLocalValue] = useState(node?.context ?? '')
   const [isSuggesting, setIsSuggesting] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingValueRef = useRef<string | null>(null)
 
   // Reset local value when nodeId changes
   useEffect(() => {
     setLocalValue(node?.context ?? '')
   }, [nodeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Abort pending AI request when nodeId changes or component unmounts
+  // Flush pending save & abort AI request when nodeId changes or component unmounts
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+        // Flush: save immediately instead of discarding
+        if (pendingValueRef.current !== null) {
+          useDocumentStore.getState().updateNode(nodeId, { context: pendingValueRef.current || undefined } as Partial<PenNode>)
+          pendingValueRef.current = null
+        }
+      }
     }
   }, [nodeId])
 
   const debouncedSave = useCallback(
     (value: string) => {
+      pendingValueRef.current = value
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
         updateNode(nodeId, { context: value || undefined } as Partial<PenNode>)
+        pendingValueRef.current = null
       }, 500)
     },
     [nodeId, updateNode],
@@ -315,14 +357,18 @@ function SingleNodeContextEditor({ nodeId }: { nodeId: string }) {
     const controller = new AbortController()
     abortRef.current = controller
     setIsSuggesting(true)
+    setSuggestError(null)
     try {
       const suggestion = await suggestContext(node, controller.signal)
       if (!controller.signal.aborted && suggestion) {
         setLocalValue(suggestion)
         debouncedSave(suggestion)
       }
-    } catch {
-      // Silently fail (abort or network error)
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        const msg = err instanceof Error ? err.message : 'AI suggest failed'
+        setSuggestError(msg)
+      }
     } finally {
       if (!controller.signal.aborted) {
         setIsSuggesting(false)
@@ -370,6 +416,13 @@ function SingleNodeContextEditor({ nodeId }: { nodeId: string }) {
           </span>
         </button>
       </div>
+
+      {/* AI Suggest error */}
+      {suggestError && (
+        <div className="text-destructive text-[10px] px-1 mb-1 shrink-0 truncate" title={suggestError}>
+          {suggestError}
+        </div>
+      )}
 
       {/* Inherited component context (read-only) */}
       {isRefNode && inheritedContext && (
@@ -436,6 +489,7 @@ function MultiSelectItem({
   const node = getNodeById(nodeId)
   const [localValue, setLocalValue] = useState(node?.context ?? '')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingValueRef = useRef<string | null>(null)
 
   useEffect(() => {
     setLocalValue(node?.context ?? '')
@@ -443,15 +497,24 @@ function MultiSelectItem({
 
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+        if (pendingValueRef.current !== null) {
+          useDocumentStore.getState().updateNode(nodeId, { context: pendingValueRef.current || undefined } as Partial<PenNode>)
+          pendingValueRef.current = null
+        }
+      }
     }
-  }, [])
+  }, [nodeId])
 
   const debouncedSave = useCallback(
     (value: string) => {
+      pendingValueRef.current = value
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
         updateNode(nodeId, { context: value || undefined } as Partial<PenNode>)
+        pendingValueRef.current = null
       }, 500)
     },
     [nodeId, updateNode],

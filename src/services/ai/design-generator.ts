@@ -114,6 +114,9 @@ export async function generateDesignModification(
     .map(n => `${n.type}:"${n.name ?? n.id}" -- Context: ${n.context}`)
   if (nodeContexts.length > 0) {
     userMessage += "\n\nELEMENT CONTEXT:\n" + nodeContexts.join("\n")
+    console.log('[CTX] Modification context injected:', nodeContexts)
+  } else {
+    console.log('[CTX] No element context found on selected nodes:', nodesToModify.map(n => ({ id: n.id, name: n.name, context: n.context })))
   }
 
   // Append variable context so AI can use $variable references

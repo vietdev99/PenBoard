@@ -126,7 +126,11 @@ export function buildContextString(): string {
     parts.push(`Variables: ${varNames}`)
   }
 
-  return parts.length > 0 ? `\n\n[Canvas context: ${parts.join('. ')}]` : ''
+  const result = parts.length > 0 ? `\n\n[Canvas context: ${parts.join('. ')}]` : ''
+  if (result) {
+    console.log('[CTX] buildContextString:', result)
+  }
+  return result
 }
 
 /** Shared chat logic hook */
