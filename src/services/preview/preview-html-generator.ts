@@ -27,6 +27,43 @@ import { generateToolbarHTML, generateToolbarCSS, generateToolbarJS } from '@/se
 import { lookupIconByName } from '@/services/ai/icon-resolver'
 
 // ---------------------------------------------------------------------------
+// Icon font detection helpers
+// ---------------------------------------------------------------------------
+
+const ICON_FONT_FAMILIES = new Set([
+  'material symbols outlined', 'material symbols rounded', 'material symbols sharp',
+  'material icons', 'material icons outlined', 'material icons round', 'material icons sharp',
+  'material design icons', 'materialdesignicons',
+  'phosphor', 'phosphor-bold', 'phosphor-fill', 'phosphor-light', 'phosphor-thin',
+  'fontawesome', 'font awesome', 'font awesome 5 free', 'font awesome 6 free',
+  'fa solid', 'fa regular', 'fa brands',
+  'remixicon', 'remix icon', 'ri',
+  'tabler-icons', 'tabler icons',
+  'ionicons', 'ion-icons',
+  'bootstrap-icons', 'bootstrap icons',
+  'heroicons', 'feather icons',
+  'iconpark', 'icon park',
+  'codicon', 'codicons',
+  'fluent system icons', 'fluenticons',
+])
+
+function isIconFontFamilyName(fontFamily: string): boolean {
+  if (!fontFamily) return false
+  const normalized = fontFamily.split(',')[0].trim().replace(/['"]/g, '').toLowerCase()
+  return ICON_FONT_FAMILIES.has(normalized)
+}
+
+function isAllUnicodePUA(content: string): boolean {
+  if (!content) return false
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i)
+    // Unicode PUA: U+E000–U+F8FF (BMP), U+F0000–U+FFFFD, U+100000–U+10FFFD
+    if (code < 0xE000 || (code > 0xF8FF && code < 0xF0000)) return false
+  }
+  return true
+}
+
+// ---------------------------------------------------------------------------
 // CSS helper functions (replicated from html-generator.ts with preview extensions)
 // ---------------------------------------------------------------------------
 
@@ -357,6 +394,45 @@ function generateNodeHTML(
     }
 
     case 'text': {
+      // Detect text nodes that use icon font families (Material Symbols, Phosphor, etc.)
+      // and resolve them to inline SVG icons instead of rendering PUA characters.
+      const textFontFamily = node.fontFamily ?? ''
+      const isIconFont = textFontFamily && isIconFontFamilyName(textFontFamily)
+      const textContent = getTextContent(node)
+      const isPUA = textContent && isAllUnicodePUA(textContent)
+
+      if (isIconFont || isPUA) {
+        const iconName = node.name ?? textContent
+        const iconMatch = iconName ? lookupIconByName(iconName) : null
+        if (iconMatch) {
+          const iw = typeof node.width === 'number' ? node.width : (typeof node.height === 'number' ? node.height : (node.fontSize ?? 24))
+          const ih = typeof node.height === 'number' ? node.height : iw
+          const iconColor = node.fill?.[0]?.type === 'solid'
+            ? varOrLiteral(node.fill[0].color)
+            : '#64748B'
+          const strokeOrFill = iconMatch.style === 'stroke'
+            ? `fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`
+            : `fill="${iconColor}"`
+          css.width = `${iw}px`
+          css.height = `${ih}px`
+          css.display = 'inline-flex'
+          css['align-items'] = 'center'
+          css['justify-content'] = 'center'
+          Object.assign(css, effectsToCSS(node.effects))
+          const className = nextClassName(node.name?.replace(/\s+/g, '-').toLowerCase() ?? 'icon')
+          rules.push({ className, properties: css })
+          return `${pad}<svg ${nodeIdAttr} class="${className}" viewBox="0 0 24 24" ${strokeOrFill}${connAttrs}>\n${pad}  <path d="${iconMatch.d}" />\n${pad}</svg>`
+        }
+        // Fallback: render as empty box if icon not resolved
+        css.width = `${typeof node.width === 'number' ? node.width : 24}px`
+        css.height = `${typeof node.height === 'number' ? node.height : 24}px`
+        css.background = '#e5e7eb'
+        css['border-radius'] = '3px'
+        const className = nextClassName('icon-placeholder')
+        rules.push({ className, properties: css })
+        return `${pad}<div ${nodeIdAttr} class="${className}"${connAttrs}></div>`
+      }
+
       if (node.width === 'fill_container') {
         css.width = '100%'
       } else if (typeof node.width === 'number') {

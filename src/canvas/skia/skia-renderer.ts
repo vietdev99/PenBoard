@@ -901,16 +901,27 @@ export class SkiaRenderer {
     x: number, y: number, w: number, h: number,
     opacity: number,
   ) {
-    const ck = this.ck
     const iNode = node as IconFontNode
-    const iconName = iNode.iconFontName ?? iNode.name ?? ''
+    const iconFontName = iNode.iconFontName ?? ''
+    const nodeName = iNode.name ?? ''
 
-    // Detect Unicode code point names (PUA chars) — not resolvable by name
-    const isCodePoint = /^[0-9a-f]{4,5}$/i.test(iconName) ||
-      /^\\u[0-9a-f]{4}/i.test(iconName) ||
-      (iconName.length === 1 && iconName.charCodeAt(0) >= 0xE000)
+    // Try multiple name candidates: iconFontName first, then node name
+    // Pencil.dev may store code points in iconFontName but human-readable names in name
+    const isCodePoint = (n: string) =>
+      /^[0-9a-f]{4,5}$/i.test(n) ||
+      /^\\u[0-9a-f]{4}/i.test(n) ||
+      (n.length === 1 && n.charCodeAt(0) >= 0xE000)
 
-    const iconMatch = isCodePoint ? null : lookupIconByName(iconName)
+    let iconMatch = !isCodePoint(iconFontName) && iconFontName
+      ? lookupIconByName(iconFontName)
+      : null
+
+    // Fallback: try node name if iconFontName didn't resolve
+    if (!iconMatch && nodeName && nodeName !== iconFontName) {
+      iconMatch = !isCodePoint(nodeName) ? lookupIconByName(nodeName) : null
+    }
+
+    const iconName = iconFontName || nodeName
 
     // If icon can't be resolved, trigger async resolution and draw placeholder
     if (!iconMatch && iconName) {
@@ -919,29 +930,37 @@ export class SkiaRenderer {
       return
     }
 
-    const iconD = iconMatch?.d ?? 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0'
-    const iconStyle = iconMatch?.style ?? 'stroke'
+    // Delegate to shared resolved icon drawing
+    this.drawResolvedIcon(canvas, iconMatch!, x, y, w, h, node, opacity)
+  }
 
-    const rawFill = iNode.fill
-    const iconFillColor = typeof rawFill === 'string'
+  /**
+   * Draw a resolved icon (from lookupIconByName) as an SVG path.
+   * Used for text nodes with icon font families and icon_font nodes.
+   */
+  private drawResolvedIcon(
+    canvas: Canvas,
+    iconMatch: { d: string; iconId: string; style: 'stroke' | 'fill' },
+    x: number, y: number, w: number, h: number,
+    colorNode: PenNode, opacity: number,
+  ) {
+    const ck = this.ck
+    const iconD = iconMatch.d
+    const iconStyle = iconMatch.style
+
+    // Extract color from the node's fill or use default
+    const rawFill = 'fill' in colorNode ? (colorNode as any).fill : undefined
+    const iconColor = typeof rawFill === 'string'
       ? rawFill
-      : Array.isArray(iNode.fill) && iNode.fill.length > 0
-        ? resolveFillColor(iNode.fill)
+      : Array.isArray(rawFill) && rawFill.length > 0
+        ? resolveFillColor(rawFill)
         : '#64748B'
 
-    // Sanitize path data and try multiple parse strategies (same as drawPath)
-    const sanitizedIconD = sanitizeSvgPath(iconD)
-    let path = ck.Path.MakeFromSVGString(sanitizedIconD)
-    if (!path && sanitizedIconD !== iconD) {
-      path = ck.Path.MakeFromSVGString(iconD)
-    }
-    if (!path) {
-      path = tryManualPathParse(ck, iconD)
-    }
-    if (!path) {
-      this.drawIconPlaceholder(canvas, x, y, w, h, iconName, opacity)
-      return
-    }
+    const sanitizedD = sanitizeSvgPath(iconD)
+    let path = ck.Path.MakeFromSVGString(sanitizedD)
+    if (!path && sanitizedD !== iconD) path = ck.Path.MakeFromSVGString(iconD)
+    if (!path) path = tryManualPathParse(ck, iconD)
+    if (!path) return
 
     const bounds = path.getBounds()
     const nativeW = bounds[2] - bounds[0]
@@ -964,7 +983,7 @@ export class SkiaRenderer {
       paint.setStrokeWidth(2)
       paint.setStrokeCap(ck.StrokeCap.Round)
       paint.setStrokeJoin(ck.StrokeJoin.Round)
-      const c = parseColor(ck, iconFillColor)
+      const c = parseColor(ck, iconColor)
       c[3] *= opacity
       paint.setColor(c)
       canvas.drawPath(path, paint)
@@ -973,14 +992,13 @@ export class SkiaRenderer {
       const paint = new ck.Paint()
       paint.setStyle(ck.PaintStyle.Fill)
       paint.setAntiAlias(true)
-      const c = parseColor(ck, iconFillColor)
+      const c = parseColor(ck, iconColor)
       c[3] *= opacity
       paint.setColor(c)
       path.setFillType(ck.FillType.EvenOdd)
       canvas.drawPath(path, paint)
       paint.delete()
     }
-
     path.delete()
   }
 
@@ -1255,10 +1273,18 @@ export class SkiaRenderer {
 
     // Detect text nodes that use icon font families (Material Symbols, Phosphor, etc.)
     // These have Unicode PUA content that renders as "NO GLYPH" boxes in regular fonts.
+    // Try to resolve the icon name to an SVG path so we can draw the actual icon.
     const fontFamily = tNode.fontFamily ?? ''
     if (isIconFontFamily(fontFamily)) {
       const iconName = tNode.name ?? tNode.content?.toString() ?? ''
-      this.drawIconPlaceholder(canvas, x, y, w > 0 ? w : h > 0 ? h : 24, h > 0 ? h : w > 0 ? w : 24, iconName, opacity)
+      const iw = w > 0 ? w : h > 0 ? h : 24
+      const ih = h > 0 ? h : w > 0 ? w : 24
+      const iconMatch = iconName ? lookupIconByName(iconName) : null
+      if (iconMatch) {
+        this.drawResolvedIcon(canvas, iconMatch, x, y, iw, ih, tNode, opacity)
+      } else {
+        this.drawIconPlaceholder(canvas, x, y, iw, ih, iconName, opacity)
+      }
       return
     }
 
@@ -1266,7 +1292,14 @@ export class SkiaRenderer {
     const content = typeof tNode.content === 'string' ? tNode.content : ''
     if (content && isUnicodePUA(content)) {
       const iconName = tNode.name ?? fontFamily.split(',')[0].trim() ?? ''
-      this.drawIconPlaceholder(canvas, x, y, w > 0 ? w : h > 0 ? h : 24, h > 0 ? h : w > 0 ? w : 24, iconName, opacity)
+      const iw = w > 0 ? w : h > 0 ? h : 24
+      const ih = h > 0 ? h : w > 0 ? w : 24
+      const iconMatch = iconName ? lookupIconByName(iconName) : null
+      if (iconMatch) {
+        this.drawResolvedIcon(canvas, iconMatch, x, y, iw, ih, tNode, opacity)
+      } else {
+        this.drawIconPlaceholder(canvas, x, y, iw, ih, iconName, opacity)
+      }
       return
     }
 
