@@ -145,6 +145,6 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 4. E2E Tests & Polish | v1.0 | 3/3 | Complete | 2026-03-17 |
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 0/2 | Planned | - |
-| 7. Interactive Preview | v1.1 | 1/4 | In Progress | - |
+| 7. Interactive Preview | 2/4 | In Progress|  | - |
 | 8. Workflow Visualization | v1.1 | 0/0 | Not started | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
