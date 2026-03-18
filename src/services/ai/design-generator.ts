@@ -108,6 +108,14 @@ export async function generateDesignModification(
   // We use standard string concatenation to avoid backtick issues in tool calls
   let userMessage = "CONTEXT NODES:\n" + contextJson + "\n\nINSTRUCTION:\n" + instruction
 
+  // Inject element context for modification (per user decision: modification mode only)
+  const nodeContexts = nodesToModify
+    .filter(n => n.context)
+    .map(n => `${n.type}:"${n.name ?? n.id}" -- Context: ${n.context}`)
+  if (nodeContexts.length > 0) {
+    userMessage += "\n\nELEMENT CONTEXT:\n" + nodeContexts.join("\n")
+  }
+
   // Append variable context so AI can use $variable references
   const varContext = buildVariableContext(options?.variables, options?.themes)
   if (varContext) {

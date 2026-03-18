@@ -55,6 +55,30 @@ async function classifyIntent(
   }
 }
 
+/**
+ * Walk up the node tree collecting context annotations from ancestors.
+ * Returns an array of formatted strings from root to leaf.
+ * Used by buildContextString and available for AI injection.
+ */
+export function collectAncestorContext(nodeId: string): string[] {
+  const parts: string[] = []
+  const { getNodeById, getParentOf } = useDocumentStore.getState()
+
+  let currentId: string | undefined = nodeId
+  while (currentId) {
+    const node = getNodeById(currentId)
+    if (node?.context) {
+      const dims = 'width' in node && 'height' in node
+        ? ` (${(node as any).width}x${(node as any).height})`
+        : ''
+      parts.unshift(`${node.type}:"${node.name ?? node.id}"${dims} -- Context: ${node.context}`)
+    }
+    const parent = getParentOf(currentId)
+    currentId = parent?.id
+  }
+  return parts
+}
+
 export function buildContextString(): string {
   const selectedIds = useCanvasStore.getState().selection.selectedIds
   const { getFlatNodes, document: doc } = useDocumentStore.getState()
@@ -79,10 +103,19 @@ export function buildContextString(): string {
         const dims = 'width' in n! && 'height' in n!
           ? ` (${n!.width}x${n!.height})`
           : ''
-        return `${n!.type}:${n!.name ?? n!.id}${dims}`
+        const ctx = n!.context ? ` -- Context: ${n!.context}` : ''
+        return `${n!.type}:${n!.name ?? n!.id}${dims}${ctx}`
       })
       .join(', ')
     parts.push(`Selected: ${selectedSummary}`)
+
+    // Collect parent contexts for hierarchy (only for first selected node to avoid bloat)
+    if (selectedIds.length === 1) {
+      const ancestors = collectAncestorContext(selectedIds[0])
+      if (ancestors.length > 1) { // > 1 because the node itself is included
+        parts.push(`Hierarchy: ${ancestors.join(' > ')}`)
+      }
+    }
   }
 
   // Include variable summary so chat mode also knows about design tokens
