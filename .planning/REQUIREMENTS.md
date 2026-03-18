@@ -17,7 +17,7 @@ Requirements for v1.1 Data-Driven Design milestone. Each maps to roadmap phases.
 ### Interactive Preview
 
 - [x] **PREV-01**: User can open interactive HTML preview of a parent frame in a separate browser tab
-- [ ] **PREV-02**: Preview supports navigation between screens via connections (click to navigate)
+- [x] **PREV-02**: Preview supports navigation between screens via connections (click to navigate)
 - [ ] **PREV-03**: Preview displays live sample data from bound entities
 - [x] **PREV-04**: Preview runs in null-origin sandbox to prevent XSS/security issues
 
@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BIND-03 | Phase 5 | Complete |
 | BIND-04 | Phase 5 | Complete |
 | PREV-01 | Phase 7 | Complete |
-| PREV-02 | Phase 7 | Pending |
+| PREV-02 | Phase 7 | Complete |
 | PREV-03 | Phase 7 | Pending |
 | PREV-04 | Phase 7 | Complete |
 | CTX-01 | Phase 6 | Complete |

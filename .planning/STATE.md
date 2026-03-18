@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Data-Driven Design
 status: in_progress
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-18T11:14:09Z"
-last_activity: 2026-03-18 -- Phase 07 Plan 02 complete (Preview Server & Editor Integration)
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-03-18T11:22:55Z"
+last_activity: 2026-03-18 -- Phase 07 Plan 03 complete (Preview Navigation & Interactions)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State: PenBoard
@@ -23,18 +23,18 @@ progress:
 ## Current Position
 
 Phase: 7 of 9 (Interactive Preview) -- IN PROGRESS
-Plan: 2 of 4 in current phase (2 complete)
+Plan: 3 of 4 in current phase (3 complete)
 Status: Executing phase plans
-Last activity: 2026-03-18 -- Phase 07 Plan 02 complete (Preview Server & Editor Integration)
+Last activity: 2026-03-18 -- Phase 07 Plan 03 complete (Preview Navigation & Interactions)
 
-Progress: [███████▓░░] 78%
+Progress: [████████▓░] 89%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Visual design canvas + storyboard intelligence with data-driven design
-**Current focus:** Interactive Preview -- preview server routes, editor button, hot reload
+**Current focus:** Interactive Preview -- navigation, transitions, toolbar, multi-page HTML
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 | Phase 06 P02 | 20min | 2 tasks | 6 files |
 | Phase 07 P01 | 8min | 2 tasks | 6 files |
 | Phase 07 P02 | 10min | 2 tasks | 8 files |
+| Phase 07 P03 | 5min | 2 tasks | 4 files |
 
 ## Milestone History
 
@@ -99,6 +100,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - [07-02] Preview bootstrap HTML uses client-side SSE reload (pending full HTML generator integration)
 - [07-02] openExternal IPC restricted to localhost URLs only for security
 - [07-02] 500ms debounce for hot reload re-POST to avoid excessive server traffic
+- [07-03] All screen pages embedded in single HTML document (no lazy loading in v1.1)
+- [07-03] Toolbar follows OS dark/light mode via prefers-color-scheme (not document theme)
+- [07-03] Download HTML strips SSE EventSource script for offline self-containment
 
 ### Pending Todos
 
@@ -110,7 +114,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T11:14:09Z
-Stopped at: Completed 07-02-PLAN.md
-Resume file: .planning/phases/07-interactive-preview/07-02-SUMMARY.md
-Next step: Execute 07-03-PLAN.md (Preview navigation & interactions)
+Last session: 2026-03-18T11:22:55Z
+Stopped at: Completed 07-03-PLAN.md
+Resume file: .planning/phases/07-interactive-preview/07-03-SUMMARY.md
+Next step: Execute 07-04-PLAN.md (Preview polish & final tests)
