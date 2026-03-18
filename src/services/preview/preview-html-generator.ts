@@ -697,8 +697,11 @@ export function generatePreviewHTML(
   for (const sp of screenPages) {
     const isInitialPage = sp.id === initialPageId
 
+    // Filter out reusable component definitions before rendering
+    const previewChildren = getPreviewableChildren(sp.children)
+
     // Check for multi-view: 2+ root-level frames → each frame becomes a separate view
-    const rootFrames = sp.children.filter((c) => c.type === 'frame')
+    const rootFrames = previewChildren.filter((c) => c.type === 'frame')
 
     if (rootFrames.length > 1) {
       // Multi-view: each root frame becomes its own navigable page-container
@@ -735,8 +738,8 @@ export function generatePreviewHTML(
         pageList.push({ id: containerId, name: frame.name || `${sp.name} - View ${fi + 1}` })
       }
     } else {
-      // Single view: all children in one container (existing behavior)
-      let pageNodes: PenNode[] = sp.children
+      // Single view: all children in one container (excluding component definitions)
+      let pageNodes: PenNode[] = previewChildren
       if (isInitialPage && frameId && pageNodes.length > 0) {
         const frame = findFrameById(pageNodes, frameId)
         if (frame && 'children' in frame && frame.children) {
@@ -759,9 +762,9 @@ export function generatePreviewHTML(
     }
   }
 
-  // If no screen pages found, render doc.children as default page
+  // If no screen pages found, render doc.children as default page (excluding components)
   if (screenPages.length === 0) {
-    let targetNodes = doc.children
+    let targetNodes = getPreviewableChildren(doc.children)
     if (frameId && targetNodes.length > 0) {
       const frame = findFrameById(targetNodes, frameId)
       if (frame && 'children' in frame && frame.children) {
@@ -826,10 +829,26 @@ ${pageContainers.join('\n')}
 
 /**
  * Get all screen-type pages from the document (ERD/component pages are not previewable).
+ * Filters out pages that are explicitly typed as 'erd' or 'component',
+ * and pages whose children are ALL reusable component definitions.
  */
 function getScreenPages(doc: PenDocument): PenPage[] {
   if (!doc.pages || doc.pages.length === 0) return []
-  return doc.pages.filter((p) => p.type === 'screen' || !p.type)
+  return doc.pages.filter((p) => {
+    // Explicit type filtering
+    if (p.type === 'erd' || p.type === 'component') return false
+    // Filter out pages where ALL children are reusable component definitions
+    const previewable = getPreviewableChildren(p.children)
+    return previewable.length > 0
+  })
+}
+
+/**
+ * Filter out reusable component definitions from children.
+ * Components (reusable: true) are definitions, not screen content.
+ */
+function getPreviewableChildren(children: PenNode[]): PenNode[] {
+  return children.filter((n) => !(n.type === 'frame' && (n as import('@/types/pen').FrameNode).reusable))
 }
 
 function findTargetPage(
