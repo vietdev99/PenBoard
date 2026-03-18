@@ -90,7 +90,7 @@ Plans:
 
 Plans:
 
-- [ ] 07-01-PLAN.md — Preview HTML generator: data resolver, semantic tags, core HTML generation engine (PREV-01, PREV-03, PREV-04)
+- [x] 07-01-PLAN.md — Preview HTML generator: data resolver, semantic tags, core HTML generation engine (PREV-01, PREV-03, PREV-04)
 - [ ] 07-02-PLAN.md — Server infrastructure: Nitro routes, preview state, use-preview hook, top-bar button, Electron IPC (PREV-01, PREV-04)
 - [ ] 07-03-PLAN.md — Navigation + toolbar: connection-based navigation JS, transitions, toolbar, hotspot mode, HTML export (PREV-01, PREV-02)
 - [ ] 07-04-PLAN.md — Human verification: end-to-end preview testing in browser (PREV-01, PREV-02, PREV-03, PREV-04)
@@ -145,6 +145,6 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 4. E2E Tests & Polish | v1.0 | 3/3 | Complete | 2026-03-17 |
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 0/2 | Planned | - |
-| 7. Interactive Preview | v1.1 | 0/4 | Planned | - |
+| 7. Interactive Preview | v1.1 | 1/4 | In Progress | - |
 | 8. Workflow Visualization | v1.1 | 0/0 | Not started | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
