@@ -691,36 +691,72 @@ export function generatePreviewHTML(
   // Build page containers and collect all CSS
   const allCSS: string[] = []
   const pageContainers: string[] = []
+  const pageList: { id: string; name: string }[] = []
+  let effectiveInitialPageId = initialPageId
 
   for (const sp of screenPages) {
-    const isInitial = sp.id === initialPageId
+    const isInitialPage = sp.id === initialPageId
 
-    // Determine nodes to render for this page
-    let pageNodes: PenNode[] = sp.children
-    // If this is the initial page and a specific frame is selected,
-    // scope to that frame's children
-    if (isInitial && frameId && pageNodes.length > 0) {
-      const frame = findFrameById(pageNodes, frameId)
-      if (frame && 'children' in frame && frame.children) {
-        pageNodes = frame.children
+    // Check for multi-view: 2+ root-level frames → each frame becomes a separate view
+    const rootFrames = sp.children.filter((c) => c.type === 'frame')
+
+    if (rootFrames.length > 1) {
+      // Multi-view: each root frame becomes its own navigable page-container
+      for (let fi = 0; fi < rootFrames.length; fi++) {
+        const frame = rootFrames[fi]
+        const isFirstFrame = fi === 0
+
+        // First frame inherits the page ID; others get frame-suffixed ID
+        const containerId = isFirstFrame ? sp.id : `${sp.id}__frame-${frame.id}`
+
+        // Determine if this container should be initially active
+        let isInitial = false
+        if (isInitialPage) {
+          if (frameId && frame.id === frameId) {
+            isInitial = true
+            effectiveInitialPageId = containerId
+          } else if (!frameId && isFirstFrame) {
+            isInitial = true
+          }
+        }
+
+        // Zero-out canvas position so the frame fills the preview viewport
+        const viewNode: PenNode = { ...frame, x: 0, y: 0 } as PenNode
+        const resolvedNodes = resolvePageForPreview([viewNode], doc)
+        const { html: pageHTML, css: generatedCSS } = generatePageHTML(resolvedNodes, connections)
+
+        if (generatedCSS) allCSS.push(generatedCSS)
+
+        const activeClass = isInitial ? ' active' : ''
+        pageContainers.push(
+          `  <div id="page-${escapeHTML(containerId)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
+        )
+
+        pageList.push({ id: containerId, name: frame.name || `${sp.name} - View ${fi + 1}` })
       }
+    } else {
+      // Single view: all children in one container (existing behavior)
+      let pageNodes: PenNode[] = sp.children
+      if (isInitialPage && frameId && pageNodes.length > 0) {
+        const frame = findFrameById(pageNodes, frameId)
+        if (frame && 'children' in frame && frame.children) {
+          pageNodes = frame.children
+        }
+      }
+
+      const resolvedNodes = resolvePageForPreview(pageNodes, doc)
+      const { html: pageHTML, css: generatedCSS } = generatePageHTML(resolvedNodes, connections)
+
+      if (generatedCSS) allCSS.push(generatedCSS)
+
+      const isInitial = sp.id === initialPageId
+      const activeClass = isInitial ? ' active' : ''
+      pageContainers.push(
+        `  <div id="page-${escapeHTML(sp.id)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
+      )
+
+      pageList.push({ id: sp.id, name: sp.name })
     }
-
-    // Resolve refs, data bindings, and variables
-    const resolvedNodes = resolvePageForPreview(pageNodes, doc)
-
-    // Generate page HTML and CSS (resets classCounter per page)
-    const { html: pageHTML, css: generatedCSS } = generatePageHTML(
-      resolvedNodes,
-      connections,
-    )
-
-    if (generatedCSS) allCSS.push(generatedCSS)
-
-    const activeClass = isInitial ? ' active' : ''
-    pageContainers.push(
-      `  <div id="page-${escapeHTML(sp.id)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
-    )
   }
 
   // If no screen pages found, render doc.children as default page
@@ -741,6 +777,7 @@ export function generatePreviewHTML(
     pageContainers.push(
       `  <div id="page-default" class="page-container active">\n${pageHTML}\n  </div>`,
     )
+    pageList.push({ id: 'default', name: 'Preview' })
   }
 
   // Generate CSS variables from document
@@ -751,12 +788,8 @@ export function generatePreviewHTML(
   const toolbarCSS = generateToolbarCSS()
   const toolbarHTML = generateToolbarHTML(pageName)
 
-  const pageList = screenPages.length > 0
-    ? screenPages.map((p) => ({ id: p.id, name: p.name }))
-    : [{ id: 'default', name: 'Preview' }]
-
   const toolbarJS = generateToolbarJS()
-  const navJS = generateNavigationJS(connections, pageList, initialPageId, previewId)
+  const navJS = generateNavigationJS(connections, pageList, effectiveInitialPageId, previewId)
 
   // Build complete HTML document
   return `<!DOCTYPE html>

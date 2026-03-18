@@ -131,6 +131,16 @@ export function generateNavigationJS(
   }
 
   function navigateTo(targetPageId, transition, targetFrameId) {
+    // Multi-view support: if targetFrameId has its own page-container, navigate there directly
+    var effectivePageId = targetPageId;
+    if (targetFrameId) {
+      var fcId = targetPageId + '__frame-' + targetFrameId;
+      if (document.getElementById('page-' + fcId)) {
+        effectivePageId = fcId;
+        targetFrameId = null;
+      }
+    }
+
     var current = document.querySelector('.page-container.active');
 
     if (transition === 'modal') {
@@ -139,28 +149,28 @@ export function generateNavigationJS(
       backdrop.onclick = function(e) { if (e.target === backdrop) { history.back(); } };
       var content = document.createElement('div');
       content.className = 'modal-content';
-      var targetEl = document.getElementById('page-' + targetPageId);
-      if (!targetEl) { showNotFound(targetPageId); return; }
+      var targetEl = document.getElementById('page-' + effectivePageId);
+      if (!targetEl) { showNotFound(effectivePageId); return; }
       content.innerHTML = targetEl.innerHTML;
       backdrop.appendChild(content);
       document.body.appendChild(backdrop);
-      history.pushState({ pageId: targetPageId, modal: true }, '', '#' + targetPageId);
+      history.pushState({ pageId: effectivePageId, modal: true }, '', '#' + effectivePageId);
     } else if (transition === 'push') {
       if (current) current.classList.add('slide-out-left');
-      var target = document.getElementById('page-' + targetPageId);
-      if (!target) { showNotFound(targetPageId); return; }
+      var target = document.getElementById('page-' + effectivePageId);
+      if (!target) { showNotFound(effectivePageId); return; }
       setTimeout(function() {
         if (current) current.classList.remove('active', 'slide-out-left');
         target.classList.add('active', 'slide-in-right');
         setTimeout(function() { target.classList.remove('slide-in-right'); }, 260);
       }, 250);
-      history.pushState({ pageId: targetPageId }, '', '#' + targetPageId);
+      history.pushState({ pageId: effectivePageId }, '', '#' + effectivePageId);
     } else {
       if (current) current.classList.remove('active');
-      var target = document.getElementById('page-' + targetPageId);
-      if (!target) { showNotFound(targetPageId); return; }
+      var target = document.getElementById('page-' + effectivePageId);
+      if (!target) { showNotFound(effectivePageId); return; }
       target.classList.add('active');
-      history.replaceState({ pageId: targetPageId }, '', '#' + targetPageId);
+      history.replaceState({ pageId: effectivePageId }, '', '#' + effectivePageId);
     }
 
     if (targetFrameId) {
@@ -170,7 +180,7 @@ export function generateNavigationJS(
       }, 300);
     }
 
-    updateBreadcrumb(targetPageId);
+    updateBreadcrumb(effectivePageId);
   }
 
   function showNotFound(pageId) {

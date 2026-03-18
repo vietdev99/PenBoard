@@ -21,7 +21,7 @@ export default function SaveDialog({ open, onClose }: SaveDialogProps) {
     // Pre-fill with existing name (without extension)
     const fn = useDocumentStore.getState().fileName
     if (fn) {
-      setName(fn.replace(/\.op$|\.pen$|\.json$/, ''))
+      setName(fn.replace(/\.pb$|\.op$|\.pen$|\.json$/i, ''))
     } else {
       setName(t('common.untitled'))
     }
@@ -45,7 +45,7 @@ export default function SaveDialog({ open, onClose }: SaveDialogProps) {
     if (!trimmed) return
     // Force-sync all Fabric object positions to the store before serializing
     syncCanvasPositionsToStore()
-    const fileName = trimmed.endsWith('.op') ? trimmed : `${trimmed}.op`
+    const fileName = trimmed.endsWith('.pb') ? trimmed : `${trimmed}.pb`
     const doc = useDocumentStore.getState().document
     downloadDocument(doc, fileName)
     useDocumentStore.setState({ fileName, isDirty: false })
@@ -76,7 +76,7 @@ export default function SaveDialog({ open, onClose }: SaveDialogProps) {
             className="flex-1 bg-secondary border border-input rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-ring"
             autoFocus
           />
-          <span className="text-xs text-muted-foreground">.op</span>
+          <span className="text-xs text-muted-foreground">.pb</span>
         </div>
 
         <div className="flex gap-2">
