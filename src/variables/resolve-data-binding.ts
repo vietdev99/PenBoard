@@ -11,6 +11,12 @@
  * - Called in skia-engine.ts syncFromDocument BEFORE variable resolution
  *   (per CONTEXT.md: "after argument apply, before variable resolution")
  * - RECURSIVE: walks the full tree so nested bound nodes are resolved
+ *
+ * Table binding rebuilds the full structure:
+ * - Header text → entity field names, trimmed to field count
+ * - Data rows → one per entity row, extra template rows removed
+ * - Columns → trimmed to entity field count
+ * - If entity has more rows than template, the first template row is cloned
  */
 
 import type { PenNode, TextNode } from '@/types/pen'
@@ -40,10 +46,12 @@ export function resolveDataBinding(node: PenNode, entities: DataEntity[]): PenNo
     const entity = entities.find((e) => e.id === entityId)
     if (!entity || entity.rows.length === 0) return node
 
-    const maxRows = entity.rows.length
+    if (node.role === 'table') {
+      return resolveTableBinding(node, entity, fieldMappings)
+    }
 
+    const maxRows = entity.rows.length
     if (
-      node.role === 'table' ||
       node.role === 'table-row' ||
       node.role === 'list' ||
       node.role === 'dropdown' ||
@@ -64,6 +72,134 @@ export function resolveDataBinding(node: PenNode, entities: DataEntity[]): PenNo
   return node
 }
 
+// ---------- Table binding (full structure rebuild) ----------
+
+/**
+ * Rebuilds a table node's children to match the bound entity:
+ * - Updates header text with entity field names
+ * - Creates one data row per entity row (cloning template if needed)
+ * - Trims columns to match entity field count
+ * - Removes extra template rows
+ */
+function resolveTableBinding(
+  node: PenNode,
+  entity: DataEntity,
+  fieldMappings: FieldMapping[],
+): PenNode {
+  if (!('children' in node) || !node.children || node.children.length === 0) return node
+
+  const fieldCount = entity.fields.length
+
+  // Categorize children into header, separators, and data rows
+  let headerRow: PenNode | undefined
+  const separators: PenNode[] = []
+  const dataRows: PenNode[] = []
+
+  for (const child of node.children) {
+    if (child.role === 'table-row') {
+      dataRows.push(child)
+    } else if (
+      !headerRow &&
+      child.type === 'frame' &&
+      'children' in child &&
+      child.children?.some((gc) => gc.type === 'text')
+    ) {
+      headerRow = child
+    } else {
+      separators.push(child)
+    }
+  }
+
+  if (dataRows.length === 0) return node
+
+  const newChildren: PenNode[] = []
+
+  // 1. Header row: rename columns to entity field names, trim to field count
+  if (headerRow) {
+    newChildren.push(rebuildColumns(headerRow, entity.fields, fieldCount, true))
+  }
+
+  // 2. One data row per entity row
+  for (let i = 0; i < entity.rows.length; i++) {
+    // Add separator before each data row
+    if (i < separators.length) {
+      newChildren.push(separators[i])
+    } else if (separators.length > 0) {
+      // Clone first separator for extra rows
+      const sep = separators[0]
+      newChildren.push({ ...sep, id: `${sep.id}__dr${i}` } as PenNode)
+    }
+
+    // Get existing template row or clone the first one
+    const baseRow = i < dataRows.length ? dataRows[i] : cloneRow(dataRows[0], i)
+
+    // Inject entity row data into text nodes
+    const row = entity.rows[i]
+    const injected = injectRowIntoNode(baseRow, row.values, entity.fields, fieldMappings)
+
+    // Trim columns to match field count
+    newChildren.push(rebuildColumns(injected, entity.fields, fieldCount, false))
+  }
+
+  return { ...node, children: newChildren } as PenNode
+}
+
+/**
+ * Rebuild a row's text columns:
+ * - If isHeader: replace text content with entity field names
+ * - Trim text children to fieldCount (remove extra columns)
+ */
+function rebuildColumns(
+  row: PenNode,
+  fields: DataField[],
+  fieldCount: number,
+  isHeader: boolean,
+): PenNode {
+  if (!('children' in row) || !row.children) return row
+
+  let textIdx = 0
+  const newChildren: PenNode[] = []
+
+  for (const child of row.children) {
+    if (child.type === 'text') {
+      if (textIdx < fieldCount) {
+        if (isHeader) {
+          // Replace header text with entity field name
+          newChildren.push({ ...child, content: fields[textIdx].name } as PenNode)
+        } else {
+          newChildren.push(child)
+        }
+      }
+      // Skip text nodes beyond fieldCount (column trimming)
+      textIdx++
+    } else {
+      newChildren.push(child)
+    }
+  }
+
+  const changed =
+    newChildren.length !== row.children.length ||
+    newChildren.some((c, i) => c !== row.children![i])
+  if (!changed) return row
+
+  return { ...row, children: newChildren } as PenNode
+}
+
+/** Clone a template row with suffixed IDs for additional entity rows. */
+function cloneRow(templateRow: PenNode, rowIndex: number): PenNode {
+  const suffix = `__dr${rowIndex}`
+  const result: Record<string, unknown> = { ...templateRow, id: templateRow.id + suffix }
+  if ('children' in result && Array.isArray(result.children)) {
+    result.children = (result.children as PenNode[]).map((c) => ({
+      ...c,
+      id: c.id + suffix,
+    }))
+  }
+  return result as PenNode
+}
+
+// ---------- Non-table roles (list, dropdown, select, table-row) ----------
+
 /** Inject entity row data into the text children of a bound node. */
 function resolveNodeWithRows(
   node: PenNode,
@@ -73,25 +209,6 @@ function resolveNodeWithRows(
 ): PenNode {
   if (!('children' in node) || !node.children || node.children.length === 0) return node
 
-  // For 'table' role: only inject into children with role='table-row',
-  // skipping headers, separators, and other non-data children.
-  if (node.role === 'table') {
-    let rowIdx = 0
-    const newChildren = node.children.map((child) => {
-      if (child.role !== 'table-row') return child
-      if (rowIdx >= maxRows) return child
-      const row = entity.rows[rowIdx]
-      rowIdx++
-      if (!row) return child
-      return injectRowIntoNode(child, row.values, entity.fields, fieldMappings)
-    })
-
-    const changed = newChildren.some((c, i) => c !== node.children![i])
-    if (!changed) return node
-    return { ...node, children: newChildren } as PenNode
-  }
-
-  // For other roles (list, dropdown, select, table-row): map children by index
   const newChildren = node.children.map((child, rowIndex) => {
     if (rowIndex >= maxRows) return child
     const row = entity.rows[rowIndex]
