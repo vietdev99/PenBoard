@@ -696,7 +696,8 @@ export class SkiaEngine {
 
     // Storyboard-style connection arrows between elements
     const connections = useDocumentStore.getState().document.connections ?? []
-    if (connections.length > 0) {
+    const { showConnections } = useCanvasStore.getState()
+    if (connections.length > 0 && showConnections) {
       const activePageId = useCanvasStore.getState().activePageId
       const activePage = (useDocumentStore.getState().document.pages ?? []).find(
         (p) => p.id === activePageId,
@@ -758,7 +759,6 @@ export class SkiaEngine {
 
     // Highlight mode: trace full connection chain from selected element,
     // show bright arrows for connected flow, dim everything else
-    const { showConnections } = useCanvasStore.getState()
     if (showConnections && selectedIds.size > 0) {
       const docState = useDocumentStore.getState()
       const allConnections = docState.document.connections ?? []
