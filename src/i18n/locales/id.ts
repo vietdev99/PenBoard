@@ -58,8 +58,21 @@ const id: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Desain',
+  'rightPanel.navigate': 'Navigasi',
+  'rightPanel.context': 'Konteks',
   'rightPanel.code': 'Kode',
   'rightPanel.noSelection': 'Pilih sebuah elemen',
+
+  // ── Context Panel ──
+  'context.editTab': 'Edit',
+  'context.previewTab': 'Pratinjau',
+  'context.placeholder': 'Jelaskan tujuan elemen ini...',
+  'context.pagePlaceholder': 'Jelaskan halaman ini...',
+  'context.aiSuggest': 'Saran AI',
+  'context.aiSuggesting': 'Menyarankan...',
+  'context.pageContext': 'Konteks halaman',
+  'context.componentContext': 'Konteks komponen (diwariskan)',
+  'context.multiSelect': 'Konteks untuk {{count}} elemen',
 
   // ── Pages ──
   'pages.title': 'Halaman',

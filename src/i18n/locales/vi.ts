@@ -58,8 +58,21 @@ const vi: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Thiết kế',
+  'rightPanel.navigate': 'Điều hướng',
+  'rightPanel.context': 'Ngữ cảnh',
   'rightPanel.code': 'Mã',
   'rightPanel.noSelection': 'Chọn một phần tử',
+
+  // ── Context Panel ──
+  'context.editTab': 'Sửa',
+  'context.previewTab': 'Xem trước',
+  'context.placeholder': 'Mô tả mục đích của phần tử này...',
+  'context.pagePlaceholder': 'Mô tả trang này...',
+  'context.aiSuggest': 'AI Gợi ý',
+  'context.aiSuggesting': 'Đang gợi ý...',
+  'context.pageContext': 'Ngữ cảnh trang',
+  'context.componentContext': 'Ngữ cảnh component (kế thừa)',
+  'context.multiSelect': 'Ngữ cảnh cho {{count}} phần tử',
 
   // ── Pages ──
   'pages.title': 'Trang',

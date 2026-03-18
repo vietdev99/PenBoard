@@ -58,8 +58,21 @@ const zh: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': '设计',
+  'rightPanel.navigate': '导航',
+  'rightPanel.context': '上下文',
   'rightPanel.code': '代码',
   'rightPanel.noSelection': '选择一个元素',
+
+  // ── Context Panel ──
+  'context.editTab': '编辑',
+  'context.previewTab': '预览',
+  'context.placeholder': '描述此元素的用途...',
+  'context.pagePlaceholder': '描述此页面...',
+  'context.aiSuggest': 'AI 建议',
+  'context.aiSuggesting': '正在建议...',
+  'context.pageContext': '页面上下文',
+  'context.componentContext': '组件上下文（继承）',
+  'context.multiSelect': '{{count}} 个元素的上下文',
 
   // ── Pages ──
   'pages.title': '页面',

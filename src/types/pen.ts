@@ -41,6 +41,8 @@ export interface PenPage {
   id: string
   name: string
   type?: 'screen' | 'erd' | 'component'
+  /** AI-readable context annotation for this page */
+  context?: string
   children: PenNode[]
 }
 
@@ -81,6 +83,8 @@ export interface PenNodeBase {
   type: PenNodeType
   name?: string
   role?: string // semantic role for AI generation ("button", "card", "heading", etc.)
+  /** AI-readable context annotation */
+  context?: string
   x?: number
   y?: number
   rotation?: number

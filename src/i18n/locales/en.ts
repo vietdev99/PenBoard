@@ -57,8 +57,20 @@ const en = {
   // ── Right Panel ──
   'rightPanel.design': 'Design',
   'rightPanel.navigate': 'Navigate',
+  'rightPanel.context': 'Context',
   'rightPanel.code': 'Code',
   'rightPanel.noSelection': 'Select an element',
+
+  // ── Context Panel ──
+  'context.editTab': 'Edit',
+  'context.previewTab': 'Preview',
+  'context.placeholder': 'Describe what this element is for...',
+  'context.pagePlaceholder': 'Describe this page...',
+  'context.aiSuggest': 'AI Suggest',
+  'context.aiSuggesting': 'Suggesting...',
+  'context.pageContext': 'Page Context',
+  'context.componentContext': 'Component Context (inherited)',
+  'context.multiSelect': 'Context for {{count}} elements',
 
   // ── Pages ──
   'pages.title': 'Pages',

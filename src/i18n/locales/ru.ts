@@ -58,8 +58,21 @@ const ru: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Дизайн',
+  'rightPanel.navigate': 'Навигация',
+  'rightPanel.context': 'Контекст',
   'rightPanel.code': 'Код',
   'rightPanel.noSelection': 'Выберите элемент',
+
+  // ── Context Panel ──
+  'context.editTab': 'Редактировать',
+  'context.previewTab': 'Предпросмотр',
+  'context.placeholder': 'Опишите назначение этого элемента...',
+  'context.pagePlaceholder': 'Опишите эту страницу...',
+  'context.aiSuggest': 'Предложение ИИ',
+  'context.aiSuggesting': 'Предлагаю...',
+  'context.pageContext': 'Контекст страницы',
+  'context.componentContext': 'Контекст компонента (унаследован)',
+  'context.multiSelect': 'Контекст для {{count}} элементов',
 
   // ── Pages ──
   'pages.title': 'Страницы',

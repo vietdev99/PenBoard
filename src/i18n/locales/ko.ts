@@ -58,8 +58,21 @@ const ko: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': '디자인',
+  'rightPanel.navigate': '탐색',
+  'rightPanel.context': '컨텍스트',
   'rightPanel.code': '코드',
   'rightPanel.noSelection': '요소를 선택하세요',
+
+  // ── Context Panel ──
+  'context.editTab': '편집',
+  'context.previewTab': '미리보기',
+  'context.placeholder': '이 요소의 목적을 설명하세요...',
+  'context.pagePlaceholder': '이 페이지를 설명하세요...',
+  'context.aiSuggest': 'AI 제안',
+  'context.aiSuggesting': '제안 중...',
+  'context.pageContext': '페이지 컨텍스트',
+  'context.componentContext': '컴포넌트 컨텍스트 (상속)',
+  'context.multiSelect': '{{count}}개 요소의 컨텍스트',
 
   // ── Pages ──
   'pages.title': '페이지',

@@ -58,8 +58,21 @@ const es: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Diseño',
+  'rightPanel.navigate': 'Navegar',
+  'rightPanel.context': 'Contexto',
   'rightPanel.code': 'Código',
   'rightPanel.noSelection': 'Selecciona un elemento',
+
+  // ── Context Panel ──
+  'context.editTab': 'Editar',
+  'context.previewTab': 'Vista previa',
+  'context.placeholder': 'Describe para qué sirve este elemento...',
+  'context.pagePlaceholder': 'Describe esta página...',
+  'context.aiSuggest': 'Sugerencia IA',
+  'context.aiSuggesting': 'Sugiriendo...',
+  'context.pageContext': 'Contexto de página',
+  'context.componentContext': 'Contexto de componente (heredado)',
+  'context.multiSelect': 'Contexto para {{count}} elementos',
 
   // ── Pages ──
   'pages.title': 'Páginas',

@@ -58,8 +58,21 @@ const th: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'ออกแบบ',
+  'rightPanel.navigate': 'นำทาง',
+  'rightPanel.context': 'บริบท',
   'rightPanel.code': 'โค้ด',
   'rightPanel.noSelection': 'เลือกองค์ประกอบ',
+
+  // ── Context Panel ──
+  'context.editTab': 'แก้ไข',
+  'context.previewTab': 'ตัวอย่าง',
+  'context.placeholder': 'อธิบายจุดประสงค์ขององค์ประกอบนี้...',
+  'context.pagePlaceholder': 'อธิบายหน้านี้...',
+  'context.aiSuggest': 'AI แนะนำ',
+  'context.aiSuggesting': 'กำลังแนะนำ...',
+  'context.pageContext': 'บริบทหน้า',
+  'context.componentContext': 'บริบทคอมโพเนนต์ (สืบทอด)',
+  'context.multiSelect': 'บริบทสำหรับ {{count}} องค์ประกอบ',
 
   // ── Pages ──
   'pages.title': 'หน้า',

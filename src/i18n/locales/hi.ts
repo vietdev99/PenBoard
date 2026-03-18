@@ -58,8 +58,21 @@ const hi: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'डिज़ाइन',
+  'rightPanel.navigate': 'नेविगेट',
+  'rightPanel.context': 'संदर्भ',
   'rightPanel.code': 'कोड',
   'rightPanel.noSelection': 'एक तत्व चुनें',
+
+  // ── Context Panel ──
+  'context.editTab': 'संपादित करें',
+  'context.previewTab': 'पूर्वावलोकन',
+  'context.placeholder': 'इस तत्व का उद्देश्य बताएं...',
+  'context.pagePlaceholder': 'इस पृष्ठ का वर्णन करें...',
+  'context.aiSuggest': 'AI सुझाव',
+  'context.aiSuggesting': 'सुझाव दे रहा है...',
+  'context.pageContext': 'पृष्ठ संदर्भ',
+  'context.componentContext': 'कंपोनेंट संदर्भ (विरासत)',
+  'context.multiSelect': '{{count}} तत्वों का संदर्भ',
 
   // ── Pages ──
   'pages.title': 'पेज',

@@ -58,8 +58,21 @@ const ja: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'デザイン',
+  'rightPanel.navigate': 'ナビゲート',
+  'rightPanel.context': 'コンテキスト',
   'rightPanel.code': 'コード',
   'rightPanel.noSelection': '要素を選択してください',
+
+  // ── Context Panel ──
+  'context.editTab': '編集',
+  'context.previewTab': 'プレビュー',
+  'context.placeholder': 'この要素の目的を説明してください...',
+  'context.pagePlaceholder': 'このページを説明してください...',
+  'context.aiSuggest': 'AI提案',
+  'context.aiSuggesting': '提案中...',
+  'context.pageContext': 'ページコンテキスト',
+  'context.componentContext': 'コンポーネントコンテキスト（継承）',
+  'context.multiSelect': '{{count}}個の要素のコンテキスト',
 
   // ── Pages ──
   'pages.title': 'ページ',

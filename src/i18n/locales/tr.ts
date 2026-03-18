@@ -58,8 +58,21 @@ const tr: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': 'Tasarım',
+  'rightPanel.navigate': 'Gezin',
+  'rightPanel.context': 'Bağlam',
   'rightPanel.code': 'Kod',
   'rightPanel.noSelection': 'Bir öğe seçin',
+
+  // ── Context Panel ──
+  'context.editTab': 'Düzenle',
+  'context.previewTab': 'Önizleme',
+  'context.placeholder': 'Bu öğenin amacını açıklayın...',
+  'context.pagePlaceholder': 'Bu sayfayı açıklayın...',
+  'context.aiSuggest': 'AI Önerisi',
+  'context.aiSuggesting': 'Öneriyor...',
+  'context.pageContext': 'Sayfa bağlamı',
+  'context.componentContext': 'Bileşen bağlamı (miras)',
+  'context.multiSelect': '{{count}} öğe için bağlam',
 
   // ── Pages ──
   'pages.title': 'Sayfalar',

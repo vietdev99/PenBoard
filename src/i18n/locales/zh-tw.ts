@@ -58,8 +58,21 @@ const zhTW: TranslationKeys = {
 
   // ── Right Panel ──
   'rightPanel.design': '設計',
+  'rightPanel.navigate': '導航',
+  'rightPanel.context': '上下文',
   'rightPanel.code': '程式碼',
   'rightPanel.noSelection': '選擇一個元素',
+
+  // ── Context Panel ──
+  'context.editTab': '編輯',
+  'context.previewTab': '預覽',
+  'context.placeholder': '描述此元素的用途...',
+  'context.pagePlaceholder': '描述此頁面...',
+  'context.aiSuggest': 'AI 建議',
+  'context.aiSuggesting': '正在建議...',
+  'context.pageContext': '頁面上下文',
+  'context.componentContext': '元件上下文（繼承）',
+  'context.multiSelect': '{{count}} 個元素的上下文',
 
   // ── Pages ──
   'pages.title': '頁面',

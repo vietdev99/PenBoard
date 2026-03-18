@@ -11,7 +11,7 @@ import { appStorage } from '@/utils/app-storage'
 
 const PREFS_KEY = 'penboard-canvas-preferences'
 
-export type RightPanelTab = 'design' | 'code' | 'navigate'
+export type RightPanelTab = 'design' | 'navigate' | 'context' | 'code'
 
 interface CanvasPreferences {
   layerPanelOpen: boolean
@@ -223,7 +223,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       if (typeof data.variablesPanelOpen === 'boolean') set({ variablesPanelOpen: data.variablesPanelOpen })
       if (typeof data.dataPanelOpen === 'boolean') set({ dataPanelOpen: data.dataPanelOpen })
       if (typeof data.codePanelOpen === 'boolean') set({ codePanelOpen: data.codePanelOpen })
-      if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code' || data.rightPanelTab === 'navigate') set({ rightPanelTab: data.rightPanelTab })
+      if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code' || data.rightPanelTab === 'navigate' || data.rightPanelTab === 'context') set({ rightPanelTab: data.rightPanelTab })
     } catch { /* ignore */ }
   },
 }))
