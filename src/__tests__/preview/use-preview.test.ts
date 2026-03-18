@@ -6,6 +6,14 @@ import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import type { PenDocument } from '@/types/pen'
 
+// Mock generatePreviewHTML to return a deterministic string
+vi.mock('@/services/preview/preview-html-generator', () => ({
+  generatePreviewHTML: vi.fn(
+    (_doc: any, _pageId: any, _frameId: any, previewId: string) =>
+      `<html><body>preview-${previewId}</body></html>`,
+  ),
+}))
+
 // Mock fetch globally
 const mockFetch = vi.fn().mockResolvedValue({ ok: true })
 vi.stubGlobal('fetch', mockFetch)
@@ -48,7 +56,7 @@ describe('usePreview', () => {
     expect(result.current.previewId.length).toBeGreaterThan(0)
   })
 
-  it('POSTs correct body shape when openPreview is called', async () => {
+  it('POSTs generated HTML when openPreview is called', async () => {
     const doc = makeDoc({ name: 'Test Doc' })
     useDocumentStore.setState({ document: doc })
     useCanvasStore.setState({
@@ -71,32 +79,13 @@ describe('usePreview', () => {
       }),
     )
 
-    // Parse the body and verify shape
+    // Parse the body and verify shape: { id, html }
     const call = mockFetch.mock.calls[0]
     const body = JSON.parse(call[1].body)
     expect(body).toHaveProperty('id')
-    expect(body).toHaveProperty('doc')
-    expect(body).toHaveProperty('activePageId', 'page-1')
-    expect(body).toHaveProperty('selectedFrameId', 'frame-1')
-    expect(body.doc.version).toBe('1')
-  })
-
-  it('sets selectedFrameId to null when multiple nodes are selected', async () => {
-    useDocumentStore.setState({ document: makeDoc() })
-    useCanvasStore.setState({
-      activePageId: null,
-      selection: { selectedIds: ['frame-1', 'frame-2'], activeId: 'frame-1', hoveredId: null, enteredFrameId: null, enteredFrameStack: [] },
-    })
-
-    const { result } = renderHook(() => usePreview())
-
-    await act(async () => {
-      await result.current.openPreview()
-    })
-
-    const call = mockFetch.mock.calls[0]
-    const body = JSON.parse(call[1].body)
-    expect(body.selectedFrameId).toBeNull()
+    expect(body).toHaveProperty('html')
+    expect(body.html).toContain('<html>')
+    expect(body.html).toContain('preview-')
   })
 
   it('filters out non-screen page types (e.g. ERD pages)', async () => {
@@ -118,13 +107,6 @@ describe('usePreview', () => {
     })
 
     // fetch should NOT be called because the page type is 'erd'
-    // However, openPreview calls postPreviewData first, then opens window
-    // If postPreviewData returns early, window.open should still be called
-    // because the open happens unconditionally after the POST attempt.
-    // But the POST itself should not be made.
-    // Actually looking at the code: postPreviewData returns early for non-screen,
-    // then openPreview still calls window.open. That's the design.
-    // So fetch should NOT have been called with /api/preview/data
     expect(mockFetch).not.toHaveBeenCalled()
   })
 

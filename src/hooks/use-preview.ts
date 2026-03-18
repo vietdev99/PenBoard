@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
+import { generatePreviewHTML } from '@/services/preview/preview-html-generator'
 import { nanoid } from 'nanoid'
 
 /** Detect Electron environment via preload bridge. */
@@ -14,7 +15,8 @@ function isElectronEnv(): boolean {
 /**
  * React hook for opening and managing interactive preview tabs.
  *
- * - POSTs the current document data to the Nitro preview endpoint
+ * - Generates preview HTML client-side via generatePreviewHTML()
+ * - POSTs the HTML string to the Nitro preview endpoint
  * - Opens the preview in a new browser tab (or default browser in Electron)
  * - Subscribes to document changes for hot reload via debounced re-POST (500ms)
  */
@@ -24,16 +26,21 @@ export function usePreview() {
 
   const postPreviewData = useCallback(async () => {
     const doc = useDocumentStore.getState().document
-    const { activePageId, selection } = useCanvasStore.getState()
+    const { activePageId } = useCanvasStore.getState()
     if (!doc) return
 
     // Only screen pages are previewable (skip ERD, component pages)
     const activePage = doc.pages?.find((p) => p.id === activePageId)
     if (activePage && activePage.type && activePage.type !== 'screen') return
 
-    // Determine preview scope: selected frame if exactly 1 selected, else null
-    const selectedFrameId =
-      selection.selectedIds.length === 1 ? selection.selectedIds[0] : null
+    // Always preview the full page (not scoped to a single selected frame)
+    // to avoid accidentally hiding sibling nodes
+    const html = generatePreviewHTML(
+      doc,
+      activePageId,
+      null,
+      previewIdRef.current,
+    )
 
     const baseUrl = window.location.origin
     try {
@@ -42,9 +49,7 @@ export function usePreview() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: previewIdRef.current,
-          doc,
-          activePageId,
-          selectedFrameId,
+          html,
         }),
       })
     } catch (err) {

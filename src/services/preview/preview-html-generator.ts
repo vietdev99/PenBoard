@@ -224,6 +224,10 @@ function generateNodeHTML(
   connections: ScreenConnection[],
 ): string {
   const pad = indent(depth)
+
+  // Skip hidden nodes
+  if (node.visible === false) return ''
+
   const css: Record<string, string> = {}
 
   // Position
@@ -263,6 +267,17 @@ function generateNodeHTML(
       Object.assign(css, effectsToCSS(node.effects))
       Object.assign(css, layoutToCSS(node))
 
+      // Ensure frame/group acts as positioning context for absolute children
+      const children = node.children ?? []
+      if (children.length > 0 && !css.position) {
+        css.position = 'relative'
+      }
+
+      // Handle table role with proper HTML table structure (before pushing generic CSS)
+      if (node.role === 'table') {
+        return generateTableHTMLNode(node, pad, nodeIdAttr, rules, connections)
+      }
+
       const tag = getSemanticTag(node.role, node.type)
       const className = nextClassName(
         node.name?.replace(/\s+/g, '-').toLowerCase() ?? node.type,
@@ -288,7 +303,6 @@ function generateNodeHTML(
         return generateSelectHTML(node, pad, nodeIdAttr, className, connAttrs)
       }
 
-      const children = node.children ?? []
       if (children.length === 0) {
         return `${pad}<${tag} ${nodeIdAttr} class="${className}"${connAttrs}></${tag}>`
       }
@@ -471,6 +485,124 @@ function getFirstTextContent(node: PenNode): string {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: generate <table> from table role
+// ---------------------------------------------------------------------------
+
+function generateTableHTMLNode(
+  node: PenNode,
+  pad: string,
+  nodeIdAttr: string,
+  rules: CSSRule[],
+  _connections: ScreenConnection[],
+): string {
+  const children = ('children' in node && node.children) ? node.children : []
+  if (children.length === 0) return `${pad}<table ${nodeIdAttr}></table>`
+
+  const tableCss: Record<string, string> = {
+    'border-collapse': 'collapse',
+    'width': '100%',
+  }
+  if ('width' in node && typeof node.width === 'number') tableCss.width = `${node.width}px`
+  if (node.x !== undefined || node.y !== undefined) {
+    tableCss.position = 'absolute'
+    if (node.x !== undefined) tableCss.left = `${node.x}px`
+    if (node.y !== undefined) tableCss.top = `${node.y}px`
+  }
+  if ('stroke' in node) Object.assign(tableCss, strokeToCSS(node.stroke))
+  if ('cornerRadius' in node) Object.assign(tableCss, cornerRadiusToCSS(node.cornerRadius))
+  if ('fill' in node) Object.assign(tableCss, fillToCSS(node.fill))
+
+  const tableClassName = nextClassName('table')
+  rules.push({ className: tableClassName, properties: tableCss })
+
+  // Cell style
+  const cellClassName = nextClassName('table-cell')
+  rules.push({
+    className: cellClassName,
+    properties: {
+      padding: '8px 12px',
+      'border-bottom': '1px solid #e5e7eb',
+      'text-align': 'left',
+      'font-size': '14px',
+    },
+  })
+  const thClassName = nextClassName('table-th')
+  rules.push({
+    className: thClassName,
+    properties: {
+      padding: '8px 12px',
+      'border-bottom': '2px solid #d1d5db',
+      'text-align': 'left',
+      'font-size': '14px',
+      'font-weight': '600',
+    },
+  })
+
+  // Categorize children: first frame with text children = header, table-row role = data rows
+  let headerRow: PenNode | undefined
+  const dataRows: PenNode[] = []
+
+  for (const child of children) {
+    if (child.role === 'table-row') {
+      dataRows.push(child)
+    } else if (
+      !headerRow &&
+      child.type === 'frame' &&
+      'children' in child &&
+      child.children?.some((gc) => gc.type === 'text')
+    ) {
+      headerRow = child
+    }
+    // skip separators (lines, rectangles without text)
+  }
+
+  const lines: string[] = []
+  lines.push(`${pad}<table ${nodeIdAttr} class="${tableClassName}">`)
+
+  // Thead
+  if (headerRow) {
+    lines.push(`${pad}  <thead>`)
+    lines.push(`${pad}    <tr>`)
+    const headerChildren = ('children' in headerRow && headerRow.children) ? headerRow.children : []
+    for (const cell of headerChildren) {
+      if (cell.type === 'text') {
+        const text = escapeHTML(getTextContent(cell as TextNode))
+        lines.push(`${pad}      <th class="${thClassName}">${text}</th>`)
+      }
+    }
+    lines.push(`${pad}    </tr>`)
+    lines.push(`${pad}  </thead>`)
+  }
+
+  // Tbody
+  if (dataRows.length > 0) {
+    lines.push(`${pad}  <tbody>`)
+    for (const row of dataRows) {
+      lines.push(`${pad}    <tr>`)
+      const rowChildren = ('children' in row && row.children) ? row.children : []
+      for (const cell of rowChildren) {
+        if (cell.type === 'text') {
+          const text = escapeHTML(getTextContent(cell as TextNode))
+          lines.push(`${pad}      <td class="${cellClassName}">${text}</td>`)
+        } else if ('children' in cell && cell.children) {
+          // Cell might be a frame wrapping text
+          const innerText = cell.children
+            .filter((c) => c.type === 'text')
+            .map((c) => escapeHTML(getTextContent(c as TextNode)))
+            .join(' ')
+          lines.push(`${pad}      <td class="${cellClassName}">${innerText}</td>`)
+        }
+      }
+      lines.push(`${pad}    </tr>`)
+    }
+    lines.push(`${pad}  </tbody>`)
+  }
+
+  lines.push(`${pad}</table>`)
+  return lines.join('\n')
+}
+
+// ---------------------------------------------------------------------------
 // Helper: generate <select> from dropdown/select role
 // ---------------------------------------------------------------------------
 
@@ -637,6 +769,7 @@ export function generatePreviewHTML(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .page-root { position: relative; }
     ${toolbarCSS}
     ${navCSS}
     ${cssVariables}

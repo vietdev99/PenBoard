@@ -6,13 +6,10 @@
  * via SSE and receives update notifications when the editor pushes new data.
  */
 
-import type { PenDocument } from '../../src/types/pen'
 import type { ServerResponse } from 'node:http'
 
 export interface PreviewData {
-  doc: PenDocument
-  activePageId: string | null
-  selectedFrameId: string | null
+  html: string
   timestamp: number
 }
 
@@ -26,9 +23,9 @@ const sseClients = new Map<string, Set<PreviewSSEClient>>()
 
 export function setPreviewData(
   previewId: string,
-  data: Omit<PreviewData, 'timestamp'>,
+  html: string,
 ): void {
-  previews.set(previewId, { ...data, timestamp: Date.now() })
+  previews.set(previewId, { html, timestamp: Date.now() })
   broadcastToPreview(previewId, { type: 'preview:update' })
 }
 
