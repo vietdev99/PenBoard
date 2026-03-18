@@ -16,6 +16,7 @@ import ToolButton from './tool-button'
 import ShapeToolDropdown from './shape-tool-dropdown'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, generateId } from '@/stores/document-store'
+import { getActivePage } from '@/stores/document-tree-utils'
 import { parseSvgToNodes } from '@/utils/svg-parser'
 import { getCanvasSize } from '@/canvas/skia-engine-ref'
 import { useHistoryStore } from '@/stores/history-store'
@@ -33,6 +34,8 @@ export default function Toolbar() {
   const { t } = useTranslation()
   const canUndo = useHistoryStore((s) => s.undoStack.length > 0)
   const canRedo = useHistoryStore((s) => s.redoStack.length > 0)
+  const activePageId = useCanvasStore((s) => s.activePageId)
+  const pageType = useDocumentStore((s) => getActivePage(s.document, activePageId)?.type)
   const variablesPanelOpen = useCanvasStore((s) => s.variablesPanelOpen)
   const toggleVariablesPanel = useCanvasStore((s) => s.toggleVariablesPanel)
   const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
@@ -164,22 +167,26 @@ export default function Toolbar() {
         label={t('toolbar.select')}
         shortcut="V"
       />
-      <ShapeToolDropdown
-        onIconPickerOpen={() => setIconPickerOpen(true)}
-        onImageImport={handleAddImage}
-      />
-      <ToolButton
-        tool="text"
-        icon={<Type size={20} strokeWidth={1.5} />}
-        label={t('toolbar.text')}
-        shortcut="T"
-      />
-      <ToolButton
-        tool="frame"
-        icon={<Frame size={20} strokeWidth={1.5} />}
-        label={t('toolbar.frame')}
-        shortcut="F"
-      />
+      {pageType !== 'erd' && (
+        <>
+          <ShapeToolDropdown
+            onIconPickerOpen={() => setIconPickerOpen(true)}
+            onImageImport={handleAddImage}
+          />
+          <ToolButton
+            tool="text"
+            icon={<Type size={20} strokeWidth={1.5} />}
+            label={t('toolbar.text')}
+            shortcut="T"
+          />
+          <ToolButton
+            tool="frame"
+            icon={<Frame size={20} strokeWidth={1.5} />}
+            label={t('toolbar.frame')}
+            shortcut="F"
+          />
+        </>
+      )}
       <ToolButton
         tool="hand"
         icon={<Hand size={20} strokeWidth={1.5} />}
@@ -229,102 +236,110 @@ export default function Toolbar() {
 
       <Separator className="my-1 w-8" />
 
-      {/* Variables */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={toggleVariablesPanel}
-            aria-label={t('toolbar.variables')}
-            aria-pressed={variablesPanelOpen}
-            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
-              variablesPanelOpen
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Braces size={20} strokeWidth={1.5} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {t('toolbar.variables')}
-          <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
-            {'\u2318\u21e7'}V
-          </kbd>
-        </TooltipContent>
-      </Tooltip>
+      {/* Variables — hidden on ERD pages */}
+      {pageType !== 'erd' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleVariablesPanel}
+              aria-label={t('toolbar.variables')}
+              aria-pressed={variablesPanelOpen}
+              className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+                variablesPanelOpen
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Braces size={20} strokeWidth={1.5} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {t('toolbar.variables')}
+            <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              {'\u2318\u21e7'}V
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-      {/* Data Entities */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={toggleDataPanel}
-            aria-label={t('data.panelTitle')}
-            aria-pressed={dataPanelOpen}
-            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
-              dataPanelOpen
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Database size={20} strokeWidth={1.5} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {t('data.panelTitle')}
-          <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
-            {'\u2318\u21e7'}D
-          </kbd>
-        </TooltipContent>
-      </Tooltip>
+      {/* Data Entities — hidden on Component pages */}
+      {pageType !== 'component' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleDataPanel}
+              aria-label={t('data.panelTitle')}
+              aria-pressed={dataPanelOpen}
+              className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+                dataPanelOpen
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Database size={20} strokeWidth={1.5} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {t('data.panelTitle')}
+            <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              {'\u2318\u21e7'}D
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-      {/* Toggle Connections */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={toggleShowConnections}
-            aria-label="Show Connections"
-            aria-pressed={showConnections}
-            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
-              showConnections
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Cable size={20} strokeWidth={1.5} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          Toggle Connections
-        </TooltipContent>
-      </Tooltip>
+      {/* Toggle Connections — hidden on ERD pages */}
+      {pageType !== 'erd' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleShowConnections}
+              aria-label="Show Connections"
+              aria-pressed={showConnections}
+              className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+                showConnections
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Cable size={20} strokeWidth={1.5} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            Toggle Connections
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-      {/* UIKit Browser */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={toggleBrowser}
-            aria-label={t('toolbar.uikitBrowser')}
-            aria-pressed={browserOpen}
-            className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
-              browserOpen
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <LayoutGrid size={20} strokeWidth={1.5} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {t('toolbar.uikitBrowser')}
-          <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
-            {'\u2318\u21e7'}K
-          </kbd>
-        </TooltipContent>
-      </Tooltip>
+      {/* UIKit Browser — hidden on ERD pages */}
+      {pageType !== 'erd' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleBrowser}
+              aria-label={t('toolbar.uikitBrowser')}
+              aria-pressed={browserOpen}
+              className={`inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-lg transition-colors [&_svg]:size-5 [&_svg]:shrink-0 ${
+                browserOpen
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <LayoutGrid size={20} strokeWidth={1.5} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {t('toolbar.uikitBrowser')}
+            <kbd className="ml-1.5 inline-flex h-4 items-center rounded border border-border/50 bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              {'\u2318\u21e7'}K
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {/* Hidden file input + icon picker dialog */}
       <input
