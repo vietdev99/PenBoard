@@ -1064,8 +1064,14 @@ export class SkiaRenderer {
     const textGrowth = tNode.textGrowth
     const letterSpacing = tNode.letterSpacing ?? 0
 
-    // Check if primary font family is loaded; if not, try async load
+    // Reject icon font families that slipped through drawText detection —
+    // CanvasKit can't render these and would show "NO GLYPH" placeholder.
     const primaryFamily = fontFamily.split(',')[0].trim().replace(/['"]/g, '')
+    if (isIconFontFamily(fontFamily) || /icon|symbol/i.test(primaryFamily)) {
+      return false
+    }
+
+    // Check if primary font family is loaded; if not, try async load
     if (!this.fontManager.isFontReady(primaryFamily)) {
       // System fonts can't be loaded into CanvasKit — use bitmap rendering
       // which supports all OS-installed fonts via Canvas 2D API
@@ -1303,6 +1309,25 @@ export class SkiaRenderer {
       return
     }
 
+    // Last-resort icon detection: if the node name resolves to a known icon,
+    // treat it as an icon. Catches cases where icon font family isn't in our
+    // detection set or content uses non-PUA ligatures.
+    // Only trigger for short content (≤3 chars — likely icon glyph, not real text)
+    // or when font family contains "icon"/"symbol" keywords.
+    if (tNode.name) {
+      const hasIconKeyword = fontFamily && /icon|symbol/i.test(fontFamily)
+      const isShortContent = content.length <= 3
+      if (hasIconKeyword || isShortContent) {
+        const iconMatch = lookupIconByName(tNode.name)
+        if (iconMatch) {
+          const iw = w > 0 ? w : h > 0 ? h : 24
+          const ih = h > 0 ? h : w > 0 ? w : 24
+          this.drawResolvedIcon(canvas, iconMatch, x, y, iw, ih, tNode, opacity)
+          return
+        }
+      }
+    }
+
     // Draw text shadow as blurred copy of the text glyphs (not a rectangle)
     const shadow = effects?.find((e): e is ShadowEffect => e.type === 'shadow')
     if (shadow) {
@@ -1332,6 +1357,22 @@ export class SkiaRenderer {
         : ''
 
     if (!content) return
+
+    // Guard: icon fonts would render as boxes/tofu even in Canvas 2D
+    // if the icon font isn't installed locally. Show placeholder instead.
+    const bitmapFontFamily = tNode.fontFamily ?? ''
+    if (isIconFontFamily(bitmapFontFamily) || (content.length <= 2 && isUnicodePUA(content))) {
+      const iconName = tNode.name ?? ''
+      const iw = w > 0 ? w : h > 0 ? h : 24
+      const ih = h > 0 ? h : w > 0 ? w : 24
+      const iconMatch = iconName ? lookupIconByName(iconName) : null
+      if (iconMatch) {
+        this.drawResolvedIcon(canvas, iconMatch, x, y, iw, ih, tNode, opacity)
+      } else {
+        this.drawIconPlaceholder(canvas, x, y, iw, ih, iconName, opacity)
+      }
+      return
+    }
 
     const fontSize = tNode.fontSize ?? 16
     const fillColor = resolveFillColor(tNode.fill)
