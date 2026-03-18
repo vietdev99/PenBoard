@@ -8,6 +8,7 @@ export const inputSelect: PenNode = {
   id: 'shadcn-input-select',
   type: 'frame',
   name: 'Select',
+  role: 'select',
   reusable: true,
   x: 0,
   y: 720,

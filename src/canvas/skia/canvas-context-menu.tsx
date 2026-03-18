@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PackagePlus, Copy, Trash2, Lock, EyeOff } from 'lucide-react'
+import { PackagePlus, Copy, Trash2, Lock, EyeOff, Database, Unlink } from 'lucide-react'
 import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { flattenNodes } from '@/stores/document-tree-utils'
+import { BINDABLE_ROLES } from '@/variables/resolve-data-binding'
 import type { PenNode } from '@/types/pen'
 
 interface CanvasContextMenuProps {
@@ -53,6 +54,13 @@ export default function CanvasContextMenu({
     (n: PenNode) => 'reusable' in n && n.reusable === true,
   )
 
+  // Check if selected node supports data binding
+  const selectedNode = nodeId ? useDocumentStore.getState().getNodeById(nodeId) : null
+  const nodeRole = selectedNode?.role ?? ''
+  const isBindable = BINDABLE_ROLES.includes(nodeRole as (typeof BINDABLE_ROLES)[number]) || !!selectedNode?.dataBinding
+  const hasBoundData = !!selectedNode?.dataBinding
+  const hasEntities = (doc.dataEntities ?? []).length > 0
+
   const handleDuplicate = () => {
     if (!nodeId) return
     useDocumentStore.getState().duplicateNode(nodeId)
@@ -75,6 +83,18 @@ export default function CanvasContextMenu({
   const handleToggleVisibility = () => {
     if (!nodeId) return
     useDocumentStore.getState().toggleVisibility(nodeId)
+    onClose()
+  }
+
+  const handleBindData = () => {
+    if (!nodeId) return
+    useCanvasStore.getState().setPendingBindNodeId(nodeId)
+    onClose()
+  }
+
+  const handleUnbindData = () => {
+    if (!nodeId) return
+    useDocumentStore.getState().clearDataBinding(nodeId)
     onClose()
   }
 
@@ -118,6 +138,30 @@ export default function CanvasContextMenu({
             <EyeOff size={12} />
             {t('layerMenu.toggleVisibility')}
           </button>
+        </>
+      )}
+      {nodeId && isBindable && hasEntities && (
+        <>
+          <div className="my-1 border-t border-border" />
+          {!hasBoundData ? (
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent hover:text-foreground text-left"
+              onClick={handleBindData}
+            >
+              <Database size={12} />
+              {t('layerMenu.bindToData')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-popover-foreground hover:bg-accent hover:text-foreground text-left"
+              onClick={handleUnbindData}
+            >
+              <Unlink size={12} />
+              {t('layerMenu.removeBinding')}
+            </button>
+          )}
         </>
       )}
       {isFrame && hasComponents && (

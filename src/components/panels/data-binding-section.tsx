@@ -3,13 +3,6 @@ import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import SectionHeader from '@/components/shared/section-header'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,14 +10,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Database, Unlink, AlertCircle } from 'lucide-react'
-import type { PenNode } from '@/types/pen'
+import { Database, Unlink, AlertCircle, FileText } from 'lucide-react'
+import type { PenNode, PenPage } from '@/types/pen'
 import type { DataBinding, DataEntity, FieldMapping } from '@/types/data-entity'
 import { BINDABLE_ROLES } from '@/variables/resolve-data-binding'
 import { buildAutoFieldMappings } from '@/utils/binding-utils'
 
-/** Stable empty array to avoid new-reference-per-render in Zustand selector */
+/** Stable empty arrays to avoid new-reference-per-render in Zustand selector */
 const EMPTY_ENTITIES: DataEntity[] = []
+const EMPTY_PAGES: PenPage[] = []
 
 interface DataBindingSectionProps {
   node: PenNode
@@ -39,6 +33,8 @@ export default function DataBindingSection({ node }: DataBindingSectionProps) {
   const setDataBinding = useDocumentStore((s) => s.setDataBinding)
   const clearDataBinding = useDocumentStore((s) => s.clearDataBinding)
   const dataEntities = useDocumentStore((s) => s.document.dataEntities ?? EMPTY_ENTITIES)
+  const pages = useDocumentStore((s) => s.document.pages ?? EMPTY_PAGES)
+  const erdPages = pages.filter((p) => p.type === 'erd')
 
   const binding = node.dataBinding
   const boundEntity = binding ? dataEntities.find((e) => e.id === binding.entityId) : undefined
@@ -111,43 +107,25 @@ export default function DataBindingSection({ node }: DataBindingSectionProps) {
             </span>
           </div>
 
-          {/* Field mappings: one row per entity field */}
+          {/* Field mappings: checkbox per field to show/hide columns */}
           {boundEntity.fields.length > 0 && (
             <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground px-0.5">Field mappings</p>
+              <p className="text-[10px] text-muted-foreground px-0.5">Show columns</p>
               {boundEntity.fields.map((field, idx) => {
                 const slotKey = `col-${idx}`
-                const currentMapping = binding.fieldMappings.find((m) => m.slotKey === slotKey)
-                // Per-field "field not found" warning: check if mapped fieldId exists in entity
-                const mappedFieldMissing = currentMapping
-                  && !boundEntity.fields.some((f) => f.id === currentMapping.fieldId)
+                const isChecked = binding.fieldMappings.some((m) => m.slotKey === slotKey)
                 return (
-                  <div key={field.id} className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground w-16 truncate shrink-0">
+                  <label key={field.id} className="flex items-center gap-2 px-0.5 py-0.5 cursor-pointer hover:bg-accent/50 rounded">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => handleFieldMappingChange(slotKey, e.target.checked ? field.id : '__none__')}
+                      className="h-3.5 w-3.5 rounded border-border accent-primary"
+                    />
+                    <span className="text-[11px] text-foreground truncate">
                       {field.name}
                     </span>
-                    <Select
-                      value={currentMapping?.fieldId ?? '__none__'}
-                      onValueChange={(val) => handleFieldMappingChange(slotKey, val)}
-                    >
-                      <SelectTrigger className="h-6 text-[11px] flex-1">
-                        <SelectValue placeholder="slot..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">-- none --</SelectItem>
-                        {boundEntity.fields.map((f) => (
-                          <SelectItem key={f.id} value={f.id}>
-                            {f.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {mappedFieldMissing && (
-                      <span title="Field not found — entity field was renamed or deleted" className="shrink-0">
-                        <AlertCircle size={12} className="text-destructive" />
-                      </span>
-                    )}
-                  </div>
+                  </label>
                 )
               })}
             </div>
@@ -202,28 +180,57 @@ export default function DataBindingSection({ node }: DataBindingSectionProps) {
               Select an entity from your ERD to bind this component
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1 mt-2">
+          <div className="space-y-1 mt-2 max-h-[360px] overflow-y-auto">
             {dataEntities.length === 0 && (
               <p className="text-xs text-muted-foreground py-4 text-center">
                 No data entities in this document. Create entities in the ERD panel first.
               </p>
             )}
-            {dataEntities.map((entity) => (
-              <button
-                key={entity.id}
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent text-left"
-                onClick={() => handleBind(entity.id)}
-              >
-                <Database size={14} className="text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-foreground truncate">{entity.name}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {entity.fields.length} fields · {entity.rows.length} rows
-                  </p>
+            {erdPages.length > 0 ? (
+              erdPages.map((page) => (
+                <div key={page.id}>
+                  <div className="flex items-center gap-1.5 px-3 pt-3 pb-1">
+                    <FileText size={12} className="text-muted-foreground shrink-0" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                      {page.name}
+                    </span>
+                  </div>
+                  {dataEntities.map((entity) => (
+                    <button
+                      key={entity.id}
+                      type="button"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent text-left"
+                      onClick={() => handleBind(entity.id)}
+                    >
+                      <Database size={14} className="text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-foreground truncate">{entity.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {entity.fields.length} fields · {entity.rows.length} rows
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              </button>
-            ))}
+              ))
+            ) : (
+              dataEntities.map((entity) => (
+                <button
+                  key={entity.id}
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent text-left"
+                  onClick={() => handleBind(entity.id)}
+                >
+                  <Database size={14} className="text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-foreground truncate">{entity.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {entity.fields.length} fields · {entity.rows.length} rows
+                    </p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

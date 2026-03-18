@@ -207,8 +207,8 @@ export default function TopBar() {
   }, [])
 
   /**
-   * Unified save: if the current file is .op with a known handle/path, save
-   * in-place; otherwise trigger "save as .op".
+   * Unified save: if the current file is .pb/.op with a known handle/path, save
+   * in-place; otherwise trigger "save as .pb".
    */
   const handleSave = useCallback(async () => {
     try {
@@ -219,21 +219,21 @@ export default function TopBar() {
     const store = useDocumentStore.getState()
     const { document: doc, fileName: fn, fileHandle, filePath } = store
 
-    const isOpFile = fn ? /\.op$/i.test(fn) : false
+    const isPbOrOpFile = fn ? /\.(pb|op)$/i.test(fn) : false
     const suggestedName = fn
-      ? fn.replace(/\.(pen|op|json)$/i, '') + '.op'
-      : 'untitled.op'
+      ? fn.replace(/\.(pen|op|pb|json)$/i, '') + '.pb'
+      : 'untitled.pb'
 
     try {
-      // Electron with known .op path → direct write
-      if (isElectron() && filePath && isOpFile) {
+      // Electron with known .pb/.op path → direct write
+      if (isElectron() && filePath && isPbOrOpFile) {
         await writeToFilePath(filePath, doc)
         store.markClean()
         return
       }
 
-      // Browser with valid .op file handle → direct write
-      if (fileHandle && isOpFile) {
+      // Browser with valid .pb/.op file handle → direct write
+      if (fileHandle && isPbOrOpFile) {
         try {
           await writeToFileHandle(fileHandle, doc)
           store.markClean()
@@ -244,7 +244,7 @@ export default function TopBar() {
         }
       }
 
-      // No in-place target (new file, .pen file, or stale handle) → save as .op
+      // No in-place target (new file, .pen file, or stale handle) → save as .pb
       if (isElectron()) {
         const savedPath = await window.electronAPI!.saveFile(
           JSON.stringify(doc),

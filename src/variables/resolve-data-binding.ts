@@ -88,7 +88,13 @@ function resolveTableBinding(
 ): PenNode {
   if (!('children' in node) || !node.children || node.children.length === 0) return node
 
-  const fieldCount = entity.fields.length
+  // Determine which field indices are active (checked) via fieldMappings.
+  // null means "show all" (backward compat when no mappings exist).
+  const activeIndices: Set<number> | null = fieldMappings.length > 0
+    ? new Set(fieldMappings.map((m) => parseInt(m.slotKey.replace('col-', ''), 10)))
+    : null
+  const fieldCount = activeIndices ? activeIndices.size : entity.fields.length
+  if (fieldCount === 0) return node
 
   // Categorize children into header, separators, and data rows
   let headerRow: PenNode | undefined
@@ -114,9 +120,9 @@ function resolveTableBinding(
 
   const newChildren: PenNode[] = []
 
-  // 1. Header row: rename columns to entity field names, trim to field count
+  // 1. Header row: rename columns to entity field names, keep only active columns
   if (headerRow) {
-    newChildren.push(rebuildColumns(headerRow, entity.fields, fieldCount, true))
+    newChildren.push(rebuildColumns(headerRow, entity.fields, fieldCount, true, activeIndices))
   }
 
   // 2. One data row per entity row
@@ -133,12 +139,12 @@ function resolveTableBinding(
     // Get existing template row or clone the first one
     const baseRow = i < dataRows.length ? dataRows[i] : cloneRow(dataRows[0], i)
 
-    // Inject entity row data into text nodes
+    // Inject entity row data into text nodes (all fields positionally)
     const row = entity.rows[i]
     const injected = injectRowIntoNode(baseRow, row.values, entity.fields, fieldMappings)
 
-    // Trim columns to match field count
-    newChildren.push(rebuildColumns(injected, entity.fields, fieldCount, false))
+    // Keep only active columns
+    newChildren.push(rebuildColumns(injected, entity.fields, fieldCount, false, activeIndices))
   }
 
   return { ...node, children: newChildren } as PenNode
@@ -147,13 +153,16 @@ function resolveTableBinding(
 /**
  * Rebuild a row's text columns:
  * - If isHeader: replace text content with entity field names
- * - Trim text children to fieldCount (remove extra columns)
+ * - Keep only text children at active field indices (or first N if no filter)
+ *
+ * @param activeIndices - Set of field indices to keep (null = keep first fieldCount)
  */
 function rebuildColumns(
   row: PenNode,
   fields: DataField[],
   fieldCount: number,
   isHeader: boolean,
+  activeIndices: Set<number> | null,
 ): PenNode {
   if (!('children' in row) || !row.children) return row
 
@@ -162,15 +171,15 @@ function rebuildColumns(
 
   for (const child of row.children) {
     if (child.type === 'text') {
-      if (textIdx < fieldCount) {
-        if (isHeader) {
+      const shouldKeep = activeIndices ? activeIndices.has(textIdx) : textIdx < fieldCount
+      if (shouldKeep) {
+        if (isHeader && fields[textIdx]) {
           // Replace header text with entity field name
           newChildren.push({ ...child, content: fields[textIdx].name } as PenNode)
         } else {
           newChildren.push(child)
         }
       }
-      // Skip text nodes beyond fieldCount (column trimming)
       textIdx++
     } else {
       newChildren.push(child)
