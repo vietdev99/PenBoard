@@ -347,6 +347,18 @@ export default function SkiaCanvas() {
     return unsub
   }, [])
 
+  // showConnections sync: re-render when toggle changes
+  useEffect(() => {
+    let prev = useCanvasStore.getState().showConnections
+    const unsub = useCanvasStore.subscribe((state) => {
+      if (state.showConnections !== prev) {
+        prev = state.showConnections
+        engineRef.current?.markDirty()
+      }
+    })
+    return unsub
+  }, [])
+
   // ---- Event handlers ----
 
   // Wheel: zoom + pan
