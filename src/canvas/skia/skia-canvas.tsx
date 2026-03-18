@@ -315,12 +315,20 @@ export default function SkiaCanvas() {
     return () => observer.disconnect()
   }, [])
 
-  // Document sync: re-render when document changes
+  // Document sync: re-render when document changes (throttled for large files)
   useEffect(() => {
+    let syncTimer: ReturnType<typeof requestAnimationFrame> | null = null
     const unsub = useDocumentStore.subscribe(() => {
-      engineRef.current?.syncFromDocument()
+      if (syncTimer) return // Already scheduled
+      syncTimer = requestAnimationFrame(() => {
+        syncTimer = null
+        engineRef.current?.syncFromDocument()
+      })
     })
-    return unsub
+    return () => {
+      unsub()
+      if (syncTimer) cancelAnimationFrame(syncTimer)
+    }
   }, [])
 
   // Page sync: re-render when active page changes
@@ -973,6 +981,10 @@ export default function SkiaCanvas() {
             rn.absX += incrDx
             rn.absY += incrDy
             rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
+            // Keep clip bounds in sync with moved parent frame
+            if (rn.clipRect) {
+              rn.clipRect = { ...rn.clipRect, x: rn.clipRect.x + incrDx, y: rn.clipRect.y + incrDy }
+            }
           }
         }
 
@@ -999,6 +1011,9 @@ export default function SkiaCanvas() {
               rn.absX += snapDx
               rn.absY += snapDy
               rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
+              if (rn.clipRect) {
+                rn.clipRect = { ...rn.clipRect, x: rn.clipRect.x + snapDx, y: rn.clipRect.y + snapDy }
+              }
             }
           }
           dragPrevDx += snapDx

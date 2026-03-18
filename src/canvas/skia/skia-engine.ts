@@ -144,10 +144,12 @@ function sizeToNumber(val: number | string | undefined, fallback: number): numbe
   return fallback
 }
 
-function cornerRadiusVal(cr: number | [number, number, number, number] | undefined): number {
-  if (cr === undefined) return 0
+function cornerRadiusVal(cr: unknown): number {
+  if (cr == null) return 0
   if (typeof cr === 'number') return cr
-  return cr[0]
+  if (typeof cr === 'string') { const n = parseFloat(cr); return isNaN(n) ? 0 : n }
+  if (Array.isArray(cr)) return typeof cr[0] === 'number' ? cr[0] : 0
+  return 0
 }
 
 /** Apply argument values from a RefNode instance to the resolved component children.
@@ -188,7 +190,9 @@ function resolveRefs(
       const refNode = node as import('@/types/pen').RefNode
       // Apply argument values BEFORE remapIds (uses original child IDs)
       const argApplied = applyArgumentValues(component.children, node, component)
-      ;(resolvedNode as PenNode & ContainerProps).children = remapIds(argApplied, node.id, refNode.descendants)
+      const remapped = remapIds(argApplied, node.id, refNode.descendants)
+      // Recursively resolve nested refs inside component children
+      ;(resolvedNode as PenNode & ContainerProps).children = resolveRefs(remapped, rootNodes, findInTree, visited)
     }
     visited.delete(node.ref)
     return [resolvedNode]
@@ -222,9 +226,11 @@ export function flattenToRenderNodes(
   for (let i = nodes.length - 1; i >= 0; i--) {
     const node = nodes[i]
     if (!isNodeVisible(node)) continue
+    // Skip unresolved ref nodes (component not found)
+    if (node.type === 'ref') continue
 
     // Resolve fill_container / fit_content
-    let resolved = node
+    let resolved: PenNode = node
     if (parentAvailW !== undefined || parentAvailH !== undefined) {
       let changed = false
       const r: Record<string, unknown> = { ...node }
@@ -365,13 +371,15 @@ function collectReusableIds(nodes: PenNode[], result: Set<string>) {
   }
 }
 
-function collectInstanceIds(nodes: PenNode[], result: Set<string>) {
+function collectInstanceIds(nodes: PenNode[], result: Set<string>, depth = 0) {
   for (const node of nodes) {
     if (node.type === 'ref') {
-      result.add(node.id)
+      // Only label top-level instances (depth ≤ 1: page children or their direct children)
+      // Deeper nested instances inside components don't need labels
+      if (depth <= 1) result.add(node.id)
     }
     if ('children' in node && node.children) {
-      collectInstanceIds(node.children, result)
+      collectInstanceIds(node.children, result, depth + 1)
     }
   }
 }
@@ -414,6 +422,9 @@ export class SkiaEngine {
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
   dragSyncSuppressed = false
+  // Change detection for syncFromDocument — skip expensive reprocessing when doc hasn't changed
+  private lastSyncPageId: string | null = null
+  private lastSyncChildrenRef: PenNode[] | null = null
 
   // Interaction state
   hoveredNodeId: string | null = null
@@ -511,19 +522,28 @@ export class SkiaEngine {
     }
 
     const pageChildren = getActivePageChildren(docState.document, activePageId)
+
+    // Skip expensive re-processing if document children haven't changed
+    // (e.g., only canvas store state like selection/hover changed)
+    if (pageChildren === this.lastSyncChildrenRef && activePageId === this.lastSyncPageId) {
+      this.markDirty()
+      return
+    }
+    this.lastSyncPageId = activePageId
+    this.lastSyncChildrenRef = pageChildren
+
     const allNodes = getAllChildren(docState.document)
 
-    // Simple findNodeInTree
-    const findInTree = (nodes: PenNode[], id: string): PenNode | null => {
+    // Build id→node lookup map once (O(n)) instead of DFS per ref (O(n×m))
+    const nodeMap = new Map<string, PenNode>()
+    const buildMap = (nodes: PenNode[]) => {
       for (const n of nodes) {
-        if (n.id === id) return n
-        if ('children' in n && n.children) {
-          const found = findInTree(n.children, id)
-          if (found) return found
-        }
+        nodeMap.set(n.id, n)
+        if ('children' in n && n.children) buildMap(n.children)
       }
-      return null
     }
+    buildMap(allNodes)
+    const findInTree = (_nodes: PenNode[], id: string): PenNode | null => nodeMap.get(id) ?? null
 
     // Collect reusable/instance IDs from raw tree (before ref resolution strips them)
     this.reusableIds.clear()
@@ -541,13 +561,20 @@ export class SkiaEngine {
       ? resolved.map((n) => resolveDataBinding(n, dataEntities))
       : resolved
 
-    // Resolve design variables (AFTER data binding resolution)
+    // Resolve design variables recursively (AFTER data binding resolution)
     const variables = docState.document.variables ?? {}
     const themes = docState.document.themes
     const defaultTheme = getDefaultTheme(themes)
-    const variableResolved = bindingResolved.map((n) =>
-      resolveNodeForCanvas(n, variables, defaultTheme),
-    )
+    const resolveVarsDeep = (node: PenNode): PenNode => {
+      const resolved = resolveNodeForCanvas(node, variables, defaultTheme)
+      if ('children' in resolved && resolved.children) {
+        return { ...resolved, children: resolved.children.map(resolveVarsDeep) } as PenNode
+      }
+      return resolved
+    }
+    const variableResolved = Object.keys(variables).length > 0
+      ? bindingResolved.map(resolveVarsDeep)
+      : bindingResolved
 
     // Only premeasure text HEIGHTS for fixed-width text (where wrapping
     // estimation may differ from Canvas 2D). Never touch widths or
@@ -612,22 +639,47 @@ export class SkiaEngine {
     // Pass current zoom to renderer for zoom-aware text rasterization
     this.renderer.zoom = this.zoom
 
-    // Draw all render nodes
+    // Compute visible viewport in scene coordinates for culling
+    const canvasW = this.canvasEl.width / dpr
+    const canvasH = this.canvasEl.height / dpr
+    const vpLeft = -this.panX / this.zoom
+    const vpTop = -this.panY / this.zoom
+    const vpRight = vpLeft + canvasW / this.zoom
+    const vpBottom = vpTop + canvasH / this.zoom
+    // Add margin to avoid popping at edges (accounts for strokes, shadows, labels)
+    const vpMargin = 100 / this.zoom
+
+    // Draw all render nodes with viewport culling (catch WASM errors from invalid node data)
     for (const rn of this.renderNodes) {
-      this.renderer.drawNode(canvas, rn, selectedIds)
+      // Skip nodes entirely outside the visible viewport
+      if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
+          rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) {
+        continue
+      }
+      try {
+        this.renderer.drawNode(canvas, rn, selectedIds)
+      } catch {
+        // Skip nodes that cause CanvasKit WASM errors (invalid fills, gradients, etc.)
+      }
     }
 
-    // Draw frame labels (root frames + reusable components + instances at any depth)
+    // Draw frame labels (root frames + reusable components only — skip nested instances)
     for (const rn of this.renderNodes) {
       if (!rn.node.name) continue
+      // Viewport cull labels too
+      if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
+          rn.absY < vpTop - vpMargin - 30 || rn.absY > vpBottom + vpMargin) continue
       const isRootFrame = rn.node.type === 'frame' && !rn.clipRect
       const isReusable = this.reusableIds.has(rn.node.id)
-      const isInstance = this.instanceIds.has(rn.node.id)
-      if (!isRootFrame && !isReusable && !isInstance) continue
-      this.renderer.drawFrameLabelColored(
-        canvas, rn.node.name, rn.absX, rn.absY,
-        isReusable, isInstance, this.zoom,
-      )
+      if (!isRootFrame && !isReusable) continue
+      try {
+        this.renderer.drawFrameLabelColored(
+          canvas, rn.node.name, rn.absX, rn.absY,
+          isReusable, false, this.zoom,
+        )
+      } catch {
+        // Skip labels that cause CanvasKit WASM errors
+      }
     }
 
     // Draw agent indicators (glow, badges, node borders, preview fills)
@@ -747,14 +799,15 @@ export class SkiaEngine {
       }
     }
 
-    // Draw component badges for reusable frames
+    // Draw component badges for reusable frames (with viewport culling)
     for (const rn of this.renderNodes) {
-      if (this.reusableIds.has(rn.node.id)) {
-        this.renderer.drawComponentBadge(
-          canvas, rn.absX, rn.absY, rn.absW, rn.absH,
-          this.zoom,
-        )
-      }
+      if (!this.reusableIds.has(rn.node.id)) continue
+      if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
+          rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) continue
+      this.renderer.drawComponentBadge(
+        canvas, rn.absX, rn.absY, rn.absW, rn.absH,
+        this.zoom,
+      )
     }
 
     // Highlight mode: trace full connection chain from selected element,
