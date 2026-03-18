@@ -11,6 +11,7 @@
  */
 
 import type { PenDocument, PenNode, RefNode, FrameNode, TextNode } from '@/types/pen'
+import type { DataEntity } from '@/types/data-entity'
 import { resolveDataBinding } from '@/variables/resolve-data-binding'
 import { resolveNodeForCanvas, getDefaultTheme } from '@/variables/resolve-variables'
 import { applyArgumentValues } from '@/canvas/skia/argument-apply'
@@ -109,6 +110,15 @@ function resolveNode(
   // Step 2: Resolve data bindings
   resolved = resolveDataBinding(resolved, entities)
 
+  // Step 2b: Expand dropdown/select options from entity rows for preview
+  // (resolveDataBinding only maps 1:1 children; dropdowns need all rows as options)
+  if (
+    (resolved.role === 'dropdown' || resolved.role === 'select') &&
+    resolved.dataBinding
+  ) {
+    resolved = expandDropdownOptions(resolved, entities)
+  }
+
   // Step 3: Resolve $variable references
   resolved = resolveNodeForCanvas(resolved, variables, defaultTheme)
 
@@ -124,6 +134,35 @@ function resolveNode(
   }
 
   return resolved
+}
+
+/**
+ * Expand dropdown/select children to contain one text node per entity row.
+ * The first mapped field (or first entity field) provides option text.
+ */
+function expandDropdownOptions(node: PenNode, entities: DataEntity[]): PenNode {
+  const binding = node.dataBinding
+  if (!binding) return node
+
+  const entity = entities.find((e) => e.id === binding.entityId)
+  if (!entity || entity.rows.length === 0) return node
+
+  // Determine which field provides option values
+  const fieldId =
+    binding.fieldMappings[0]?.fieldId ?? entity.fields[0]?.id
+  if (!fieldId) return node
+
+  // Create text children for each entity row
+  const optionChildren: PenNode[] = entity.rows.map((row, i) => {
+    const value = row.values[fieldId]
+    return {
+      id: `${node.id}__opt${i}`,
+      type: 'text' as const,
+      content: value != null ? String(value) : '',
+    } as TextNode
+  })
+
+  return { ...node, children: optionChildren } as PenNode
 }
 
 /** Find a reusable component by ID across all pages and top-level children. */
