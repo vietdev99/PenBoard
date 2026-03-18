@@ -263,8 +263,8 @@ export default function Toolbar() {
         </Tooltip>
       )}
 
-      {/* Data Entities — hidden on Component pages */}
-      {pageType !== 'component' && (
+      {/* Data Entities — only on ERD pages */}
+      {pageType === 'erd' && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
