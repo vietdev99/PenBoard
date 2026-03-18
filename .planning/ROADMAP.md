@@ -67,11 +67,12 @@ Plans:
 2. When AI generates or reads a design, element context notes are included in the prompt (visible in AI behavior)
 3. Context notes survive copy, paste, duplicate, undo/redo, and file save/reload without loss
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Type system + Context panel UI + test scaffolds (CTX-01, CTX-03)
+- [ ] 06-02-PLAN.md — AI prompt injection + real test coverage + human verification (CTX-02, CTX-03)
 
 ### Phase 7: Interactive Preview
 
@@ -141,7 +142,7 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 3. Shared Components & Design Tokens | v1.0 | 5/5 | Complete | 2026-03-16 |
 | 4. E2E Tests & Polish | v1.0 | 3/3 | Complete | 2026-03-17 |
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
-| 6. Context & AI | v1.1 | 0/0 | Not started | - |
+| 6. Context & AI | v1.1 | 0/2 | Planned | - |
 | 7. Interactive Preview | v1.1 | 0/0 | Not started | - |
 | 8. Workflow Visualization | v1.1 | 0/0 | Not started | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
