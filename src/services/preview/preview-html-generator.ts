@@ -22,6 +22,8 @@ import { isVariableRef } from '@/variables/resolve-variables'
 import { variableNameToCSS, generateCSSVariables } from '@/services/codegen/css-variables-generator'
 import { resolvePageForPreview } from '@/services/preview/preview-data-resolver'
 import { getSemanticTag } from '@/services/preview/preview-semantic-tags'
+import { generateNavigationJS, generateNavigationCSS } from '@/services/preview/preview-navigation'
+import { generateToolbarHTML, generateToolbarCSS, generateToolbarJS } from '@/services/preview/preview-toolbar'
 
 // ---------------------------------------------------------------------------
 // CSS helper functions (replicated from html-generator.ts with preview extensions)
@@ -525,6 +527,13 @@ export function generatePageHTML(
 /**
  * Generate a complete self-contained HTML document for preview.
  *
+ * Produces a multi-page document with:
+ * - All screen pages rendered as page-container divs (initial page active)
+ * - Navigation JS with hash routing and transition animations
+ * - Toolbar with back, breadcrumb, hotspots, refresh, download
+ * - CSS variables, generated styles, transition CSS, toolbar CSS
+ * - SSE hot reload listener
+ *
  * @param doc - The PenDocument to render
  * @param pageId - Target page ID (null for first screen page)
  * @param frameId - Optional target frame ID within the page
@@ -537,31 +546,85 @@ export function generatePreviewHTML(
   frameId: string | null,
   previewId: string,
 ): string {
-  // Determine target page
-  const page = findTargetPage(doc, pageId)
-  const pageName = page?.name ?? 'Preview'
-  const resolvedPageId = page?.id ?? 'default'
+  const connections = doc.connections ?? []
 
-  // Determine target nodes
-  let targetNodes: PenNode[] = page?.children ?? doc.children
-  if (frameId && targetNodes.length > 0) {
-    const frame = findFrameById(targetNodes, frameId)
-    if (frame && 'children' in frame && frame.children) {
-      targetNodes = frame.children
+  // Determine the initial target page
+  const initialPage = findTargetPage(doc, pageId)
+  const pageName = initialPage?.name ?? 'Preview'
+  const initialPageId = initialPage?.id ?? 'default'
+
+  // Gather all screen pages for multi-page rendering
+  const screenPages = getScreenPages(doc)
+
+  // Build page containers and collect all CSS
+  const allCSS: string[] = []
+  const pageContainers: string[] = []
+
+  for (const sp of screenPages) {
+    const isInitial = sp.id === initialPageId
+
+    // Determine nodes to render for this page
+    let pageNodes: PenNode[] = sp.children
+    // If this is the initial page and a specific frame is selected,
+    // scope to that frame's children
+    if (isInitial && frameId && pageNodes.length > 0) {
+      const frame = findFrameById(pageNodes, frameId)
+      if (frame && 'children' in frame && frame.children) {
+        pageNodes = frame.children
+      }
     }
+
+    // Resolve refs, data bindings, and variables
+    const resolvedNodes = resolvePageForPreview(pageNodes, doc)
+
+    // Generate page HTML and CSS (resets classCounter per page)
+    const { html: pageHTML, css: generatedCSS } = generatePageHTML(
+      resolvedNodes,
+      connections,
+    )
+
+    if (generatedCSS) allCSS.push(generatedCSS)
+
+    const activeClass = isInitial ? ' active' : ''
+    pageContainers.push(
+      `  <div id="page-${escapeHTML(sp.id)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
+    )
   }
 
-  // Resolve refs, data bindings, and variables
-  const resolvedNodes = resolvePageForPreview(targetNodes, doc)
+  // If no screen pages found, render doc.children as default page
+  if (screenPages.length === 0) {
+    let targetNodes = doc.children
+    if (frameId && targetNodes.length > 0) {
+      const frame = findFrameById(targetNodes, frameId)
+      if (frame && 'children' in frame && frame.children) {
+        targetNodes = frame.children
+      }
+    }
+    const resolvedNodes = resolvePageForPreview(targetNodes, doc)
+    const { html: pageHTML, css: generatedCSS } = generatePageHTML(
+      resolvedNodes,
+      connections,
+    )
+    if (generatedCSS) allCSS.push(generatedCSS)
+    pageContainers.push(
+      `  <div id="page-default" class="page-container active">\n${pageHTML}\n  </div>`,
+    )
+  }
 
-  // Generate page HTML and CSS
-  const { html: pageHTML, css: generatedCSS } = generatePageHTML(
-    resolvedNodes,
-    doc.connections ?? [],
-  )
-
-  // Generate CSS variables
+  // Generate CSS variables from document
   const cssVariables = generateCSSVariables(doc)
+
+  // Generate navigation and toolbar assets
+  const navCSS = generateNavigationCSS()
+  const toolbarCSS = generateToolbarCSS()
+  const toolbarHTML = generateToolbarHTML(pageName)
+
+  const pageList = screenPages.length > 0
+    ? screenPages.map((p) => ({ id: p.id, name: p.name }))
+    : [{ id: 'default', name: 'Preview' }]
+
+  const toolbarJS = generateToolbarJS()
+  const navJS = generateNavigationJS(connections, pageList, initialPageId, previewId)
 
   // Build complete HTML document
   return `<!DOCTYPE html>
@@ -574,24 +637,18 @@ export function generatePreviewHTML(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .page-container { display: none; position: relative; }
-    .page-container.active { display: block; }
+    ${toolbarCSS}
+    ${navCSS}
     ${cssVariables}
-    ${generatedCSS}
+    ${allCSS.join('\n    ')}
   </style>
 </head>
 <body>
-  <div id="page-${escapeHTML(resolvedPageId)}" class="page-container active">
-${pageHTML}
-  </div>
+  ${toolbarHTML}
+${pageContainers.join('\n')}
   <script>
-    (function() {
-      var evtSource = new EventSource('/api/preview/events?id=${escapeHTML(previewId)}');
-      evtSource.onmessage = function(e) {
-        var data = JSON.parse(e.data);
-        if (data.type === 'preview:update') window.location.reload();
-      };
-    })();
+    ${toolbarJS}
+    ${navJS}
   </script>
 </body>
 </html>`
@@ -600,6 +657,14 @@ ${pageHTML}
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Get all screen-type pages from the document (ERD/component pages are not previewable).
+ */
+function getScreenPages(doc: PenDocument): PenPage[] {
+  if (!doc.pages || doc.pages.length === 0) return []
+  return doc.pages.filter((p) => p.type === 'screen' || !p.type)
+}
 
 function findTargetPage(
   doc: PenDocument,
