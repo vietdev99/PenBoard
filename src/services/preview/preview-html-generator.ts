@@ -222,6 +222,7 @@ function generateNodeHTML(
   depth: number,
   rules: CSSRule[],
   connections: ScreenConnection[],
+  parentLayout?: 'vertical' | 'horizontal' | 'none',
 ): string {
   const pad = indent(depth)
 
@@ -229,12 +230,15 @@ function generateNodeHTML(
   if (node.visible === false) return ''
 
   const css: Record<string, string> = {}
+  const inFlexParent = parentLayout === 'vertical' || parentLayout === 'horizontal'
 
-  // Position
+  // Position: skip absolute positioning for children inside flex containers
   if (node.x !== undefined || node.y !== undefined) {
-    css.position = 'absolute'
-    if (node.x !== undefined) css.left = `${node.x}px`
-    if (node.y !== undefined) css.top = `${node.y}px`
+    if (!inFlexParent) {
+      css.position = 'absolute'
+      if (node.x !== undefined) css.left = `${node.x}px`
+      if (node.y !== undefined) css.top = `${node.y}px`
+    }
   }
 
   // Opacity
@@ -259,17 +263,42 @@ function generateNodeHTML(
     case 'frame':
     case 'rectangle':
     case 'group': {
-      if (typeof node.width === 'number') css.width = `${node.width}px`
-      if (typeof node.height === 'number') css.height = `${node.height}px`
+      // Handle sizing: fill_container → 100% or flex:1, fit_content → auto, number → px
+      if (node.width === 'fill_container') {
+        css.width = inFlexParent && parentLayout === 'horizontal' ? undefined! : '100%'
+        if (inFlexParent && parentLayout === 'horizontal') css.flex = '1'
+      } else if (node.width === 'fit_content') {
+        css.width = 'auto'
+      } else if (typeof node.width === 'number') {
+        css.width = `${node.width}px`
+      }
+      if (node.height === 'fill_container') {
+        css.height = inFlexParent && parentLayout === 'vertical' ? undefined! : '100%'
+        if (inFlexParent && parentLayout === 'vertical') css.flex = '1'
+      } else if (node.height === 'fit_content') {
+        css.height = 'auto'
+      } else if (typeof node.height === 'number') {
+        css.height = `${node.height}px`
+      }
+      // Clean up undefined values
+      if (!css.width) delete css.width
+      if (!css.height) delete css.height
       Object.assign(css, fillToCSS(node.fill))
       Object.assign(css, strokeToCSS(node.stroke))
       Object.assign(css, cornerRadiusToCSS(node.cornerRadius))
       Object.assign(css, effectsToCSS(node.effects))
       Object.assign(css, layoutToCSS(node))
 
+      // Determine this node's layout for children positioning
+      const nodeLayout: 'vertical' | 'horizontal' | 'none' = node.layout === 'vertical'
+        ? 'vertical'
+        : node.layout === 'horizontal'
+          ? 'horizontal'
+          : 'none'
+
       // Ensure frame/group acts as positioning context for absolute children
       const children = node.children ?? []
-      if (children.length > 0 && !css.position) {
+      if (children.length > 0 && !css.position && nodeLayout === 'none') {
         css.position = 'relative'
       }
 
@@ -307,7 +336,7 @@ function generateNodeHTML(
         return `${pad}<${tag} ${nodeIdAttr} class="${className}"${connAttrs}></${tag}>`
       }
       const childrenHTML = children
-        .map((c) => generateNodeHTML(c, depth + 1, rules, connections))
+        .map((c) => generateNodeHTML(c, depth + 1, rules, connections, nodeLayout))
         .join('\n')
       return `${pad}<${tag} ${nodeIdAttr} class="${className}"${connAttrs}>\n${childrenHTML}\n${pad}</${tag}>`
     }
@@ -327,7 +356,11 @@ function generateNodeHTML(
     }
 
     case 'text': {
-      if (typeof node.width === 'number') css.width = `${node.width}px`
+      if (node.width === 'fill_container') {
+        css.width = '100%'
+      } else if (typeof node.width === 'number') {
+        css.width = `${node.width}px`
+      }
       if (typeof node.height === 'number') css.height = `${node.height}px`
       if (node.fill) {
         const fill = node.fill[0]
