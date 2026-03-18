@@ -34,6 +34,7 @@ interface ElectronAPI {
   getPreferences: () => Promise<Record<string, string>>
   setPreference: (key: string, value: string) => Promise<void>
   removePreference: (key: string) => Promise<void>
+  openExternal: (url: string) => Promise<void>
   updater: {
     getState: () => Promise<UpdaterState>
     checkForUpdates: () => Promise<UpdaterState>

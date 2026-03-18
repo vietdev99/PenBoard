@@ -11,6 +11,7 @@ import {
   Maximize,
   Minimize,
   Blocks,
+  Play,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ClaudeLogo from '@/components/icons/claude-logo'
@@ -43,6 +44,7 @@ import { zoomToFitContent } from '@/canvas/skia-engine-ref'
 import { normalizePenDocument } from '@/utils/normalize-pen-file'
 import { useAgentSettingsStore } from '@/stores/agent-settings-store'
 import type { AIProviderType } from '@/types/agent-settings'
+import { usePreview } from '@/hooks/use-preview'
 
 /** Convert a computed CSS color value (oklch/rgb/etc.) to #rrggbb via an offscreen canvas. */
 function cssToHex(raw: string): string | null {
@@ -312,6 +314,8 @@ export default function TopBar() {
     }
   }, [])
 
+  const { openPreview } = usePreview()
+
   const displayName = fileName ?? t('common.untitled')
 
   return (
@@ -394,6 +398,22 @@ export default function TopBar() {
 
       {/* Right section */}
       <div className="flex items-center gap-0.5 app-region-no-drag electron-win-controls-pad">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
+              onClick={openPreview}
+            >
+              <Play size={15} strokeWidth={1.5} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{t('editor.preview', 'Preview')}</TooltipContent>
+        </Tooltip>
+
+        <div className="w-px h-3.5 bg-border/60 mx-1" />
+
         <AgentStatusButton />
 
         <div className="w-px h-3.5 bg-border/60 mx-1" />

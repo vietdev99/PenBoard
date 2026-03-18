@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   dialog,
+  shell,
   type BrowserWindowConstructorOptions,
 } from 'electron'
 import { execSync } from 'node:child_process'
@@ -564,6 +565,21 @@ function setupIPC(): void {
   })
 
   ipcMain.handle('log:getDir', () => getLogDir())
+
+  // Open external URL in default browser (restricted to localhost for security)
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    try {
+      const parsed = new URL(url)
+      if (
+        (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+        (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost')
+      ) {
+        await shell.openExternal(url)
+      }
+    } catch {
+      // Invalid URL — ignore silently
+    }
+  })
 
   ipcMain.handle('updater:getState', () => getUpdaterState())
   ipcMain.handle('updater:checkForUpdates', async () => {
