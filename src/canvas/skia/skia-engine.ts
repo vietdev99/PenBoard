@@ -442,6 +442,7 @@ export class SkiaEngine {
   private fpsMonitor = new FPSMonitor()
   private nodeMap = new Map<string, import('./skia-renderer').RenderNode[]>()
   private lastTileSize = 0
+  private _lastNodeCount = 0
 
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
@@ -643,7 +644,12 @@ export class SkiaEngine {
 
     // Re-evaluate bitmap mode after document change (node count may have changed)
     this.tileManager.markAllDirty()
-    this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+    // Only rebuild nodeMap when node count changes (structural edit)
+    // Property-only edits (color, text) don't change tile assignments
+    if (this.nodeMap.size === 0 || this.renderNodes.length !== this._lastNodeCount) {
+      this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+      this._lastNodeCount = this.renderNodes.length
+    }
 
     // Invalidate BFS cache khi document thay đổi
     this._bfsSelectionKey = ''
@@ -765,7 +771,10 @@ export class SkiaEngine {
       if (signal.aborted) return
 
       this.tileManager.markAllDirty()
-      this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+      if (this.nodeMap.size === 0 || this.renderNodes.length !== this._lastNodeCount) {
+        this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+        this._lastNodeCount = this.renderNodes.length
+      }
       this._bfsSelectionKey = ''
       this._bfsConnectionsKey = ''
       this.markDirty()
@@ -934,8 +943,8 @@ export class SkiaEngine {
         }
       }
 
-      // Progressive dirty tile rendering (max 5 per frame)
-      const budget = Math.min(5, dirtyKeys.length)
+      // Adaptive dirty tile budget: render all when few (<= 15), throttle when many
+      const budget = dirtyKeys.length <= 15 ? dirtyKeys.length : Math.min(5, dirtyKeys.length)
 
       if (budget > 0) {
         this.tileManager.ensureTileSurface(ck, safeTilePixelSize)
