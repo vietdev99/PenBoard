@@ -99,6 +99,16 @@ export class SkiaRenderer {
   private textCacheOrder: string[] = []
   private static TEXT_CACHE_MAX = 300
 
+  // Fast cache: maps a pre-measurement key (node properties only) to the full cacheKey.
+  // Allows skipping all Canvas 2D measurement work on cache hits.
+  private textFastCache = new Map<string, string | null>()
+  private textFastCacheOrder: string[] = []
+
+  // Shared measurement canvas — reused across all drawTextBitmap calls to avoid
+  // creating a new DOM canvas element per text node per frame.
+  private measureCanvas: HTMLCanvasElement | null = null
+  private measureCtx: CanvasRenderingContext2D | null = null
+
   // Paragraph cache for vector text (keyed by content+style, caches Paragraph objects)
   private paraCache = new Map<string, Paragraph | null>()
   private paraCacheOrder: string[] = []
@@ -123,6 +133,15 @@ export class SkiaRenderer {
     this.defaultFont = new this.ck.Font(null, 16)
   }
 
+  /** Get or create the shared measurement canvas context (avoids DOM allocation per text node). */
+  private getMeasureCtx(): CanvasRenderingContext2D {
+    if (!this.measureCtx) {
+      this.measureCanvas = document.createElement('canvas')
+      this.measureCtx = this.measureCanvas.getContext('2d')!
+    }
+    return this.measureCtx
+  }
+
   /** Set callback to trigger re-render when async images finish loading. */
   setRedrawCallback(cb: () => void) {
     this.imageLoader.setOnLoaded(cb)
@@ -137,6 +156,8 @@ export class SkiaRenderer {
     this.clearParaCache()
     this.fontManager.dispose()
     this.imageLoader.dispose()
+    this.measureCanvas = null
+    this.measureCtx = null
   }
 
   clearTextCache() {
@@ -145,6 +166,8 @@ export class SkiaRenderer {
     }
     this.textCache.clear()
     this.textCacheOrder = []
+    this.textFastCache.clear()
+    this.textFastCacheOrder = []
   }
 
   clearParaCache() {
@@ -170,6 +193,13 @@ export class SkiaRenderer {
       const img = this.textCache.get(key)
       img?.delete()
       this.textCache.delete(key)
+    }
+  }
+
+  private evictTextFastCache() {
+    while (this.textFastCacheOrder.length > SkiaRenderer.TEXT_CACHE_MAX) {
+      const key = this.textFastCacheOrder.shift()!
+      this.textFastCache.delete(key)
     }
   }
 
@@ -1383,18 +1413,51 @@ export class SkiaRenderer {
     const lineHeight = lineHeightMul * fontSize
     const textGrowth = tNode.textGrowth
 
+    // Zoom-aware rasterization scale: quantized to 2/4/8 for cache efficiency.
+    const dpr = window.devicePixelRatio || 1
+    const rawScale = this.zoom * dpr
+    const scale = rawScale <= 2 ? 2 : rawScale <= 4 ? 4 : 8
+
+    // --- Fast cache: skip all measurement if we already know the full cache key ---
+    // Build a "fast key" from node properties + node dimensions (no measurement needed).
+    const fastKey = `${content}|${fontSize}|${fillColor}|${fontWeight}|${fontFamily}|${textAlign}|${Math.round(w)}|${Math.round(h)}|${textGrowth ?? ''}|${scale}`
+
+    const fastHit = this.textFastCache.get(fastKey)
+    if (fastHit !== undefined) {
+      if (fastHit === null) return // previously determined to be empty/zero-sized
+      const cachedImg = this.textCache.get(fastHit)
+      if (cachedImg !== undefined) {
+        // Cache HIT — draw from cache, skip all measurement
+        if (cachedImg) {
+          // Extract renderW and textH from the full cacheKey (encoded as last segments)
+          const parts = fastHit.split('|')
+          const cachedRenderW = parseInt(parts[parts.length - 3], 10) || w
+          const cachedTextH = parseInt(parts[parts.length - 2], 10) || h
+          const paint = new ck.Paint()
+          paint.setAntiAlias(true)
+          if (opacity < 1) paint.setAlphaf(opacity)
+          canvas.drawImageRect(
+            cachedImg,
+            ck.LTRBRect(0, 0, cachedImg.width(), cachedImg.height()),
+            ck.LTRBRect(x, y, x + cachedRenderW, y + cachedTextH),
+            paint,
+          )
+          paint.delete()
+        }
+        return
+      }
+      // Full cache key known but image was evicted — fall through to full measurement path
+    }
+
+    // --- Full measurement path (cache MISS) ---
+
     // Match Fabric.js wrapping logic (isFixedWidthText in canvas-object-factory):
-    // Only wrap when textGrowth is explicitly 'fixed-width'/'fixed-width-height',
-    // or textAlign is non-left AND textGrowth isn't explicitly 'auto'.
-    // textGrowth='auto' means auto-width (no wrapping) regardless of textAlign,
-    // since for auto-sized text centering is a no-op anyway.
     const isFixedWidth = textGrowth === 'fixed-width' || textGrowth === 'fixed-width-height'
       || (textGrowth !== 'auto' && textAlign !== 'left' && textAlign !== undefined)
     const shouldWrap = isFixedWidth && w > 0
 
-    // Set up measurement context
-    const measureCanvas = document.createElement('canvas')
-    const mCtx = measureCanvas.getContext('2d')!
+    // Reuse shared measurement context (avoids DOM allocation per text node per frame)
+    const mCtx = this.getMeasureCtx()
     mCtx.font = `${fontWeight} ${fontSize}px ${cssFontFamily(fontFamily)}`
 
     const rawLines = content.split('\n')
@@ -1402,7 +1465,6 @@ export class SkiaRenderer {
     let renderW: number
 
     if (shouldWrap) {
-      // Fixed-width text: wrap with tolerance for font metric differences
       renderW = Math.max(w + fontSize * 0.2, 10)
       wrappedLines = []
       for (const raw of rawLines) {
@@ -1410,7 +1472,6 @@ export class SkiaRenderer {
         wrapLine(mCtx, raw, renderW, wrappedLines)
       }
     } else {
-      // Auto-sized text: don't wrap, measure actual width from Canvas 2D
       wrappedLines = rawLines.length > 0 ? rawLines : ['']
       let maxLineWidth = 0
       for (const line of wrappedLines) {
@@ -1419,8 +1480,6 @@ export class SkiaRenderer {
       renderW = Math.max(maxLineWidth + 2, w, 10)
     }
 
-    // Match Fabric.js: _fontSizeMult = 1.13 for the base glyph height.
-    // lineHeight only adds spacing BETWEEN lines, not below the last line.
     const FABRIC_FONT_MULT = 1.13
     const glyphH = fontSize * FABRIC_FONT_MULT
     const textH = Math.max(h,
@@ -1429,22 +1488,24 @@ export class SkiaRenderer {
         : (wrappedLines.length - 1) * lineHeight + glyphH + 2,
     )
 
-    // Zoom-aware rasterization scale: quantized to 2/4/8 for cache efficiency.
-    // At zoom ≤ 1 with 2× DPR → scale 2 (1:1 pixel mapping on Retina).
-    // Higher zoom → 4 or 8 so text remains sharp when zoomed in.
-    const dpr = window.devicePixelRatio || 1
-    const rawScale = this.zoom * dpr
-    const scale = rawScale <= 2 ? 2 : rawScale <= 4 ? 4 : 8
-
-    // Cache key — includes rasterization scale so zoom changes use fresh textures
+    // Full cache key — includes measured renderW and textH
     const cacheKey = `${content}|${fontSize}|${fillColor}|${fontWeight}|${fontFamily}|${textAlign}|${Math.round(renderW)}|${Math.round(textH)}|${scale}`
+
+    // Store fast cache mapping: fastKey -> full cacheKey
+    this.textFastCache.set(fastKey, cacheKey)
+    this.textFastCacheOrder.push(fastKey)
+    this.evictTextFastCache()
 
     let img = this.textCache.get(cacheKey)
     if (img === undefined) {
       let effectiveScale = scale
       let cw = Math.ceil(renderW * effectiveScale)
       let ch = Math.ceil(textH * effectiveScale)
-      if (cw <= 0 || ch <= 0) { this.textCache.set(cacheKey, null); return }
+      if (cw <= 0 || ch <= 0) {
+        this.textCache.set(cacheKey, null)
+        this.textFastCache.set(fastKey, null) // Mark as empty in fast cache too
+        return
+      }
       // Cap texture dimensions to avoid exceeding browser canvas limits
       const MAX_TEX = 4096
       if (cw > MAX_TEX || ch > MAX_TEX) {
@@ -1474,10 +1535,6 @@ export class SkiaRenderer {
       }
 
       const imageData = ctx.getImageData(0, 0, cw, ch)
-      // Premultiply alpha for correct CanvasKit texture blending.
-      // Canvas 2D getImageData returns unpremultiplied RGBA, but CanvasKit's
-      // WebGL backend handles Premul textures more reliably than Unpremul,
-      // avoiding gray-background artifacts on transparent text images.
       const premul = new Uint8Array(imageData.data.length)
       for (let p = 0; p < premul.length; p += 4) {
         const a = imageData.data[p + 3]
@@ -1493,7 +1550,6 @@ export class SkiaRenderer {
           premul[p + 2] = Math.round(imageData.data[p + 2] * f)
           premul[p + 3] = a
         }
-        // a === 0 → all zeros (already initialized)
       }
       img = ck.MakeImage(
         { width: cw, height: ch, alphaType: ck.AlphaType.Premul, colorType: ck.ColorType.RGBA_8888, colorSpace: ck.ColorSpace.SRGB },
