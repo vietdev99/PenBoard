@@ -898,12 +898,29 @@ export class SkiaEngine {
     // Add margin to avoid popping at edges (accounts for strokes, shadows, labels)
     const vpMargin = 100 / this.zoom
 
-
     // ── Tile-based render pipeline (Phase 07.3) ──
-    // Zoom-based tier cap: never degrade quality at readable zoom
+    // Data-driven tier selection: measure visible node count + FPS
+    const tileSize = this.tileManager.getTileSize(this.zoom)
+    const visibleKeys = this.tileManager.getVisibleTileKeys(
+      vpLeft - vpMargin, vpTop - vpMargin,
+      vpRight + vpMargin, vpBottom + vpMargin, this.zoom,
+    )
+
+    // Count visible nodes from tile node map
+    let visibleNodeCount = 0
+    for (const key of visibleKeys) {
+      const nodes = this.nodeMap.get(key)
+      if (nodes) visibleNodeCount += nodes.length
+    }
+
+    // Tier selection based on MEASURED workload + FPS
     let tier = this.fpsMonitor.tier
-    if (this.zoom >= 0.5) tier = 'full'       // ≥50%: always full quality (text readable)
-    else if (this.zoom >= 0.05 && tier === 'tile') tier = 'quick' // 5-50%: cap at quick
+    if (visibleNodeCount < 200) {
+      tier = 'full'   // Few nodes: always full quality, no reason to degrade
+    } else if (visibleNodeCount < 1000 && tier === 'tile') {
+      tier = 'quick'  // Medium nodes: FPS-adaptive but cap at quick (not tile)
+    }
+    // >1000 visible nodes: FPSMonitor decides freely (tile allowed)
 
     if (tier === 'tile') {
       // T2 — Extreme LOD: simple filled rects per root frame
@@ -935,7 +952,6 @@ export class SkiaEngine {
       strokePaint.delete()
     } else {
       // T0/T1 — Tile-based rendering with progressive dirty updates
-      const tileSize = this.tileManager.getTileSize(this.zoom)
       const simplified = tier === 'quick'
 
       // Check zoom level change → mark all dirty
@@ -951,10 +967,7 @@ export class SkiaEngine {
         this.lastTileSize = tileSize
       }
 
-      const visibleKeys = this.tileManager.getVisibleTileKeys(
-        vpLeft - vpMargin, vpTop - vpMargin,
-        vpRight + vpMargin, vpBottom + vpMargin, this.zoom,
-      )
+      // visibleKeys already computed above for node counting
 
       // Pixel size for tile surface
       const dpr = window.devicePixelRatio || 1
