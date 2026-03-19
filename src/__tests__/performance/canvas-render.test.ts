@@ -291,60 +291,50 @@ describe('SkiaEngine bitmap snapshot mode', () => {
     expect((engine as any).bitmapEnabled).toBe(false)
   })
 
-  it('cachedSnapshot starts as null', async () => {
+  it('lastRenderedViewport starts as null', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    expect((engine as any).cachedSnapshot).toBeNull()
+    expect((engine as any).lastRenderedViewport).toBeNull()
   })
 
-  it('invalidates cachedSnapshot when syncFromDocument detects new children (not panning)', async () => {
+  it('cssTransformActive starts as false', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    // Simulate a cached snapshot
-    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
-    ;(engine as any).cachedSnapshot = mockImage
-    ;(engine as any).isPanning = false
-
-    // First sync — document children changed while not panning
-    engine.syncFromDocument()
-
-    // Snapshot should be deleted because document changed while not panning
-    expect(mockImage.delete).toHaveBeenCalled()
-    expect((engine as any).cachedSnapshot).toBeNull()
+    expect((engine as any).cssTransformActive).toBe(false)
   })
 
-  it('marks snapshotStale when syncFromDocument called during active pan', async () => {
+  it('setViewport applies CSS transform when bitmapEnabled with lastRenderedViewport', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    // Simulate cached snapshot during panning
-    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
-    ;(engine as any).cachedSnapshot = mockImage
-    ;(engine as any).isPanning = true
+    const mockCanvas = { style: { transform: '', transformOrigin: '' } } as unknown as HTMLCanvasElement
+    ;(engine as any).canvasEl = mockCanvas
+    ;(engine as any).bitmapEnabled = true
+    ;(engine as any).lastRenderedViewport = { zoom: 1, panX: 0, panY: 0 }
 
-    engine.syncFromDocument()
+    engine.setViewport(2, 100, 50)
 
-    // Snapshot NOT deleted (still panning), but marked stale
-    expect(mockImage.delete).not.toHaveBeenCalled()
-    expect((engine as any).snapshotStale).toBe(true)
+    // CSS transform should be applied (scale=2, dx=100-0*2=100, dy=50-0*2=50)
+    expect(mockCanvas.style.transform).toContain('scale(2)')
+    expect((engine as any).cssTransformActive).toBe(true)
   })
 
-  it('dispose() calls delete() on cachedSnapshot', async () => {
+  it('dispose() resets CSS transform on canvas element', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
-    ;(engine as any).cachedSnapshot = mockImage
+    const mockCanvas = { style: { transform: 'translate(10px, 20px) scale(1.5)' } } as unknown as HTMLCanvasElement
+    ;(engine as any).canvasEl = mockCanvas
 
     engine.dispose()
 
-    expect(mockImage.delete).toHaveBeenCalled()
+    expect(mockCanvas.style.transform).toBe('')
   })
 
   it('setViewport sets isPanning to true', async () => {
@@ -357,26 +347,22 @@ describe('SkiaEngine bitmap snapshot mode', () => {
     expect(engine.isPanning).toBe(true)
   })
 
-  it('setViewport cleans stale snapshot in idle timer callback', async () => {
+  it('setViewport idle timer sets isPanning false and marks dirty', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
     vi.useFakeTimers()
 
-    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
-    ;(engine as any).cachedSnapshot = mockImage
-    ;(engine as any).snapshotStale = true
-
     engine.setViewport(1.5, 100, 200)
+    expect(engine.isPanning).toBe(true)
 
     // Advance past 150ms idle threshold
     vi.advanceTimersByTime(151)
 
     expect(engine.isPanning).toBe(false)
-    expect(mockImage.delete).toHaveBeenCalled()
-    expect((engine as any).cachedSnapshot).toBeNull()
-    expect((engine as any).snapshotStale).toBe(false)
+    // markDirty() should have been called (dirty flag set for full re-render)
+    expect((engine as any).dirty).toBe(true)
 
     vi.useRealTimers()
   })

@@ -428,12 +428,12 @@ export class SkiaEngine {
   isPanning = false
   private panIdleTimer: ReturnType<typeof setTimeout> | null = null
 
-  // Bitmap snapshot mode — captures rendered frame and displays during zoom/pan gesture
+  // CSS-transform gesture mode — during zoom/pan on large documents, applies CSS transform
+  // to the canvas element instead of re-rendering. Avoids main-thread blocking from full renders.
   private bitmapEnabled = false
-  private cachedSnapshot: import('canvaskit-wasm').Image | null = null
-  private snapshotViewport: { zoom: number; panX: number; panY: number } | null = null
-  private snapshotStale = false   // Set when document changes during active gesture
+  private lastRenderedViewport: { zoom: number; panX: number; panY: number } | null = null
   private benchmarkPending = false // Set after syncFromDocument to benchmark next render
+  private cssTransformActive = false // True while CSS transform is applied to canvas element
 
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
@@ -497,8 +497,7 @@ export class SkiaEngine {
   dispose() {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId)
     this.renderer.dispose()
-    this.cachedSnapshot?.delete()
-    this.cachedSnapshot = null
+    if (this.canvasEl) this.canvasEl.style.transform = ''
     this.surface?.delete()
     this.surface = null
   }
@@ -515,9 +514,10 @@ export class SkiaEngine {
     if (!this.surface) {
       this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl)
     }
-    // Invalidate bitmap snapshot — surface has been recreated
-    this.cachedSnapshot?.delete()
-    this.cachedSnapshot = null
+    // Reset CSS transform — surface has been recreated
+    if (this.canvasEl) this.canvasEl.style.transform = ''
+    this.cssTransformActive = false
+    this.lastRenderedViewport = null
     this.markDirty()
   }
 
@@ -622,15 +622,6 @@ export class SkiaEngine {
 
     this.spatialIndex.rebuild(this.renderNodes)
 
-    // Invalidate bitmap snapshot — document has changed, need fresh capture
-    if (this.cachedSnapshot) {
-      if (this.isPanning) {
-        this.snapshotStale = true  // Will re-capture when gesture ends
-      } else {
-        this.cachedSnapshot.delete()
-        this.cachedSnapshot = null
-      }
-    }
     // Re-evaluate bitmap mode after document change (node count may have changed)
     this.benchmarkPending = true
 
@@ -659,52 +650,14 @@ export class SkiaEngine {
   private _onNextRender: (() => void) | null = null
   onNextRender(cb: () => void) { this._onNextRender = cb; this.markDirty() }
 
-  /**
-   * Bitmap fast path: draw cached snapshot with viewport transform applied.
-   * Used during active zoom/pan gesture when bitmapEnabled is true.
-   * Near-zero cost — single GPU drawImageRect call instead of full node iteration.
-   */
-  private renderBitmapFastPath() {
-    const canvas = this.surface!.getCanvas()
-    const ck = this.ck
-    const dpr = window.devicePixelRatio || 1
-
-    canvas.clear(parseColor(ck, getCanvasBackground()))
-    canvas.save()
-    canvas.scale(dpr, dpr)
-
-    // Compute relative transform: new viewport relative to snapshot viewport
-    const sv = this.snapshotViewport!
-    const scaleRatio = this.zoom / sv.zoom
-    const offsetX = this.panX - sv.panX * scaleRatio
-    const offsetY = this.panY - sv.panY * scaleRatio
-
-    const imgW = this.cachedSnapshot!.width() / dpr
-    const imgH = this.cachedSnapshot!.height() / dpr
-
-    const paint = new ck.Paint()
-    canvas.drawImageRect(
-      this.cachedSnapshot!,
-      ck.XYWHRect(0, 0, this.cachedSnapshot!.width(), this.cachedSnapshot!.height()),
-      ck.XYWHRect(offsetX, offsetY, imgW * scaleRatio, imgH * scaleRatio),
-      paint,
-    )
-    paint.delete()
-
-    canvas.restore()
-    this.surface!.flush()
-  }
-
   private render() {
     if (!this.surface || !this.canvasEl) return
     const _t0 = performance.now()
 
-    // Bitmap fast path: during active zoom/pan gesture, skip full render
-    // and display cached snapshot with viewport transform applied.
-    // This eliminates canvas freeze on large documents (70K+ nodes).
-    if (this.bitmapEnabled && this.isPanning && this.cachedSnapshot) {
-      this.renderBitmapFastPath()
-      return
+    // Reset CSS transform before full render (set during gesture mode)
+    if (this.cssTransformActive) {
+      this.canvasEl.style.transform = ''
+      this.cssTransformActive = false
     }
 
     const canvas = this.surface.getCanvas()
@@ -1031,19 +984,16 @@ export class SkiaEngine {
     canvas.restore()
     this.surface.flush()
 
-    // Auto-detect bitmap mode: benchmark render time after syncFromDocument
+    // Auto-detect CSS-transform gesture mode: benchmark render time after syncFromDocument
     const _elapsed = performance.now() - _t0
     if (this.benchmarkPending) {
       this.bitmapEnabled = _elapsed > 16
       this.benchmarkPending = false
     }
 
-    // Capture bitmap snapshot after full render (for next gesture)
+    // Save viewport for CSS transform reference (used during next gesture)
     if (this.bitmapEnabled) {
-      this.cachedSnapshot?.delete()
-      this.cachedSnapshot = this.surface.makeImageSnapshot()
-      this.snapshotViewport = { zoom: this.zoom, panX: this.panX, panY: this.panY }
-      this.snapshotStale = false
+      this.lastRenderedViewport = { zoom: this.zoom, panX: this.panX, panY: this.panY }
     }
 
     // Fire one-shot post-render callback (e.g. dismiss loading modal after first paint)
@@ -1075,15 +1025,24 @@ export class SkiaEngine {
     if (this.panIdleTimer) clearTimeout(this.panIdleTimer)
     this.panIdleTimer = setTimeout(() => {
       this.isPanning = false
-      // If document changed during gesture, invalidate stale snapshot
-      if (this.snapshotStale && this.cachedSnapshot) {
-        this.cachedSnapshot.delete()
-        this.cachedSnapshot = null
-        this.snapshotStale = false
-      }
-      this.markDirty() // Re-render with full fidelity
+      this.markDirty() // Re-render with full fidelity (CSS transform reset happens in render())
     }, 150)
-    this.markDirty()
+
+    // CSS-transform gesture mode: for large documents (bitmapEnabled), apply a CSS transform
+    // to the canvas element instead of re-rendering with CanvasKit. The browser compositor
+    // handles the transform efficiently without blocking the main thread.
+    if (this.bitmapEnabled && this.lastRenderedViewport && this.canvasEl) {
+      const lv = this.lastRenderedViewport
+      const scale = this.zoom / lv.zoom
+      const dx = this.panX - lv.panX * scale
+      const dy = this.panY - lv.panY * scale
+      this.canvasEl.style.transformOrigin = '0 0'
+      this.canvasEl.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`
+      this.cssTransformActive = true
+      // Don't markDirty — skip CanvasKit re-render during gesture
+    } else {
+      this.markDirty()
+    }
   }
 
   zoomToPoint(screenX: number, screenY: number, newZoom: number) {
