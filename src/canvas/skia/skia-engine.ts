@@ -1,4 +1,4 @@
-import type { CanvasKit, Surface } from 'canvaskit-wasm'
+import type { CanvasKit, Surface, Image as SkImage } from 'canvaskit-wasm'
 import type { PenNode, ContainerProps, FrameNode as FrameNodeType, RefNode as RefNodeType } from '@/types/pen'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren, getAllChildren } from '@/stores/document-store'
@@ -435,6 +435,15 @@ export class SkiaEngine {
   private lastRenderedViewport: { zoom: number; panX: number; panY: number } | null = null
   private cssTransformActive = false // True while CSS transform is applied to canvas element
 
+  // Frame bitmap snapshot cache (zoom <10%): pre-render each root frame to SkImage
+  private frameSnapshotCache = new Map<string, { image: SkImage; renderedZoom: number }>()
+  private frameSnapshotOrder: string[] = [] // LRU order
+  private static SNAPSHOT_CACHE_MAX = 300
+  private snapshotSurface: Surface | null = null
+  private snapshotSurfaceSize = 0
+  // Map: rootFrameId → child renderNodes (built in syncFromDocument)
+  private frameChildMap = new Map<string, import('./skia-renderer').RenderNode[]>()
+
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
   dragSyncSuppressed = false
@@ -503,9 +512,107 @@ export class SkiaEngine {
   dispose() {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId)
     this.renderer.dispose()
+    this.invalidateAllSnapshots()
     if (this.canvasEl) this.canvasEl.style.transform = ''
     this.surface?.delete()
     this.surface = null
+  }
+
+  // ---------------------------------------------------------------------------
+  // Frame bitmap snapshot (zoom <10%): Google Maps-style pre-rendered images
+  // ---------------------------------------------------------------------------
+
+  /** Render a single root frame + its children into an offscreen SkImage and cache it */
+  private renderFrameSnapshot(
+    ck: CanvasKit,
+    frameRN: RenderNode,
+    selectedIds: Set<string>,
+    targetSize: number,
+  ) {
+    const children = this.frameChildMap.get(frameRN.node.id) ?? [frameRN]
+    const fw = frameRN.absW
+    const fh = frameRN.absH
+    if (fw <= 0 || fh <= 0) return
+
+    // Compute pixel size (fit within targetSize, maintain aspect ratio)
+    const aspect = fw / fh
+    let pixW: number, pixH: number
+    if (aspect >= 1) {
+      pixW = targetSize
+      pixH = Math.max(1, Math.round(targetSize / aspect))
+    } else {
+      pixH = targetSize
+      pixW = Math.max(1, Math.round(targetSize * aspect))
+    }
+
+    // Ensure offscreen surface is big enough
+    if (!this.snapshotSurface || this.snapshotSurfaceSize < Math.max(pixW, pixH)) {
+      this.snapshotSurface?.delete()
+      const size = Math.max(pixW, pixH, 256)
+      this.snapshotSurface = ck.MakeSurface(size, size)
+      this.snapshotSurfaceSize = size
+    }
+
+    if (!this.snapshotSurface) return
+
+    const offCanvas = this.snapshotSurface.getCanvas()
+    offCanvas.clear(ck.Color(0, 0, 0, 0))
+    offCanvas.save()
+
+    // Scale scene coords to pixel coords
+    const scaleX = pixW / fw
+    const scaleY = pixH / fh
+    offCanvas.scale(scaleX, scaleY)
+    offCanvas.translate(-frameRN.absX, -frameRN.absY)
+
+    // Render frame + children
+    for (const rn of children) {
+      const pw = rn.absW * scaleX
+      const ph = rn.absH * scaleY
+      if (pw < 0.5 && ph < 0.5) continue
+      try {
+        this.renderer.drawNode(offCanvas, rn, selectedIds, pw, ph)
+      } catch {
+        // Skip WASM errors
+      }
+    }
+
+    offCanvas.restore()
+
+    // Snapshot to SkImage
+    const img = this.snapshotSurface.makeImageSnapshot(
+      Int32Array.from([0, 0, pixW, pixH]),
+    )
+    if (!img) return
+
+    // Evict LRU if over limit
+    const frameId = frameRN.node.id
+    while (this.frameSnapshotOrder.length >= SkiaEngine.SNAPSHOT_CACHE_MAX) {
+      const evictId = this.frameSnapshotOrder.shift()!
+      const evicted = this.frameSnapshotCache.get(evictId)
+      evicted?.image.delete()
+      this.frameSnapshotCache.delete(evictId)
+    }
+
+    // Cache
+    const old = this.frameSnapshotCache.get(frameId)
+    old?.image.delete()
+    this.frameSnapshotCache.set(frameId, { image: img, renderedZoom: this.zoom })
+    const idx = this.frameSnapshotOrder.indexOf(frameId)
+    if (idx >= 0) this.frameSnapshotOrder.splice(idx, 1)
+    this.frameSnapshotOrder.push(frameId)
+  }
+
+  /** Invalidate all cached frame snapshots */
+  private invalidateAllSnapshots() {
+    for (const [, snap] of this.frameSnapshotCache) {
+      snap.image.delete()
+    }
+    this.frameSnapshotCache.clear()
+    this.frameSnapshotOrder = []
+    this.snapshotSurface?.delete()
+    this.snapshotSurface = null
+    this.snapshotSurfaceSize = 0
   }
 
   resize(width: number, height: number) {
@@ -590,7 +697,7 @@ export class SkiaEngine {
       }
 
       this.lastSyncChildrenRef = pageChildren
-
+      this.invalidateAllSnapshots()
       this.markDirty()
       return
     }
@@ -667,6 +774,28 @@ export class SkiaEngine {
 
     this.spatialIndex.rebuild(this.renderNodes)
 
+    // Build frameChildMap: group child renderNodes by parent root frame
+    this.frameChildMap.clear()
+    let currentFrameId: string | null = null
+    let currentFrameChildren: RenderNode[] = []
+    for (const rn of this.renderNodes) {
+      if (rn.node.type === 'frame' && !rn.clipRect) {
+        // New root frame boundary
+        if (currentFrameId) {
+          this.frameChildMap.set(currentFrameId, currentFrameChildren)
+        }
+        currentFrameId = rn.node.id
+        currentFrameChildren = [rn] // include the frame itself
+      } else if (currentFrameId) {
+        currentFrameChildren.push(rn)
+      }
+    }
+    if (currentFrameId) {
+      this.frameChildMap.set(currentFrameId, currentFrameChildren)
+    }
+
+    // Invalidate snapshot cache (content changed)
+    this.invalidateAllSnapshots()
 
 
     // Invalidate BFS cache khi document thay đổi
@@ -876,51 +1005,73 @@ export class SkiaEngine {
     // Add margin to avoid popping at edges (accounts for strokes, shadows, labels)
     const vpMargin = 100 / this.zoom
 
-    // ── Direct render pipeline (R-tree culling + frame LOD) ──
+    // ── Render pipeline: bitmap snapshot (<10%) vs direct (≥10%) ──
+    const useBitmapSnapshot = this.zoom < 0.1
 
-    // Frame-level LOD: at low zoom (<30%), skip children inside frames.
-    // Only root frames (no clipRect) are drawn — reduces 70K draw calls to ~500.
-    const frameLODActive = this.zoom < 0.3
-
-    if (frameLODActive) {
-      // At very low zoom: iterate ONLY root frames (~500 items, pre-built list)
-      // Draw as simple filled rects — bypass renderer entirely for max performance
+    if (useBitmapSnapshot) {
+      // Bitmap snapshot mode: blit cached SkImages per root frame
       this.visibleRenderNodes = []
-      const fillPaint = new ck.Paint()
-      fillPaint.setStyle(ck.PaintStyle.Fill)
-      const strokePaint = new ck.Paint()
-      strokePaint.setStyle(ck.PaintStyle.Stroke)
-      strokePaint.setStrokeWidth(1 / this.zoom)
-      strokePaint.setColor(ck.Color(200, 200, 200, 255))
+      const targetRenderSize = 256 // Max pixel dimension for snapshot render
+      let freshRenderBudget = 3   // Max frames to render fresh per frame
 
       for (const rn of this.rootFrameNodes) {
+        // Viewport cull
         if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
             rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) continue
         this.visibleRenderNodes.push(rn)
 
-        const fills = 'fill' in rn.node ? (rn.node as any).fill : undefined
-        if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
-          fillPaint.setColor(parseColor(ck, fills[0].color ?? '#ffffff'))
-        } else {
-          fillPaint.setColor(ck.Color(255, 255, 255, 255))
-        }
-        const rect = ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH)
-        canvas.drawRect(rect, fillPaint)
-        canvas.drawRect(rect, strokePaint)
-      }
+        const frameId = rn.node.id
+        const cached = this.frameSnapshotCache.get(frameId)
 
-      fillPaint.delete()
-      strokePaint.delete()
+        if (cached) {
+          // Blit cached image (may be scaled = blurry, but instant)
+          canvas.drawImageRectOptions(
+            cached.image,
+            ck.XYWHRect(0, 0, cached.image.width(), cached.image.height()),
+            ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH),
+            ck.FilterMode.Linear, ck.MipmapMode.None, null,
+          )
+          // Touch LRU
+          const idx = this.frameSnapshotOrder.indexOf(frameId)
+          if (idx >= 0) this.frameSnapshotOrder.splice(idx, 1)
+          this.frameSnapshotOrder.push(frameId)
+        } else if (freshRenderBudget > 0) {
+          // Render frame to offscreen surface and cache
+          freshRenderBudget--
+          this.renderFrameSnapshot(ck, rn, selectedIds, targetRenderSize)
+          // Blit just-created snapshot
+          const snap = this.frameSnapshotCache.get(frameId)
+          if (snap) {
+            canvas.drawImageRectOptions(
+              snap.image,
+              ck.XYWHRect(0, 0, snap.image.width(), snap.image.height()),
+              ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH),
+              ck.FilterMode.Linear, ck.MipmapMode.None, null,
+            )
+          }
+        } else {
+          // Over budget: draw simple filled rect as placeholder
+          const fills = 'fill' in rn.node ? (rn.node as any).fill : undefined
+          const paint = new ck.Paint()
+          if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
+            paint.setColor(parseColor(ck, fills[0].color ?? '#ffffff'))
+          } else {
+            paint.setColor(ck.Color(255, 255, 255, 255))
+          }
+          canvas.drawRect(ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH), paint)
+          paint.delete()
+          // Schedule next frame to render remaining
+          this.markDirty()
+        }
+      }
     } else {
-      // Normal zoom: use spatial index for efficient viewport query
+      // Direct render: use spatial index for efficient viewport query
       this.visibleRenderNodes = this.spatialIndex.queryViewport(
         vpLeft - vpMargin, vpTop - vpMargin,
         vpRight + vpMargin, vpBottom + vpMargin,
       )
-    }
 
-    // Draw visible render nodes with LOD (only at normal zoom)
-    if (!frameLODActive) {
+      // Draw visible render nodes with LOD
       for (const rn of this.visibleRenderNodes) {
         const pixelW = rn.absW * this.zoom
         const pixelH = rn.absH * this.zoom
