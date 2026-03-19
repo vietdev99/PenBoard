@@ -29,11 +29,13 @@ function defaultStops(): GradientStop[] {
 /** Build a CSS gradient preview string for a gradient fill. */
 function gradientPreviewCss(fill: PenFill): string | undefined {
   if (fill.type === 'linear_gradient') {
+    if (!fill.stops?.length) return undefined
     const angle = fill.angle ?? 0
     const stops = fill.stops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')
     return `linear-gradient(${angle}deg, ${stops})`
   }
   if (fill.type === 'radial_gradient') {
+    if (!fill.stops?.length) return undefined
     const stops = fill.stops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')
     return `radial-gradient(circle, ${stops})`
   }
