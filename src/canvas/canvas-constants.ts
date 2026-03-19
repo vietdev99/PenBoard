@@ -8,11 +8,18 @@ export const DEFAULT_STROKE_WIDTH = 1
 export const CANVAS_BACKGROUND_LIGHT = '#e5e5e5'
 export const CANVAS_BACKGROUND_DARK = '#1a1a1a'
 
+let _bgCache: string | null = null
+let _bgCacheTick = 0
+
 export function getCanvasBackground(): string {
-  if (typeof document === 'undefined') return CANVAS_BACKGROUND_DARK
-  return document.documentElement.classList.contains('light')
+  const tick = performance.now()
+  if (_bgCache && tick - _bgCacheTick < 1000) return _bgCache
+  _bgCacheTick = tick
+  if (typeof document === 'undefined') return (_bgCache = CANVAS_BACKGROUND_DARK)
+  _bgCache = document.documentElement.classList.contains('light')
     ? CANVAS_BACKGROUND_LIGHT
     : CANVAS_BACKGROUND_DARK
+  return _bgCache
 }
 export const SELECTION_BLUE = '#0d99ff'
 export const COMPONENT_COLOR = '#a855f7'

@@ -413,7 +413,10 @@ export function drawFrameLabelColored(
   // Guard: skip if coordinates are invalid or name too long (prevents WASM OOM)
   if (!Number.isFinite(x) || !Number.isFinite(y) || !name || name.length > 200) return
   const color = isReusable ? COMPONENT_COLOR : isInstance ? INSTANCE_COLOR : FRAME_LABEL_COLOR
-  const fontSize = Math.max(4, Math.min(120, 12 / zoom))
+  const rawFontSize = Math.max(4, Math.min(120, 12 / zoom))
+  // Quantize to 0.5px steps so the drawText2D cache can actually hit during smooth zoom
+  // (~232 possible sizes across full zoom range instead of infinite continuous values)
+  const fontSize = Math.round(rawFontSize * 2) / 2
   const labelH = (fontSize + 6) // approximate label height
   drawText2D(ck, canvas, name, x, y - labelH, color, fontSize, '500')
 }

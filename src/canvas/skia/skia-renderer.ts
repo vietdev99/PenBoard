@@ -1305,6 +1305,22 @@ export class SkiaRenderer {
     opacity: number,
     effects?: PenEffect[],
   ) {
+    const ck = this.ck
+
+    // LOD: when text node is too small on screen to be readable, draw a colored
+    // rectangle placeholder instead of doing full text measurement + rasterization.
+    const screenH = h * this.zoom
+    if (screenH < 8 && h > 0) {
+      const tNode = node as TextNode
+      const fillColor = resolveFillColor(tNode.fill)
+      const paint = new ck.Paint()
+      paint.setColor(parseColor(ck, fillColor))
+      paint.setAlphaf(opacity * 0.4)
+      canvas.drawRect(ck.LTRBRect(x, y, x + (w > 0 ? w : 30), y + Math.min(h, 6)), paint)
+      paint.delete()
+      return
+    }
+
     const tNode = node as TextNode
 
     // Detect text nodes that use icon font families (Material Symbols, Phosphor, etc.)

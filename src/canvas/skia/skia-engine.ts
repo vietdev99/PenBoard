@@ -407,6 +407,12 @@ export class SkiaEngine {
   private reusableIds = new Set<string>()
   private instanceIds = new Set<string>()
 
+  // Pre-built auxiliary lists (populated in syncFromDocument, used in render)
+  private labelNodes: RenderNode[] = []       // Root frames + reusable nodes with names
+  private reusableRenderNodes: RenderNode[] = [] // Render nodes for reusable component badges
+  private rootFrameNodes: RenderNode[] = []   // Root frames (no clipRect) for dim overlays
+  private rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
+
   // Agent animation: track start time so glow only pulses ~2 times
   private agentAnimStart = 0
 
@@ -418,6 +424,9 @@ export class SkiaEngine {
   zoom = 1
   panX = 0
   panY = 0
+  /** True while user is actively panning/zooming — defers expensive overlays (connections, BFS highlight). */
+  isPanning = false
+  private panIdleTimer: ReturnType<typeof setTimeout> | null = null
 
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
@@ -583,6 +592,21 @@ export class SkiaEngine {
 
     this.renderNodes = flattenToRenderNodes(measured)
 
+    // Pre-build auxiliary lists so render() doesn't need to iterate all nodes multiple times
+    this.labelNodes = []
+    this.reusableRenderNodes = []
+    this.rootFrameNodes = []
+    this.rnMap.clear()
+    for (const rn of this.renderNodes) {
+      const isRoot = rn.node.type === 'frame' && !rn.clipRect
+      if (isRoot) this.rootFrameNodes.push(rn)
+      if (this.reusableIds.has(rn.node.id)) this.reusableRenderNodes.push(rn)
+      if (rn.node.name && (isRoot || this.reusableIds.has(rn.node.id))) {
+        this.labelNodes.push(rn)
+      }
+      this.rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
+    }
+
     this.spatialIndex.rebuild(this.renderNodes)
     this.markDirty()
   }
@@ -663,18 +687,15 @@ export class SkiaEngine {
       }
     }
 
-    // Draw frame labels (root frames + reusable components only — skip nested instances)
-    for (const rn of this.renderNodes) {
-      if (!rn.node.name) continue
+    // Draw frame labels (pre-built list: root frames + reusable components only)
+    for (const rn of this.labelNodes) {
       // Viewport cull labels too
       if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
           rn.absY < vpTop - vpMargin - 30 || rn.absY > vpBottom + vpMargin) continue
-      const isRootFrame = rn.node.type === 'frame' && !rn.clipRect
       const isReusable = this.reusableIds.has(rn.node.id)
-      if (!isRootFrame && !isReusable) continue
       try {
         this.renderer.drawFrameLabelColored(
-          canvas, rn.node.name, rn.absX, rn.absY,
+          canvas, rn.node.name!, rn.absX, rn.absY,
           isReusable, false, this.zoom,
         )
       } catch {
@@ -747,7 +768,8 @@ export class SkiaEngine {
     }
 
     // Storyboard-style connection arrows between elements
-    const connections = useDocumentStore.getState().document.connections ?? []
+    // Skip during active pan/zoom for performance — arrows re-appear once pan settles
+    const connections = this.isPanning ? [] : (useDocumentStore.getState().document.connections ?? [])
     const { showConnections } = useCanvasStore.getState()
     if (connections.length > 0 && showConnections) {
       const activePageId = useCanvasStore.getState().activePageId
@@ -757,22 +779,17 @@ export class SkiaEngine {
       // Skip on ERD pages
       if (activePage?.type !== 'erd') {
         const pages = useDocumentStore.getState().document.pages ?? []
-        // Build render node lookup for fast access
-        const rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
-        for (const rn of this.renderNodes) {
-          rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
-        }
 
         for (const c of connections) {
           if (c.sourcePageId !== activePageId) continue
-          const src = rnMap.get(c.sourceElementId)
+          const src = this.rnMap.get(c.sourceElementId)
           if (!src) continue
 
           const samePage = c.targetPageId === activePageId
           if (samePage) {
             // Same-page: draw arrow to target frame/element
             const targetId = c.targetFrameId || c.targetPageId
-            const tgt = rnMap.get(targetId)
+            const tgt = this.rnMap.get(targetId)
             if (tgt) {
               this.renderer.drawStoryboardArrow(
                 canvas,
@@ -799,9 +816,8 @@ export class SkiaEngine {
       }
     }
 
-    // Draw component badges for reusable frames (with viewport culling)
-    for (const rn of this.renderNodes) {
-      if (!this.reusableIds.has(rn.node.id)) continue
+    // Draw component badges for reusable frames (pre-built list, with viewport culling)
+    for (const rn of this.reusableRenderNodes) {
       if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
           rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) continue
       this.renderer.drawComponentBadge(
@@ -812,7 +828,8 @@ export class SkiaEngine {
 
     // Highlight mode: trace full connection chain from selected element,
     // show bright arrows for connected flow, dim everything else
-    if (showConnections && selectedIds.size > 0) {
+    // Skip during active pan/zoom — BFS + map building is expensive per frame
+    if (showConnections && selectedIds.size > 0 && !this.isPanning) {
       const docState = useDocumentStore.getState()
       const allConnections = docState.document.connections ?? []
       const activePageId = useCanvasStore.getState().activePageId
@@ -863,28 +880,22 @@ export class SkiaEngine {
         if (parent) connectedIds.add(parent.id)
       }
 
-      // Dim unrelated root-level render nodes (only top-level frames, not children)
-      for (const rn of this.renderNodes) {
-        if (!rn.clipRect && !connectedIds.has(rn.node.id)) {
+      // Dim unrelated root-level render nodes (pre-built list: only root frames)
+      for (const rn of this.rootFrameNodes) {
+        if (!connectedIds.has(rn.node.id)) {
           this.renderer.drawDimOverlay(canvas, rn.absX, rn.absY, rn.absW, rn.absH, 0.5)
         }
       }
 
-      // Build render node lookup
-      const rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
-      for (const rn of this.renderNodes) {
-        rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
-      }
-
-      // Draw arrows for all connections in the chain
+      // Draw arrows for all connections in the chain (using pre-built rnMap)
       for (const c of chainConns) {
-        const src = rnMap.get(c.sourceElementId)
+        const src = this.rnMap.get(c.sourceElementId)
         if (!src) continue
 
         const samePage = c.sourcePageId === activePageId && (c.targetPageId === activePageId || c.sourcePageId === c.targetPageId)
         if (samePage) {
           const targetId = c.targetFrameId || c.targetPageId
-          const tgt = rnMap.get(targetId)
+          const tgt = this.rnMap.get(targetId)
           if (tgt) {
             this.renderer.drawStoryboardArrow(
               canvas,
@@ -958,8 +969,16 @@ export class SkiaEngine {
     this.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
     this.panX = panX
     this.panY = panY
-    useCanvasStore.getState().setZoom(this.zoom)
-    useCanvasStore.getState().setPan(this.panX, this.panY)
+    // Single batched Zustand update instead of separate setZoom+setPan
+    // to avoid 2 subscriber notifications per pan/zoom frame
+    useCanvasStore.getState().setViewportBatch(this.zoom, this.panX, this.panY)
+    // Mark as actively panning — defers expensive overlay rendering (connections, BFS highlight)
+    this.isPanning = true
+    if (this.panIdleTimer) clearTimeout(this.panIdleTimer)
+    this.panIdleTimer = setTimeout(() => {
+      this.isPanning = false
+      this.markDirty() // Re-render with full overlays once pan settles
+    }, 150)
     this.markDirty()
   }
 
