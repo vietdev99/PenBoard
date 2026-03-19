@@ -438,7 +438,7 @@ export class SkiaEngine {
   // Frame bitmap snapshot cache (zoom <10%): pre-render each root frame to SkImage
   private frameSnapshotCache = new Map<string, { image: SkImage; renderedZoom: number }>()
   private frameSnapshotOrder: string[] = [] // LRU order
-  private static SNAPSHOT_CACHE_MAX = 300
+  private static SNAPSHOT_CACHE_MAX = 500
   private snapshotSurface: Surface | null = null
   private snapshotSurfaceSize = 0
   // Map: rootFrameId → child renderNodes (built in syncFromDocument)
