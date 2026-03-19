@@ -6,6 +6,7 @@
  */
 
 import type { SkiaEngine } from './skia/skia-engine'
+import { useCanvasStore } from '@/stores/canvas-store'
 
 let _engine: SkiaEngine | null = null
 
@@ -45,6 +46,49 @@ export function getCanvasSize(): { width: number; height: number } {
 export function syncCanvasPositionsToStore() {
   // Skia engine writes positions directly to document-store during interactions.
   // No sync needed before save.
+}
+
+/**
+ * Load a document with progress UI: shows modal status through each phase
+ * (Opening → Processing → Drawing) and waits for the canvas to actually render
+ * before dismissing the modal. Used by file-open, drag-drop, Figma import, etc.
+ */
+export function loadDocumentWithProgress(loadFn: () => void, fileName: string) {
+  const setFileLoading = useCanvasStore.getState().setFileLoading
+  setFileLoading({ open: true, name: fileName, status: 'Opening file...' })
+
+  // Yield to browser paint so the modal renders before heavy sync work
+  setTimeout(() => {
+    try {
+      setFileLoading({ open: true, name: fileName, status: 'Processing document...' })
+      loadFn()
+      setFileLoading({ open: true, name: fileName, status: 'Drawing graphics...' })
+
+      // Wait for syncFromDocument to process (triggered by Zustand subscription)
+      // then wait for the subsequent render to complete before dismissing modal.
+      // Use 2 RAFs: first waits for syncFromDocument, second waits for render.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (_engine) {
+            _engine.onNextRender(() => {
+              zoomToFitContent()
+              requestAnimationFrame(() => useCanvasStore.getState().setFileLoading(null))
+            })
+            // Force a fresh render cycle in case dirty flag was already consumed
+            _engine.markDirty()
+          } else {
+            requestAnimationFrame(() => {
+              zoomToFitContent()
+              useCanvasStore.getState().setFileLoading(null)
+            })
+          }
+        })
+      })
+    } catch (err) {
+      console.error('[loadDocumentWithProgress] Error:', err)
+      useCanvasStore.getState().setFileLoading(null)
+    }
+  }, 50)
 }
 
 /**

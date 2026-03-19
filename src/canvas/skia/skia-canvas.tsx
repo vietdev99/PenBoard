@@ -381,12 +381,14 @@ export default function SkiaCanvas() {
       if (!engine) return
 
       if (e.ctrlKey || e.metaKey) {
+        // Pinch-to-zoom or Ctrl+scroll
         let delta = -e.deltaY
         if (e.deltaMode === 1) delta *= 40
         const factor = Math.pow(1.005, delta)
         const newZoom = engine.zoom * factor
         engine.zoomToPoint(e.clientX, e.clientY, newZoom)
       } else {
+        // Two-finger pan or regular scroll
         let dx = -e.deltaX
         let dy = -e.deltaY
         if (e.deltaMode === 1) { dx *= 40; dy *= 40 }
@@ -395,7 +397,9 @@ export default function SkiaCanvas() {
     }
 
     canvasEl.addEventListener('wheel', handleWheel, { passive: false })
-    return () => canvasEl.removeEventListener('wheel', handleWheel)
+    return () => {
+      canvasEl.removeEventListener('wheel', handleWheel)
+    }
   }, [])
 
   // Mouse interactions: select, move, resize, draw, hover
