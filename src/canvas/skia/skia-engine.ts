@@ -697,7 +697,6 @@ export class SkiaEngine {
       }
 
       this.lastSyncChildrenRef = pageChildren
-      this.invalidateAllSnapshots()
       this.markDirty()
       return
     }
