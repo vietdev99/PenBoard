@@ -21,15 +21,14 @@ Requirements: WF-01, WF-02, WF-03
   2. **Data binding edges** — dashed lines from DataEntity nodes to pages containing bound components
   3. **Entity relation edges** — lines between DataEntity nodes showing relation fields
 - **Node types**:
-  - Screen pages = nodes with page name + thumbnail screenshot
+  - Screen pages = nodes with page name label (text-only for v1.1 — `design-screenshot.ts` returns null pending CanvasKit offscreen rendering; thumbnails deferred to future milestone)
   - Data entities = separate entity nodes (different style/color from screen nodes)
 - **Edge labels**: Show `trigger -> transition` for screen connections (e.g. "click -> push", "hover -> modal")
 - **No edge labels** for data binding and entity relation edges (style/color differentiates)
 
 ### Rendering Technology
 - **Mermaid.js** for diagram generation — renders flowchart/graph syntax to SVG
-- **Thumbnails**: Canvas screenshots from SkiaEngine for each page, embedded in diagram nodes
-- Note: Mermaid.js has limited support for images in nodes — researcher should investigate hybrid approach (mermaid for layout + custom SVG overlay for thumbnails, or alternative like mermaid with HTML nodes)
+- **Node labels**: Text-only page name labels for v1.1 (thumbnail screenshots deferred — CanvasKit offscreen rendering not yet available)
 
 ### Panel Placement
 - **Dedicated bottom panel** below the canvas area
@@ -71,7 +70,7 @@ Requirements: WF-01, WF-02, WF-03
 - Mermaid graph direction (TB/LR) — pick based on typical storyboard layouts
 - Color scheme for different node/edge types — use existing design tokens
 - Entity node shape/style differentiation from screen nodes
-- Thumbnail size and quality settings
+- Node label format and styling (text-only for v1.1)
 
 </decisions>
 
@@ -140,7 +139,7 @@ Requirements: WF-01, WF-02, WF-03
 <deferred>
 ## Deferred Ideas
 
-None — discussion stayed within phase scope
+- **Page thumbnail screenshots in diagram nodes** — requires CanvasKit offscreen rendering (`design-screenshot.ts` returns null currently). Deferred to future milestone when offscreen capture is available. Text-only labels used for v1.1.
 
 </deferred>
 
