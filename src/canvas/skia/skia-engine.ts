@@ -900,7 +900,10 @@ export class SkiaEngine {
 
 
     // ── Tile-based render pipeline (Phase 07.3) ──
-    const tier = this.fpsMonitor.tier
+    // Zoom-based tier cap: never degrade quality at readable zoom
+    let tier = this.fpsMonitor.tier
+    if (this.zoom >= 0.5) tier = 'full'       // ≥50%: always full quality (text readable)
+    else if (this.zoom >= 0.05 && tier === 'tile') tier = 'quick' // 5-50%: cap at quick
 
     if (tier === 'tile') {
       // T2 — Extreme LOD: simple filled rects per root frame
@@ -1039,6 +1042,9 @@ export class SkiaEngine {
       // Schedule next frame if dirty tiles remain
       if (dirtyKeys.length > budget) {
         this.markDirty()
+      } else {
+        // All dirty tiles rendered — reset FPS monitor so next frames use full quality
+        this.fpsMonitor.reset()
       }
 
       // Build visibleRenderNodes for overlays (from all visible tile nodes)
