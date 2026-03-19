@@ -78,11 +78,20 @@ export function useFileDrop() {
     const result = await parseDroppedFile(file)
     if (!result) return
 
-    useDocumentStore.getState().loadDocument(result.doc, result.fileName)
-
-    // Let the canvas sync, then zoom to fit
-    const { zoomToFitContent } = await import('@/canvas/skia-engine-ref')
-    requestAnimationFrame(() => zoomToFitContent())
+    useCanvasStore.getState().setFileLoading({ open: true, name: result.fileName })
+    // Yield to browser paint so the modal renders before heavy sync
+    setTimeout(async () => {
+      try {
+        useDocumentStore.getState().loadDocument(result.doc, result.fileName)
+        const { zoomToFitContent } = await import('@/canvas/skia-engine-ref')
+        requestAnimationFrame(() => {
+          zoomToFitContent()
+          useCanvasStore.getState().setFileLoading(null)
+        })
+      } catch {
+        useCanvasStore.getState().setFileLoading(null)
+      }
+    }, 50)
   }, [])
 
   useEffect(() => {

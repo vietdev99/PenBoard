@@ -20,6 +20,7 @@ import OpenCodeLogo from '@/components/icons/opencode-logo'
 import CopilotLogo from '@/components/icons/copilot-logo'
 import FigmaLogo from '@/components/icons/figma-logo'
 import LanguageSelector from '@/components/shared/language-selector'
+import LoadingModal from '@/components/shared/loading-modal'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -283,6 +284,25 @@ export default function TopBar() {
   }, [])
 
   const handleOpen = useCallback(() => {
+    const showLoading = (name: string) =>
+      useCanvasStore.getState().setFileLoading({ open: true, name })
+    const hideLoading = () =>
+      useCanvasStore.getState().setFileLoading(null)
+    const loadAndFit = (loadFn: () => void) => {
+      // Yield to browser paint so the modal renders before heavy sync work
+      setTimeout(() => {
+        try {
+          loadFn()
+          requestAnimationFrame(() => {
+            zoomToFitContent()
+            hideLoading()
+          })
+        } catch {
+          hideLoading()
+        }
+      }, 50)
+    }
+
     if (isElectron()) {
       window.electronAPI!.openFile().then((result) => {
         if (!result) return
@@ -291,28 +311,26 @@ export default function TopBar() {
           if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
           const doc = normalizePenDocument(raw)
           const name = result.filePath.split(/[/\\]/).pop() || 'untitled.op'
-          useDocumentStore.getState().loadDocument(doc, name, null, result.filePath)
-          requestAnimationFrame(() => zoomToFitContent())
+          showLoading(name)
+          loadAndFit(() => useDocumentStore.getState().loadDocument(doc, name, null, result.filePath))
         } catch { /* invalid file */ }
       })
     } else if (supportsFileSystemAccess()) {
       openDocumentFS().then((result) => {
-        if (result) {
-          useDocumentStore
-            .getState()
-            .loadDocument(result.doc, result.fileName, result.handle)
-          requestAnimationFrame(() => zoomToFitContent())
-        }
+        if (!result) return
+        showLoading(result.fileName)
+        loadAndFit(() => useDocumentStore.getState().loadDocument(result.doc, result.fileName, result.handle))
       })
     } else {
       openDocument().then((result) => {
-        if (result) {
-          useDocumentStore.getState().loadDocument(result.doc, result.fileName)
-          requestAnimationFrame(() => zoomToFitContent())
-        }
+        if (!result) return
+        showLoading(result.fileName)
+        loadAndFit(() => useDocumentStore.getState().loadDocument(result.doc, result.fileName))
       })
     }
   }, [])
+
+  const fileLoading = useCanvasStore((s) => s.fileLoading)
 
   const { openPreview } = usePreview()
 
@@ -442,6 +460,11 @@ export default function TopBar() {
           </TooltipContent>
         </Tooltip>
       </div>
+
+      <LoadingModal
+        open={fileLoading?.open ?? false}
+        fileName={fileLoading?.name}
+      />
     </div>
   )
 }

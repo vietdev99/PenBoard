@@ -21,6 +21,24 @@ export function useElectronMenu() {
     const api = window.electronAPI
     if (!api?.onMenuAction) return
 
+    const showLoading = (name: string) =>
+      useCanvasStore.getState().setFileLoading({ open: true, name })
+    const hideLoading = () =>
+      useCanvasStore.getState().setFileLoading(null)
+    const loadAndFit = (loadFn: () => void) => {
+      setTimeout(() => {
+        try {
+          loadFn()
+          requestAnimationFrame(() => {
+            zoomToFitContent()
+            hideLoading()
+          })
+        } catch {
+          hideLoading()
+        }
+      }, 50)
+    }
+
     const loadFileFromPath = (filePath: string) => {
       api.readFile?.(filePath).then((result) => {
         if (!result) return
@@ -29,8 +47,8 @@ export function useElectronMenu() {
           if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
           const doc = normalizePenDocument(raw)
           const name = filePath.split(/[/\\]/).pop() || 'untitled.pb'
-          useDocumentStore.getState().loadDocument(doc, name, null, filePath)
-          requestAnimationFrame(() => zoomToFitContent())
+          showLoading(name)
+          loadAndFit(() => useDocumentStore.getState().loadDocument(doc, name, null, filePath))
         } catch {
           // Invalid file — ignore
         }
@@ -61,31 +79,35 @@ export function useElectronMenu() {
                 if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
                 const doc = normalizePenDocument(raw)
                 const name = result.filePath.split(/[/\\]/).pop() || 'untitled.pb'
-                useDocumentStore
-                  .getState()
-                  .loadDocument(doc, name, null, result.filePath)
-                requestAnimationFrame(() => zoomToFitContent())
+                showLoading(name)
+                loadAndFit(() =>
+                  useDocumentStore
+                    .getState()
+                    .loadDocument(doc, name, null, result.filePath),
+                )
               } catch {
                 // Invalid file
               }
             })
           } else if (supportsFileSystemAccess()) {
             openDocumentFS().then((result) => {
-              if (result) {
+              if (!result) return
+              showLoading(result.fileName)
+              loadAndFit(() =>
                 useDocumentStore
                   .getState()
-                  .loadDocument(result.doc, result.fileName, result.handle)
-                requestAnimationFrame(() => zoomToFitContent())
-              }
+                  .loadDocument(result.doc, result.fileName, result.handle),
+              )
             })
           } else {
             openDocument().then((result) => {
-              if (result) {
+              if (!result) return
+              showLoading(result.fileName)
+              loadAndFit(() =>
                 useDocumentStore
                   .getState()
-                  .loadDocument(result.doc, result.fileName)
-                requestAnimationFrame(() => zoomToFitContent())
-              }
+                  .loadDocument(result.doc, result.fileName),
+              )
             })
           }
           break

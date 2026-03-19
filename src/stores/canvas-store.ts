@@ -47,11 +47,13 @@ interface CanvasStoreState {
   showConnections: boolean
   dragConnectState: DragConnectState | null
   pendingBindNodeId: string | null
+  fileLoading: { open: boolean; name: string } | null
 
   toggleShowConnections: () => void
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
+  setViewportBatch: (zoom: number, panX: number, panY: number) => void
   setSelection: (ids: string[], activeId: string | null) => void
   clearSelection: () => void
   setHoveredId: (id: string | null) => void
@@ -73,6 +75,7 @@ interface CanvasStoreState {
   setActivePageId: (pageId: string | null) => void
   setDragConnectState: (state: DragConnectState | null) => void
   setPendingBindNodeId: (id: string | null) => void
+  setFileLoading: (val: { open: boolean; name: string } | null) => void
   hydrate: () => void
 }
 
@@ -105,6 +108,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   dataFocusEntityId: null,
   dragConnectState: null,
   pendingBindNodeId: null,
+  fileLoading: null,
 
   toggleShowConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -114,6 +118,10 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   setPan: (panX, panY) =>
     set((s) => ({ viewport: { ...s.viewport, panX, panY } })),
+
+  /** Batch zoom+pan into a single state update (avoids 2 subscriber notifications per frame). */
+  setViewportBatch: (zoom, panX, panY) =>
+    set({ viewport: { zoom, panX, panY } }),
 
   setSelection: (selectedIds, activeId) =>
     set((s) => ({ selection: { ...s.selection, selectedIds, activeId } })),
@@ -213,6 +221,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   setActivePageId: (activePageId) => set({ activePageId }),
   setDragConnectState: (dragConnectState) => set({ dragConnectState }),
   setPendingBindNodeId: (pendingBindNodeId) => set({ pendingBindNodeId }),
+  setFileLoading: (fileLoading) => set({ fileLoading }),
 
   hydrate: () => {
     try {
