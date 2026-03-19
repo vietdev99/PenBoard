@@ -109,6 +109,11 @@ export class SkiaRenderer {
   private measureCanvas: HTMLCanvasElement | null = null
   private measureCtx: CanvasRenderingContext2D | null = null
 
+  // Shared rasterization canvas — reused for text bitmap rendering to avoid
+  // document.createElement('canvas') per text node (major GC pressure source).
+  private rasterCanvas: HTMLCanvasElement | null = null
+  private rasterCtx: CanvasRenderingContext2D | null = null
+
   // Paragraph cache for vector text (keyed by content+style, caches Paragraph objects)
   private paraCache = new Map<string, Paragraph | null>()
   private paraCacheOrder: string[] = []
@@ -142,6 +147,20 @@ export class SkiaRenderer {
     return this.measureCtx
   }
 
+  /** Get or create the shared rasterization canvas (avoids createElement per text node). */
+  private getRasterCtx(w: number, h: number): CanvasRenderingContext2D {
+    if (!this.rasterCtx) {
+      this.rasterCanvas = document.createElement('canvas')
+      this.rasterCtx = this.rasterCanvas.getContext('2d')!
+    }
+    // Resize only when needed (avoids unnecessary canvas reset)
+    if (this.rasterCanvas!.width < w || this.rasterCanvas!.height < h) {
+      this.rasterCanvas!.width = Math.max(this.rasterCanvas!.width, w)
+      this.rasterCanvas!.height = Math.max(this.rasterCanvas!.height, h)
+    }
+    return this.rasterCtx
+  }
+
   /** Set callback to trigger re-render when async images finish loading. */
   setRedrawCallback(cb: () => void) {
     this.imageLoader.setOnLoaded(cb)
@@ -158,6 +177,8 @@ export class SkiaRenderer {
     this.imageLoader.dispose()
     this.measureCanvas = null
     this.measureCtx = null
+    this.rasterCanvas = null
+    this.rasterCtx = null
   }
 
   clearTextCache() {
@@ -259,7 +280,7 @@ export class SkiaRenderer {
           colors, positions,
           ck.TileMode.Clamp,
         )
-        if (shader) paint.setShader(shader)
+        if (shader) { paint.setShader(shader); shader.delete() }
       } else {
         const c = parseColor(ck, stops[0]?.color ?? DEFAULT_FILL)
         c[3] *= fillOpacity
@@ -283,7 +304,7 @@ export class SkiaRenderer {
           colors, positions,
           ck.TileMode.Clamp,
         )
-        if (shader) paint.setShader(shader)
+        if (shader) { paint.setShader(shader); shader.delete() }
       } else {
         const c = parseColor(ck, stops[0]?.color ?? DEFAULT_FILL)
         c[3] *= fillOpacity
@@ -360,9 +381,10 @@ export class SkiaRenderer {
       )
       if (shader) {
         paint.setShader(shader)
+        shader.delete()
         if (fillOpacity < 1) paint.setAlphaf(fillOpacity)
         const cf = this.buildImageAdjustmentFilter(fill)
-        if (cf) paint.setColorFilter(cf)
+        if (cf) { paint.setColorFilter(cf); cf.delete() }
       }
       return { needsDrawImageRect: false }
     }
@@ -400,7 +422,7 @@ export class SkiaRenderer {
     if (fillOpacity < 1) paint.setAlphaf(fillOpacity)
 
     const adjFilter = this.buildImageAdjustmentFilter(fill)
-    if (adjFilter) paint.setColorFilter(adjFilter)
+    if (adjFilter) { paint.setColorFilter(adjFilter); adjFilter.delete() }
 
     if (mode === 'fit') {
       // Contain: entire image visible, centered, with letterbox
@@ -531,7 +553,7 @@ export class SkiaRenderer {
 
     if (stroke.dashPattern && stroke.dashPattern.length >= 2) {
       const effect = ck.PathEffect.MakeDash(stroke.dashPattern, 0)
-      if (effect) paint.setPathEffect(effect)
+      if (effect) { paint.setPathEffect(effect); effect.delete() }
     }
 
     return paint
@@ -541,9 +563,71 @@ export class SkiaRenderer {
 
   // applyShadowDirect is used instead of saveLayer approach
 
-  // Draw a single render node
+  drawNode(
+    canvas: Canvas,
+    rn: RenderNode,
+    selectedIds: Set<string>,
+    pixelW = 9999,
+    pixelH = 9999,
+    simplified = false,
+  ) {
+    const node = rn.node
 
-  drawNode(canvas: Canvas, rn: RenderNode, selectedIds: Set<string>) {
+    // LOD Tier 1: node extremely small (<3px) → solid fill rect only
+    if (pixelW < 3 && pixelH < 3) {
+      const fills = 'fill' in node ? (node as any).fill : undefined
+      if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
+        const paint = new this.ck.Paint()
+        const color = parseColor(this.ck, fills[0].color ?? '#cccccc')
+        paint.setColor(color)
+        canvas.drawRect(
+          this.ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH),
+          paint,
+        )
+        paint.delete()
+      }
+      return
+    }
+
+    // LOD Tier 2: node small (<8px) or 'quick' render tier → fill + stroke only
+    if ((pixelW < 8 && pixelH < 8) || simplified) {
+      this.drawSimplifiedNode(canvas, rn)
+      return
+    }
+
+    // LOD Tier 3: full render
+    this.drawFullNode(canvas, rn, selectedIds)
+  }
+
+  private drawSimplifiedNode(canvas: Canvas, rn: RenderNode) {
+    const node = rn.node
+    const ck = this.ck
+    const paint = new ck.Paint()
+
+    // Fill
+    const fills = 'fill' in node ? (node as any).fill : undefined
+    if (fills && Array.isArray(fills) && fills.length > 0) {
+      const fill = fills[0]
+      if (fill.type === 'solid') {
+        paint.setColor(parseColor(ck, fill.color ?? '#cccccc'))
+        paint.setStyle(ck.PaintStyle.Fill)
+        canvas.drawRect(ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH), paint)
+      }
+    }
+
+    // Stroke
+    const stroke = 'stroke' in node ? (node as any).stroke : undefined
+    if (stroke?.color) {
+      paint.setColor(parseColor(ck, stroke.color))
+      paint.setStyle(ck.PaintStyle.Stroke)
+      paint.setStrokeWidth(stroke.width ?? 1)
+      canvas.drawRect(ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH), paint)
+    }
+
+    paint.delete()
+  }
+
+  private drawFullNode(canvas: Canvas, rn: RenderNode, selectedIds: Set<string>) {
     const { node, absX, absY, absW, absH, clipRect } = rn
     const ck = this.ck
     const opacity = typeof node.opacity === 'number' ? node.opacity : 1
@@ -652,6 +736,7 @@ export class SkiaRenderer {
     paint.setColor(c)
     const filter = ck.MaskFilter.MakeBlur(ck.BlurStyle.Normal, shadow.blur / 2, true)
     paint.setMaskFilter(filter)
+    filter.delete()
     canvas.drawRect(
       ck.LTRBRect(
         x + shadow.offsetX - shadow.spread,
@@ -1276,6 +1361,7 @@ export class SkiaRenderer {
       const sigma = shadow.blur / 2
       const filter = ck.ImageFilter.MakeBlur(sigma, sigma, ck.TileMode.Decal, null)
       paint.setImageFilter(filter)
+      filter.delete()
       canvas.saveLayer(paint)
       paint.delete()
 
@@ -1429,10 +1515,12 @@ export class SkiaRenderer {
     const lineHeight = lineHeightMul * fontSize
     const textGrowth = tNode.textGrowth
 
-    // Zoom-aware rasterization scale: quantized to 2/4/8 for cache efficiency.
+    // Fixed rasterization scale: always 2× DPR so cache keys stay stable across
+    // zoom changes. Bitmap text is the fallback path (system fonts not in CanvasKit),
+    // so slight blurriness at very high zoom is acceptable. CanvasKit's drawImageRect
+    // handles zoom scaling via the viewport matrix.
     const dpr = window.devicePixelRatio || 1
-    const rawScale = this.zoom * dpr
-    const scale = rawScale <= 2 ? 2 : rawScale <= 4 ? 4 : 8
+    const scale = 2 * dpr
 
     // --- Fast cache: skip all measurement if we already know the full cache key ---
     // Build a "fast key" from node properties + node dimensions (no measurement needed).
@@ -1530,10 +1618,12 @@ export class SkiaRenderer {
         ch = Math.ceil(textH * effectiveScale)
       }
 
-      const tmp = document.createElement('canvas')
-      tmp.width = cw
-      tmp.height = ch
-      const ctx = tmp.getContext('2d')!
+      // Reuse shared rasterization canvas (avoids document.createElement per text
+      // node which creates massive GC pressure during batch re-rasterization).
+      const ctx = this.getRasterCtx(cw, ch)
+      // clearRect is needed since we reuse the canvas (previous content might remain)
+      ctx.clearRect(0, 0, cw, ch)
+      ctx.save()
       ctx.scale(effectiveScale, effectiveScale)
       ctx.font = `${fontWeight} ${fontSize}px ${cssFontFamily(fontFamily)}`
       ctx.fillStyle = fillColor
@@ -1549,6 +1639,7 @@ export class SkiaRenderer {
         ctx.fillText(line, tx, cy)
         cy += lineHeight
       }
+      ctx.restore()
 
       const imageData = ctx.getImageData(0, 0, cw, ch)
       const premul = new Uint8Array(imageData.data.length)
@@ -1643,7 +1734,7 @@ export class SkiaRenderer {
 
     // Apply image adjustments if any
     const adjFilter = this.buildImageAdjustmentFilter(iNode)
-    if (adjFilter) paint.setColorFilter(adjFilter)
+    if (adjFilter) { paint.setColorFilter(adjFilter); adjFilter.delete() }
 
     const fit = iNode.objectFit ?? 'fill'
 
@@ -1657,6 +1748,7 @@ export class SkiaRenderer {
       )
       if (shader) {
         paint.setShader(shader)
+        shader.delete()
         canvas.drawRect(ck.LTRBRect(x, y, x + w, y + h), paint)
       }
     } else if (fit === 'fit') {

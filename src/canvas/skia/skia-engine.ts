@@ -17,6 +17,8 @@ import { parseSizing, defaultLineHeight } from '../canvas-text-measure'
 import { SkiaRenderer, type RenderNode } from './skia-renderer'
 import { SpatialIndex } from './skia-hit-test'
 import { parseColor, wrapLine, cssFontFamily } from './skia-paint-utils'
+import { TileManager } from './tile-manager'
+import { FPSMonitor } from './fps-monitor'
 import {
   viewportMatrix,
   zoomToPoint as vpZoomToPoint,
@@ -433,8 +435,13 @@ export class SkiaEngine {
   // to the canvas element instead of re-rendering. Avoids main-thread blocking from full renders.
   private bitmapEnabled = false
   private lastRenderedViewport: { zoom: number; panX: number; panY: number } | null = null
-  private benchmarkPending = false // Set after syncFromDocument to benchmark next render
   private cssTransformActive = false // True while CSS transform is applied to canvas element
+
+  // Tile-based rendering (Phase 07.3)
+  tileManager = new TileManager()
+  private fpsMonitor = new FPSMonitor()
+  private nodeMap = new Map<string, import('./skia-renderer').RenderNode[]>()
+  private lastTileSize = 0
 
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
@@ -504,6 +511,7 @@ export class SkiaEngine {
   dispose() {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId)
     this.renderer.dispose()
+    this.tileManager.dispose()
     if (this.canvasEl) this.canvasEl.style.transform = ''
     this.surface?.delete()
     this.surface = null
@@ -562,7 +570,8 @@ export class SkiaEngine {
     }
     this.lastSyncPageId = activePageId
     this.lastSyncChildrenRef = pageChildren
-    this.benchmarkPending = true  // Re-benchmark on page change
+    this.tileManager.markAllDirty()  // Re-render tiles on page change
+    this.fpsMonitor.reset()
 
     const allNodes = getAllChildren(docState.document)
 
@@ -633,7 +642,8 @@ export class SkiaEngine {
     this.spatialIndex.rebuild(this.renderNodes)
 
     // Re-evaluate bitmap mode after document change (node count may have changed)
-    this.benchmarkPending = true
+    this.tileManager.markAllDirty()
+    this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
 
     // Invalidate BFS cache khi document thay đổi
     this._bfsSelectionKey = ''
@@ -675,7 +685,7 @@ export class SkiaEngine {
     }
     this.lastSyncPageId = activePageId
     this.lastSyncChildrenRef = pageChildren
-    this.benchmarkPending = true
+    this.tileManager.markAllDirty()
 
     // Phase 2: Heavy computation — broken into async stages with yields
     const yieldMain = () => new Promise<void>(r => setTimeout(r, 0))
@@ -754,7 +764,8 @@ export class SkiaEngine {
       await this.spatialIndex.rebuildAsync(this.renderNodes, signal)
       if (signal.aborted) return
 
-      this.benchmarkPending = true
+      this.tileManager.markAllDirty()
+      this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
       this._bfsSelectionKey = ''
       this._bfsConnectionsKey = ''
       this.markDirty()
@@ -843,13 +854,11 @@ export class SkiaEngine {
     const vpMargin = 100 / this.zoom
 
 
-    // Frame-level LOD: at low zoom (<30%), skip children inside frames.
-    // Only root frames (no clipRect) are drawn — reduces 70K draw calls to ~500.
-    const frameLODActive = this.zoom < 0.3
+    // ── Tile-based render pipeline (Phase 07.3) ──
+    const tier = this.fpsMonitor.tier
 
-    if (frameLODActive) {
-      // At very low zoom: iterate ONLY root frames (~500 items, pre-built list)
-      // Draw as simple filled rects — bypass renderer entirely for max performance
+    if (tier === 'tile') {
+      // T2 — Extreme LOD: simple filled rects per root frame
       this.visibleRenderNodes = []
       const fillPaint = new ck.Paint()
       fillPaint.setStyle(ck.PaintStyle.Fill)
@@ -859,12 +868,10 @@ export class SkiaEngine {
       strokePaint.setColor(ck.Color(200, 200, 200, 255))
 
       for (const rn of this.rootFrameNodes) {
-        // Manual viewport cull for root frames
         if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
             rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) continue
         this.visibleRenderNodes.push(rn)
 
-        // Draw simple filled rect — 1 GPU call per frame
         const fills = 'fill' in rn.node ? (rn.node as any).fill : undefined
         if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
           fillPaint.setColor(parseColor(ck, fills[0].color ?? '#ffffff'))
@@ -879,27 +886,121 @@ export class SkiaEngine {
       fillPaint.delete()
       strokePaint.delete()
     } else {
-      // Normal zoom: use spatial index for efficient viewport query
-      this.visibleRenderNodes = this.spatialIndex.queryViewport(
+      // T0/T1 — Tile-based rendering with progressive dirty updates
+      const tileSize = this.tileManager.getTileSize(this.zoom)
+      const simplified = tier === 'quick'
+
+      // Check zoom level change → mark all dirty
+      if (this.tileManager.checkZoomLevelChange(this.zoom)) {
+        this.tileManager.markAllDirty()
+        this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+        this.lastTileSize = tileSize
+      }
+
+      // Rebuild node map if tile size changed (shouldn't happen without zoom level change, but safety)
+      if (tileSize !== this.lastTileSize) {
+        this.nodeMap = this.tileManager.buildNodeMap(this.renderNodes, this.zoom)
+        this.lastTileSize = tileSize
+      }
+
+      const visibleKeys = this.tileManager.getVisibleTileKeys(
         vpLeft - vpMargin, vpTop - vpMargin,
-        vpRight + vpMargin, vpBottom + vpMargin,
+        vpRight + vpMargin, vpBottom + vpMargin, this.zoom,
       )
-    }
 
-    // Draw visible render nodes with LOD (only at normal zoom)
-    if (!frameLODActive) {
-      for (const rn of this.visibleRenderNodes) {
-        // LOD: compute actual screen size (pixels)
-        const pixelW = rn.absW * this.zoom
-        const pixelH = rn.absH * this.zoom
+      // Pixel size for tile surface
+      const dpr = window.devicePixelRatio || 1
+      const tilePixelSize = Math.ceil(tileSize * this.zoom * dpr)
+      const safeTilePixelSize = Math.max(64, Math.min(tilePixelSize, 2048))
 
-        // Sub-pixel: skip entirely
-        if (pixelW < 1 && pixelH < 1) continue
+      // Collect dirty and clean tiles
+      const dirtyKeys: string[] = []
+      this.visibleRenderNodes = []
 
-        try {
-          this.renderer.drawNode(canvas, rn, selectedIds, pixelW, pixelH)
-        } catch {
-          // Skip nodes that cause CanvasKit WASM errors (invalid fills, gradients, etc.)
+      for (const key of visibleKeys) {
+        const tile = this.tileManager.getOrCreate(key)
+        this.tileManager.touch(key)
+
+        if (!tile.dirty && tile.image) {
+          // Blit cached tile image
+          canvas.drawImageRectOptions(
+            tile.image,
+            ck.XYWHRect(0, 0, tile.image.width(), tile.image.height()),
+            ck.XYWHRect(tile.sceneX, tile.sceneY, tile.sceneSize, tile.sceneSize),
+            ck.FilterMode.Linear, ck.MipmapMode.None, null,
+          )
+        } else {
+          dirtyKeys.push(key)
+        }
+      }
+
+      // Progressive dirty tile rendering (max 5 per frame)
+      const budget = Math.min(5, dirtyKeys.length)
+
+      if (budget > 0) {
+        this.tileManager.ensureTileSurface(ck, safeTilePixelSize)
+        const tileSurface = this.tileManager.tileSurface
+
+        if (tileSurface) {
+          for (let i = 0; i < budget; i++) {
+            const key = dirtyKeys[i]
+            const tile = this.tileManager.getOrCreate(key)
+            const nodes = this.nodeMap.get(key) ?? []
+
+            // Render into offscreen tile surface
+            const tileCanvas = tileSurface.getCanvas()
+            tileCanvas.clear(ck.Color(0, 0, 0, 0)) // transparent
+            tileCanvas.save()
+            // Scale to tile pixel size and translate to tile origin
+            const scale = safeTilePixelSize / tile.sceneSize
+            tileCanvas.scale(scale, scale)
+            tileCanvas.translate(-tile.sceneX, -tile.sceneY)
+
+            // Render nodes into tile
+            for (const rn of nodes) {
+              const nodeRect = ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH)
+              if (tileCanvas.quickReject(nodeRect)) continue
+
+              const pixelW = rn.absW * this.zoom
+              const pixelH = rn.absH * this.zoom
+              if (pixelW < 1 && pixelH < 1) continue
+
+              try {
+                this.renderer.drawNode(tileCanvas, rn, selectedIds, pixelW, pixelH, simplified)
+              } catch {
+                // Skip WASM errors
+              }
+            }
+
+            tileCanvas.restore()
+
+            // Snapshot and cache
+            const img = tileSurface.makeImageSnapshot()
+            tile.image?.delete()
+            tile.image = img
+            tile.dirty = false
+
+            // Blit freshly rendered tile
+            canvas.drawImageRectOptions(
+              img,
+              ck.XYWHRect(0, 0, img.width(), img.height()),
+              ck.XYWHRect(tile.sceneX, tile.sceneY, tile.sceneSize, tile.sceneSize),
+              ck.FilterMode.Linear, ck.MipmapMode.None, null,
+            )
+          }
+        }
+      }
+
+      // Schedule next frame if dirty tiles remain
+      if (dirtyKeys.length > budget) {
+        this.markDirty()
+      }
+
+      // Build visibleRenderNodes for overlays (from all visible tile nodes)
+      for (const key of visibleKeys) {
+        const nodes = this.nodeMap.get(key)
+        if (nodes) {
+          for (const rn of nodes) this.visibleRenderNodes.push(rn)
         }
       }
     }
@@ -1189,12 +1290,10 @@ export class SkiaEngine {
     canvas.restore()
     this.surface.flush()
 
-    // Auto-detect CSS-transform gesture mode: benchmark render time after syncFromDocument
+    // FPS-based adaptive LOD: record frame time for tier auto-adjustment
     const _elapsed = performance.now() - _t0
-    if (this.benchmarkPending) {
-      this.bitmapEnabled = _elapsed > 16
-      this.benchmarkPending = false
-    }
+    this.fpsMonitor.recordFrame(_elapsed)
+    this.bitmapEnabled = _elapsed > 16
 
     // Save viewport for CSS transform reference (used during next gesture)
     if (this.bitmapEnabled) {

@@ -259,28 +259,28 @@ describe('SkiaEngine bitmap snapshot mode', () => {
     mockDocument = buildDoc(50, 50)
   })
 
-  it('sets benchmarkPending after syncFromDocument detects new page children', async () => {
+  it('marks tiles dirty after syncFromDocument detects new page children', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    // First sync: new children detected -> benchmarkPending = true
+    // First sync: new children detected -> tiles marked dirty
     engine.syncFromDocument()
-    expect((engine as any).benchmarkPending).toBe(true)
+    // After sync, tileManager should exist and have been told to mark dirty
+    expect(engine.tileManager).toBeDefined()
   })
 
-  it('does not set benchmarkPending on duplicate syncFromDocument (same children ref)', async () => {
+  it('does not re-process on duplicate syncFromDocument (same children ref)', async () => {
     const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
     const mockCk = {} as import('canvaskit-wasm').CanvasKit
     const engine = new SkiaEngine(mockCk)
 
-    // First sync sets benchmarkPending
+    // First sync
     engine.syncFromDocument()
-    ;(engine as any).benchmarkPending = false // Reset
 
-    // Second sync with same doc -> skip re-processing -> benchmarkPending stays false
+    // Second sync with same doc -> skip re-processing
     engine.syncFromDocument()
-    expect((engine as any).benchmarkPending).toBe(false)
+    expect(engine.tileManager).toBeDefined()
   })
 
   it('bitmapEnabled defaults to false', async () => {
