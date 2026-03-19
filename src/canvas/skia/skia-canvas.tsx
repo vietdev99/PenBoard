@@ -276,6 +276,7 @@ export default function SkiaCanvas() {
 
         const engine = new SkiaEngine(ck)
         engine.init(canvasEl)
+        canvasEl.focus()
         engineRef.current = engine
         setSkiaEngineRef(engine)
 
@@ -315,14 +316,19 @@ export default function SkiaCanvas() {
     return () => observer.disconnect()
   }, [])
 
-  // Document sync: re-render when document changes (throttled for large files)
+  // Document sync: re-render when document changes (async + throttled)
   useEffect(() => {
+    // Initial sync: synchronous to ensure first render has nodes visible
+    engineRef.current?.syncFromDocument()
+
     let syncTimer: ReturnType<typeof requestAnimationFrame> | null = null
     const unsub = useDocumentStore.subscribe(() => {
       if (syncTimer) return // Already scheduled
+      // Skip during active pan/zoom or node drag — these have their own render paths
+      if (engineRef.current?.isPanning || engineRef.current?.dragSyncSuppressed) return
       syncTimer = requestAnimationFrame(() => {
         syncTimer = null
-        engineRef.current?.syncFromDocument()
+        engineRef.current?.syncFromDocumentAsync()
       })
     })
     return () => {
@@ -1551,7 +1557,8 @@ export default function SkiaCanvas() {
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
+        tabIndex={0}
+        className="absolute inset-0 w-full h-full outline-none"
       />
       <DragConnectOverlay containerRef={containerRef} engineRef={engineRef} />
       {editingText && (

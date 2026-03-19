@@ -51,6 +51,43 @@ export class SpatialIndex {
   }
 
   /**
+   * Async rebuild — yields every 2000 nodes to avoid blocking main thread.
+   */
+  async rebuildAsync(nodes: RenderNode[], signal?: AbortSignal) {
+    this.tree.clear()
+    this.items.clear()
+
+    const items: RTreeItem[] = []
+    const CHUNK = 2000
+    for (let i = 0; i < nodes.length; i++) {
+      if (signal?.aborted) return
+
+      const rn = nodes[i]
+      if (('visible' in rn.node ? rn.node.visible : undefined) === false) continue
+      if (('locked' in rn.node ? rn.node.locked : undefined) === true) continue
+
+      const item: RTreeItem = {
+        minX: rn.absX,
+        minY: rn.absY,
+        maxX: rn.absX + rn.absW,
+        maxY: rn.absY + rn.absH,
+        nodeId: rn.node.id,
+        renderNode: rn,
+        zIndex: i,
+      }
+      items.push(item)
+      this.items.set(rn.node.id, item)
+
+      if (i % CHUNK === CHUNK - 1) {
+        await new Promise(r => setTimeout(r, 0))
+      }
+    }
+
+    if (signal?.aborted) return
+    this.tree.load(items)
+  }
+
+  /**
    * Find all nodes that contain the given scene point.
    * Returns nodes sorted by z-order: topmost (highest zIndex) first.
    */
@@ -85,5 +122,20 @@ export class SpatialIndex {
    */
   get(nodeId: string): RenderNode | undefined {
     return this.items.get(nodeId)?.renderNode
+  }
+
+  /**
+   * Query all nodes intersecting a viewport rectangle.
+   * Returns in render order (zIndex ascending = back to front).
+   */
+  queryViewport(left: number, top: number, right: number, bottom: number): RenderNode[] {
+    const candidates = this.tree.search({
+      minX: left,
+      minY: top,
+      maxX: right,
+      maxY: bottom,
+    })
+    candidates.sort((a, b) => a.zIndex - b.zIndex)
+    return candidates.map(c => c.renderNode)
   }
 }

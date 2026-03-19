@@ -393,6 +393,7 @@ export class SkiaEngine {
   surface: Surface | null = null
   renderer: SkiaRenderer
   spatialIndex = new SpatialIndex()
+  private visibleRenderNodes: RenderNode[] = []
   renderNodes: RenderNode[] = []
 
   // ERD rendering
@@ -453,6 +454,12 @@ export class SkiaEngine {
 
   /** Active alignment guide lines to render during drag. Set by canvas event handler. */
   activeGuides: { x1: number; y1: number; x2: number; y2: number }[] = []
+
+  // Connection BFS cache — invalidated when selection or connections change
+  private _bfsSelectionKey = ''
+  private _bfsConnectionsKey = ''
+  private _cachedConnectedIds: Set<string> = new Set()
+  private _cachedChainConns: Set<unknown> = new Set()
 
   constructor(ck: CanvasKit) {
     this.ck = ck
@@ -527,6 +534,9 @@ export class SkiaEngine {
 
   syncFromDocument() {
     if (this.dragSyncSuppressed) return
+    // Skip during active pan/zoom — setViewportBatch triggers store updates
+    // which fire subscriptions, but no document data actually changed
+    if (this.isPanning) return
     const docState = useDocumentStore.getState()
     const activePageId = useCanvasStore.getState().activePageId
 
@@ -625,7 +635,137 @@ export class SkiaEngine {
     // Re-evaluate bitmap mode after document change (node count may have changed)
     this.benchmarkPending = true
 
+    // Invalidate BFS cache khi document thay đổi
+    this._bfsSelectionKey = ''
+    this._bfsConnectionsKey = ''
+
     this.markDirty()
+  }
+
+  // Async version of syncFromDocument — defers heavy computation via requestIdleCallback
+  private _syncAbortController: AbortController | null = null
+
+  syncFromDocumentAsync() {
+    // Abort any in-flight async sync
+    this._syncAbortController?.abort()
+    this._syncAbortController = new AbortController()
+    const signal = this._syncAbortController.signal
+
+    if (this.dragSyncSuppressed) return
+    const docState = useDocumentStore.getState()
+    const activePageId = useCanvasStore.getState().activePageId
+
+    // Detect ERD page — skip normal node flattening
+    const activePage = (docState.document.pages ?? []).find((p) => p.id === activePageId)
+    this.isErdPage = activePage?.type === 'erd'
+
+    if (this.isErdPage) {
+      this.renderNodes = []
+      this.spatialIndex.rebuild([])
+      this.markDirty()
+      return
+    }
+
+    const pageChildren = getActivePageChildren(docState.document, activePageId)
+
+    // Phase 1: Change detection (sync, O(1))
+    if (pageChildren === this.lastSyncChildrenRef && activePageId === this.lastSyncPageId) {
+      this.markDirty()
+      return
+    }
+    this.lastSyncPageId = activePageId
+    this.lastSyncChildrenRef = pageChildren
+    this.benchmarkPending = true
+
+    // Phase 2: Heavy computation — broken into async stages with yields
+    const yieldMain = () => new Promise<void>(r => setTimeout(r, 0))
+
+    const runHeavyPhaseAsync = async () => {
+      if (signal.aborted) return
+
+      // Stage 1: Build map + resolve refs
+      const allNodes = getAllChildren(docState.document)
+      const nodeMap = new Map<string, PenNode>()
+      const buildMap = (nodes: PenNode[]) => {
+        for (const n of nodes) {
+          nodeMap.set(n.id, n)
+          if ('children' in n && n.children) buildMap(n.children)
+        }
+      }
+      buildMap(allNodes)
+      const findInTree = (_nodes: PenNode[], id: string): PenNode | null => nodeMap.get(id) ?? null
+
+      this.reusableIds.clear()
+      this.instanceIds.clear()
+      collectReusableIds(pageChildren, this.reusableIds)
+      collectInstanceIds(pageChildren, this.instanceIds)
+
+      const resolved = resolveRefs(pageChildren, allNodes, findInTree)
+
+      await yieldMain()
+      if (signal.aborted) return
+
+      // Stage 2: Resolve data bindings + variables
+      const dataEntities = docState.document.dataEntities ?? []
+      const bindingResolved = dataEntities.length > 0
+        ? resolved.map((n) => resolveDataBinding(n, dataEntities))
+        : resolved
+
+      const variables = docState.document.variables ?? {}
+      const themes = docState.document.themes
+      const defaultTheme = getDefaultTheme(themes)
+      const resolveVarsDeep = (node: PenNode): PenNode => {
+        const resolved = resolveNodeForCanvas(node, variables, defaultTheme)
+        if ('children' in resolved && resolved.children) {
+          return { ...resolved, children: resolved.children.map(resolveVarsDeep) } as PenNode
+        }
+        return resolved
+      }
+      const variableResolved = Object.keys(variables).length > 0
+        ? bindingResolved.map(resolveVarsDeep)
+        : bindingResolved
+
+      await yieldMain()
+      if (signal.aborted) return
+
+      // Stage 3: Premeasure text + flatten to render nodes
+      const measured = premeasureTextHeights(variableResolved)
+      this.renderNodes = flattenToRenderNodes(measured)
+
+      await yieldMain()
+      if (signal.aborted) return
+
+      // Stage 4: Build auxiliary lists
+      this.labelNodes = []
+      this.reusableRenderNodes = []
+      this.rootFrameNodes = []
+      this.rnMap.clear()
+      for (const rn of this.renderNodes) {
+        const isRoot = rn.node.type === 'frame' && !rn.clipRect
+        if (isRoot) this.rootFrameNodes.push(rn)
+        if (this.reusableIds.has(rn.node.id)) this.reusableRenderNodes.push(rn)
+        if (rn.node.name && (isRoot || this.reusableIds.has(rn.node.id))) {
+          this.labelNodes.push(rn)
+        }
+        this.rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
+      }
+
+      // Stage 5: Rebuild spatial index (async with yields)
+      await this.spatialIndex.rebuildAsync(this.renderNodes, signal)
+      if (signal.aborted) return
+
+      this.benchmarkPending = true
+      this._bfsSelectionKey = ''
+      this._bfsConnectionsKey = ''
+      this.markDirty()
+    }
+
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => runHeavyPhaseAsync(), { timeout: 500 })
+    } else {
+      // Fallback for environments without requestIdleCallback
+      setTimeout(() => runHeavyPhaseAsync(), 0)
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -702,17 +842,65 @@ export class SkiaEngine {
     // Add margin to avoid popping at edges (accounts for strokes, shadows, labels)
     const vpMargin = 100 / this.zoom
 
-    // Draw all render nodes with viewport culling (catch WASM errors from invalid node data)
-    for (const rn of this.renderNodes) {
-      // Skip nodes entirely outside the visible viewport
-      if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
-          rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) {
-        continue
+
+    // Frame-level LOD: at low zoom (<30%), skip children inside frames.
+    // Only root frames (no clipRect) are drawn — reduces 70K draw calls to ~500.
+    const frameLODActive = this.zoom < 0.3
+
+    if (frameLODActive) {
+      // At very low zoom: iterate ONLY root frames (~500 items, pre-built list)
+      // Draw as simple filled rects — bypass renderer entirely for max performance
+      this.visibleRenderNodes = []
+      const fillPaint = new ck.Paint()
+      fillPaint.setStyle(ck.PaintStyle.Fill)
+      const strokePaint = new ck.Paint()
+      strokePaint.setStyle(ck.PaintStyle.Stroke)
+      strokePaint.setStrokeWidth(1 / this.zoom)
+      strokePaint.setColor(ck.Color(200, 200, 200, 255))
+
+      for (const rn of this.rootFrameNodes) {
+        // Manual viewport cull for root frames
+        if (rn.absX + rn.absW < vpLeft - vpMargin || rn.absX > vpRight + vpMargin ||
+            rn.absY + rn.absH < vpTop - vpMargin || rn.absY > vpBottom + vpMargin) continue
+        this.visibleRenderNodes.push(rn)
+
+        // Draw simple filled rect — 1 GPU call per frame
+        const fills = 'fill' in rn.node ? (rn.node as any).fill : undefined
+        if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
+          fillPaint.setColor(parseColor(ck, fills[0].color ?? '#ffffff'))
+        } else {
+          fillPaint.setColor(ck.Color(255, 255, 255, 255))
+        }
+        const rect = ck.XYWHRect(rn.absX, rn.absY, rn.absW, rn.absH)
+        canvas.drawRect(rect, fillPaint)
+        canvas.drawRect(rect, strokePaint)
       }
-      try {
-        this.renderer.drawNode(canvas, rn, selectedIds)
-      } catch {
-        // Skip nodes that cause CanvasKit WASM errors (invalid fills, gradients, etc.)
+
+      fillPaint.delete()
+      strokePaint.delete()
+    } else {
+      // Normal zoom: use spatial index for efficient viewport query
+      this.visibleRenderNodes = this.spatialIndex.queryViewport(
+        vpLeft - vpMargin, vpTop - vpMargin,
+        vpRight + vpMargin, vpBottom + vpMargin,
+      )
+    }
+
+    // Draw visible render nodes with LOD (only at normal zoom)
+    if (!frameLODActive) {
+      for (const rn of this.visibleRenderNodes) {
+        // LOD: compute actual screen size (pixels)
+        const pixelW = rn.absW * this.zoom
+        const pixelH = rn.absH * this.zoom
+
+        // Sub-pixel: skip entirely
+        if (pixelW < 1 && pixelH < 1) continue
+
+        try {
+          this.renderer.drawNode(canvas, rn, selectedIds, pixelW, pixelH)
+        } catch {
+          // Skip nodes that cause CanvasKit WASM errors (invalid fills, gradients, etc.)
+        }
       }
     }
 
@@ -752,7 +940,7 @@ export class SkiaEngine {
 
       // Agent node borders and preview fills (per-element fade-in → fade-out)
       const NODE_FADE_DURATION = 1000
-      for (const rn of this.renderNodes) {
+      for (const rn of this.visibleRenderNodes) {
         const indicator = agentIndicators.get(rn.node.id)
         if (!indicator) continue
         if (!isNodeBorderReady(rn.node.id)) continue
@@ -780,7 +968,7 @@ export class SkiaEngine {
       }
 
       // Agent frame glow and badges
-      for (const rn of this.renderNodes) {
+      for (const rn of this.visibleRenderNodes) {
         const frame = agentFrames.get(rn.node.id)
         if (!frame) continue
 
@@ -864,50 +1052,67 @@ export class SkiaEngine {
       const activePageId = useCanvasStore.getState().activePageId
       const pages = docState.document.pages ?? []
 
-      // Build lookup: which element/frame has connections from/to
-      const outMap = new Map<string, typeof allConnections>() // sourceElementId -> connections
-      const inMap = new Map<string, typeof allConnections>()  // targetFrameId -> connections
-      for (const c of allConnections) {
-        const outs = outMap.get(c.sourceElementId) ?? []
-        outs.push(c)
-        outMap.set(c.sourceElementId, outs)
-        if (c.targetFrameId) {
-          const ins = inMap.get(c.targetFrameId) ?? []
-          ins.push(c)
-          inMap.set(c.targetFrameId, ins)
-        }
-      }
+      // Tạo cache key
+      const selKey = [...selectedIds].sort().join(',')
+      const connKey = String(allConnections.length)
 
-      // BFS: trace full chain forward (outputs) and backward (inputs) from selected
-      const visitedIds = new Set<string>(selectedIds)
-      const chainConns = new Set<typeof allConnections[0]>()
-      const queue = [...selectedIds]
-      while (queue.length > 0) {
-        const id = queue.shift()!
-        // Forward: connections FROM this element
-        for (const c of outMap.get(id) ?? []) {
-          chainConns.add(c)
-          if (c.targetFrameId && !visitedIds.has(c.targetFrameId)) {
-            visitedIds.add(c.targetFrameId)
-            queue.push(c.targetFrameId)
+      // Chỉ rebuild khi selection hoặc connections thay đổi
+      if (selKey !== this._bfsSelectionKey || connKey !== this._bfsConnectionsKey) {
+        this._bfsSelectionKey = selKey
+        this._bfsConnectionsKey = connKey
+
+        // Build lookup: which element/frame has connections from/to
+        const outMap = new Map<string, typeof allConnections>() // sourceElementId -> connections
+        const inMap = new Map<string, typeof allConnections>()  // targetFrameId -> connections
+        for (const c of allConnections) {
+          const outs = outMap.get(c.sourceElementId) ?? []
+          outs.push(c)
+          outMap.set(c.sourceElementId, outs)
+          if (c.targetFrameId) {
+            const ins = inMap.get(c.targetFrameId) ?? []
+            ins.push(c)
+            inMap.set(c.targetFrameId, ins)
           }
         }
-        // Backward: connections TO this element/frame
-        for (const c of inMap.get(id) ?? []) {
-          chainConns.add(c)
-          if (!visitedIds.has(c.sourceElementId)) {
-            visitedIds.add(c.sourceElementId)
-            queue.push(c.sourceElementId)
+
+        // BFS: trace full chain forward (outputs) and backward (inputs) from selected
+        const visitedIds = new Set<string>(selectedIds)
+        const chainConns = new Set<typeof allConnections[0]>()
+        const queue = [...selectedIds]
+        while (queue.length > 0) {
+          const id = queue.shift()!
+          // Forward: connections FROM this element
+          for (const c of outMap.get(id) ?? []) {
+            chainConns.add(c)
+            if (c.targetFrameId && !visitedIds.has(c.targetFrameId)) {
+              visitedIds.add(c.targetFrameId)
+              queue.push(c.targetFrameId)
+            }
+          }
+          // Backward: connections TO this element/frame
+          for (const c of inMap.get(id) ?? []) {
+            chainConns.add(c)
+            if (!visitedIds.has(c.sourceElementId)) {
+              visitedIds.add(c.sourceElementId)
+              queue.push(c.sourceElementId)
+            }
           }
         }
+
+        // Also add parent frames of connected elements to avoid dimming them
+        const connectedIds = new Set(visitedIds)
+        for (const id of visitedIds) {
+          const parent = docState.getParentOf(id)
+          if (parent) connectedIds.add(parent.id)
+        }
+
+        this._cachedConnectedIds = connectedIds
+        this._cachedChainConns = chainConns as Set<unknown>
       }
 
-      // Also add parent frames of connected elements to avoid dimming them
-      const connectedIds = new Set(visitedIds)
-      for (const id of visitedIds) {
-        const parent = docState.getParentOf(id)
-        if (parent) connectedIds.add(parent.id)
-      }
+      // Use cached results
+      const connectedIds = this._cachedConnectedIds
+      const chainConns = this._cachedChainConns as Set<typeof allConnections[0]>
 
       // Dim unrelated root-level render nodes (pre-built list: only root frames)
       for (const rn of this.rootFrameNodes) {

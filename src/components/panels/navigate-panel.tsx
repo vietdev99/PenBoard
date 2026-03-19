@@ -25,7 +25,7 @@ export default function NavigatePanel() {
   const activeId = useCanvasStore((s) => s.selection.activeId)
   const activePageId = useCanvasStore((s) => s.activePageId)
   const pages = useDocumentStore((s) => s.document.pages)
-  const document = useDocumentStore((s) => s.document)
+  const connections = useDocumentStore((s) => s.document.connections) ?? []
   const children = useDocumentStore((s) => getActivePageChildren(s.document, activePageId))
   const addConnection = useDocumentStore((s) => s.addConnection)
   const removeConnection = useDocumentStore((s) => s.removeConnection)
@@ -50,7 +50,7 @@ export default function NavigatePanel() {
     )
   }
 
-  const connections = (document.connections ?? []).filter(
+  const myConnections = connections.filter(
     (c) => c.sourceElementId === activeId,
   )
 
@@ -67,7 +67,7 @@ export default function NavigatePanel() {
   }
 
   const getTargetDisplayName = (conn: ScreenConnection): string => {
-    const page = (document.pages ?? []).find((p) => p.id === conn.targetPageId)
+    const page = (pages ?? []).find((p) => p.id === conn.targetPageId)
     if (!page) return t('connection.error.targetDeleted')
     if (conn.targetFrameId) {
       const frame = (page.children ?? []).find((n) => n.id === conn.targetFrameId)
@@ -106,7 +106,7 @@ export default function NavigatePanel() {
           }
         />
 
-        {connections.length === 0 && (
+        {myConnections.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
             <Link2Off size={24} className="opacity-40" />
             <p className="text-xs text-center">
@@ -116,7 +116,7 @@ export default function NavigatePanel() {
         )}
 
         <div className="flex flex-col gap-1.5 mt-1">
-          {connections.map((conn) => (
+          {myConnections.map((conn) => (
             <ConnectionRow
               key={conn.id}
               connection={conn}
