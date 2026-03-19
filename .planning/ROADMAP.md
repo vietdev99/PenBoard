@@ -106,11 +106,12 @@ Plans:
 2. Focus mode filters the diagram to show only connections of the active page (avoids layout explosion on large projects)
 3. Diagram updates automatically when the user adds, removes, or modifies connections or data bindings (no manual refresh)
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 
-- [ ] 08-01: TBD
+- [ ] 08-01-PLAN.md — Core logic: graph builder, mermaid syntax generator, focus filter, export utilities + unit tests (WF-01, WF-02)
+- [ ] 08-02-PLAN.md — UI layer: workflow panel component, store integration, editor layout wiring, auto-update hook + human verify (WF-01, WF-02, WF-03)
 
 ### Phase 9: MCP Integration
 
@@ -146,5 +147,5 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 2/2 | Complete | 2026-03-18 |
 | 7. Interactive Preview | v1.1 | 4/4 | Complete | 2026-03-19 |
-| 8. Workflow Visualization | v1.1 | 0/0 | Not started | - |
+| 8. Workflow Visualization | v1.1 | 0/2 | Planned | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
