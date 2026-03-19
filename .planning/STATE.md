@@ -117,6 +117,12 @@ Decisions logged in PROJECT.md Key Decisions table.
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260319-k6u | Loading progress modal for heavy files + canvas pan/zoom performance optimization | 2026-03-19 | b00d8bd | [260319-k6u-loading-progress-modal-for-heavy-files-c](./quick/260319-k6u-loading-progress-modal-for-heavy-files-c/) |
+
 ## Session Continuity
 
 Last session: 2026-03-19T05:45:45.301Z
