@@ -120,6 +120,7 @@ function escapeHTML(text: string): string {
 }
 
 function getTextContent(node: TextNode): string {
+  if (!node.content) return ''
   if (typeof node.content === 'string') return node.content
   return node.content.map((s) => s.text).join('')
 }

@@ -71,9 +71,11 @@ function nodeWidth(node: PenNode, parentAvail?: number): number {
   }
   if (node.type === 'text') {
     const fontSize = node.fontSize ?? 16
-    const content = typeof node.content === 'string'
-      ? node.content
-      : node.content.map((seg) => seg.text).join('')
+    const content = !node.content
+      ? ''
+      : typeof node.content === 'string'
+        ? node.content
+        : node.content.map((seg) => seg.text).join('')
     return Math.max(Math.ceil(estimateTextWidth(content, fontSize, node.letterSpacing ?? 0)), 10)
   }
   return 0
@@ -361,9 +363,11 @@ function renderNode(
       const fontSize = node.fontSize ?? 16
       const fontWeight = node.fontWeight ?? 400
       const textAlign = node.textAlign ?? 'left'
-      const content = typeof node.content === 'string'
-        ? node.content
-        : node.content.map((seg) => seg.text).join('')
+      const content = !node.content
+        ? ''
+        : typeof node.content === 'string'
+          ? node.content
+          : node.content.map((seg) => seg.text).join('')
       if (!content.trim()) return null
 
       const fills = node.fill

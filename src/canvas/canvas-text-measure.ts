@@ -137,6 +137,7 @@ export function estimateTextWidthPrecise(text: string, fontSize: number, letterS
 
 export function resolveTextContent(node: PenNode): string {
   if (node.type !== 'text') return ''
+  if (!node.content) return ''
   return typeof node.content === 'string'
     ? node.content
     : node.content.map((s) => s.text).join('')

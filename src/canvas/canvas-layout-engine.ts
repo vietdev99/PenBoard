@@ -196,9 +196,11 @@ export function getNodeWidth(node: PenNode, parentAvail?: number): number {
         const letterSpacing = node.letterSpacing ?? 0
         const fontWeight = node.fontWeight
         const content =
-          typeof node.content === 'string'
-            ? node.content
-            : node.content.map((s2) => s2.text).join('')
+          !node.content
+            ? ''
+            : typeof node.content === 'string'
+              ? node.content
+              : node.content.map((s2) => s2.text).join('')
         return Math.max(Math.ceil(estimateTextWidth(content, fontSize, letterSpacing, fontWeight)), 1)
       }
     }
@@ -217,9 +219,11 @@ export function getNodeWidth(node: PenNode, parentAvail?: number): number {
     const letterSpacing = node.letterSpacing ?? 0
     const fontWeight = node.fontWeight
     const content =
-      typeof node.content === 'string'
-        ? node.content
-        : node.content.map((s) => s.text).join('')
+      !node.content
+        ? ''
+        : typeof node.content === 'string'
+          ? node.content
+          : node.content.map((s) => s.text).join('')
     // Use precise estimation (no safety factor) for fit-content / natural-width
     // text.  Fabric IText auto-computes its own width, so overestimating only
     // inflates the layout allocation and creates visible gaps.  The space_between
