@@ -38,7 +38,7 @@ vi.mock('@/stores/document-store', () => ({
 
 vi.mock('@/stores/canvas-store', () => ({
   useCanvasStore: {
-    getState: () => ({ activePageId: 'page-1' }),
+    getState: () => ({ activePageId: 'page-1', setViewportBatch: vi.fn() }),
   },
 }))
 
@@ -247,5 +247,137 @@ describe('SkiaEngine.syncFromDocument() performance', () => {
 
     expect(elapsed).toBeLessThan(32)
     expect(engine.renderNodes.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Bitmap snapshot mode tests
+// ---------------------------------------------------------------------------
+
+describe('SkiaEngine bitmap snapshot mode', () => {
+  beforeEach(() => {
+    mockDocument = buildDoc(50, 50)
+  })
+
+  it('sets benchmarkPending after syncFromDocument detects new page children', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // First sync: new children detected -> benchmarkPending = true
+    engine.syncFromDocument()
+    expect((engine as any).benchmarkPending).toBe(true)
+  })
+
+  it('does not set benchmarkPending on duplicate syncFromDocument (same children ref)', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // First sync sets benchmarkPending
+    engine.syncFromDocument()
+    ;(engine as any).benchmarkPending = false // Reset
+
+    // Second sync with same doc -> skip re-processing -> benchmarkPending stays false
+    engine.syncFromDocument()
+    expect((engine as any).benchmarkPending).toBe(false)
+  })
+
+  it('bitmapEnabled defaults to false', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    expect((engine as any).bitmapEnabled).toBe(false)
+  })
+
+  it('cachedSnapshot starts as null', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    expect((engine as any).cachedSnapshot).toBeNull()
+  })
+
+  it('invalidates cachedSnapshot when syncFromDocument detects new children (not panning)', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // Simulate a cached snapshot
+    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
+    ;(engine as any).cachedSnapshot = mockImage
+    ;(engine as any).isPanning = false
+
+    // First sync — document children changed while not panning
+    engine.syncFromDocument()
+
+    // Snapshot should be deleted because document changed while not panning
+    expect(mockImage.delete).toHaveBeenCalled()
+    expect((engine as any).cachedSnapshot).toBeNull()
+  })
+
+  it('marks snapshotStale when syncFromDocument called during active pan', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // Simulate cached snapshot during panning
+    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
+    ;(engine as any).cachedSnapshot = mockImage
+    ;(engine as any).isPanning = true
+
+    engine.syncFromDocument()
+
+    // Snapshot NOT deleted (still panning), but marked stale
+    expect(mockImage.delete).not.toHaveBeenCalled()
+    expect((engine as any).snapshotStale).toBe(true)
+  })
+
+  it('dispose() calls delete() on cachedSnapshot', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
+    ;(engine as any).cachedSnapshot = mockImage
+
+    engine.dispose()
+
+    expect(mockImage.delete).toHaveBeenCalled()
+  })
+
+  it('setViewport sets isPanning to true', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    engine.setViewport(1.5, 100, 200)
+
+    expect(engine.isPanning).toBe(true)
+  })
+
+  it('setViewport cleans stale snapshot in idle timer callback', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    vi.useFakeTimers()
+
+    const mockImage = { delete: vi.fn(), width: () => 1920, height: () => 1080 }
+    ;(engine as any).cachedSnapshot = mockImage
+    ;(engine as any).snapshotStale = true
+
+    engine.setViewport(1.5, 100, 200)
+
+    // Advance past 150ms idle threshold
+    vi.advanceTimersByTime(151)
+
+    expect(engine.isPanning).toBe(false)
+    expect(mockImage.delete).toHaveBeenCalled()
+    expect((engine as any).cachedSnapshot).toBeNull()
+    expect((engine as any).snapshotStale).toBe(false)
+
+    vi.useRealTimers()
   })
 })
