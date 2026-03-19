@@ -822,19 +822,19 @@ export function generatePreviewHTML(
     // Filter out reusable component definitions before rendering
     const previewChildren = getPreviewableChildren(sp.children)
 
-    // Check for multi-view: 2+ root-level frames → each frame becomes a separate view
+    // Split root frames into individual views for per-frame preview
     const rootFrames = previewChildren.filter((c) => c.type === 'frame')
 
-    if (rootFrames.length > 1) {
-      // Multi-view: each root frame becomes its own navigable page-container
+    if (rootFrames.length > 0) {
+      // Each root frame becomes its own navigable view
       for (let fi = 0; fi < rootFrames.length; fi++) {
         const frame = rootFrames[fi]
         const isFirstFrame = fi === 0
 
-        // First frame inherits the page ID; others get frame-suffixed ID
+        // First frame inherits page ID; others get frame-suffixed ID
         const containerId = isFirstFrame ? sp.id : `${sp.id}__frame-${frame.id}`
 
-        // Determine if this container should be initially active
+        // Determine if this container is initially active
         let isInitial = false
         if (isInitialPage) {
           if (frameId && frame.id === frameId) {
@@ -845,8 +845,8 @@ export function generatePreviewHTML(
           }
         }
 
-        // Zero-out canvas position so the frame fills the preview viewport
-        const viewNode: PenNode = { ...frame, x: 0, y: 0 } as PenNode
+        // Strip canvas x/y — frame will be centered via CSS
+        const viewNode: PenNode = { ...frame, x: undefined, y: undefined } as PenNode
         const resolvedNodes = resolvePageForPreview([viewNode], doc)
         const { html: pageHTML, css: generatedCSS } = generatePageHTML(resolvedNodes, connections)
 
@@ -857,25 +857,17 @@ export function generatePreviewHTML(
           `  <div id="page-${escapeHTML(containerId)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
         )
 
-        pageList.push({ id: containerId, name: frame.name || `${sp.name} - View ${fi + 1}` })
+        const frameName = frame.name || `View ${fi + 1}`
+        pageList.push({ id: containerId, name: frameName, group: sp.name } as any)
       }
     } else {
-      // Single view: all children in one container (excluding component definitions)
-      let pageNodes: PenNode[] = previewChildren
-      if (isInitialPage && frameId && pageNodes.length > 0) {
-        const frame = findFrameById(pageNodes, frameId)
-        if (frame && 'children' in frame && frame.children) {
-          pageNodes = frame.children
-        }
-      }
-
-      const resolvedNodes = resolvePageForPreview(pageNodes, doc)
+      // No root frames — render all children as-is
+      const resolvedNodes = resolvePageForPreview(previewChildren, doc)
       const { html: pageHTML, css: generatedCSS } = generatePageHTML(resolvedNodes, connections)
 
       if (generatedCSS) allCSS.push(generatedCSS)
 
-      const isInitial = sp.id === initialPageId
-      const activeClass = isInitial ? ' active' : ''
+      const activeClass = isInitialPage ? ' active' : ''
       pageContainers.push(
         `  <div id="page-${escapeHTML(sp.id)}" class="page-container${activeClass}">\n${pageHTML}\n  </div>`,
       )
@@ -911,7 +903,7 @@ export function generatePreviewHTML(
   // Generate navigation and toolbar assets
   const navCSS = generateNavigationCSS()
   const toolbarCSS = generateToolbarCSS()
-  const toolbarHTML = generateToolbarHTML(pageName)
+  const toolbarHTML = generateToolbarHTML(pageName, pageList, effectiveInitialPageId)
 
   const toolbarJS = generateToolbarJS()
   const navJS = generateNavigationJS(connections, pageList, effectiveInitialPageId, previewId)

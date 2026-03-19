@@ -74,6 +74,9 @@ export function generateNavigationCSS(): string {
   outline: 2px dashed rgba(59,130,246,0.8); outline-offset: 2px;
 }
 
+/* Center root frame in preview viewport */
+.page-root { display: flex; justify-content: center; padding-top: 24px; min-height: calc(100vh - 64px); }
+
 /* Not found page */
 .not-found { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; font-family: -apple-system, sans-serif; }
 .not-found h2 { font-size: 24px; color: #666; }
@@ -133,8 +136,8 @@ export function generateNavigationJS(
   }
 
   function navigateTo(targetPageId, transition, targetFrameId) {
-    // Multi-view support: if targetFrameId has its own page-container, navigate there directly
     var effectivePageId = targetPageId;
+    // If targetFrameId has its own page-container, navigate to that view directly
     if (targetFrameId) {
       var fcId = targetPageId + '__frame-' + targetFrameId;
       if (document.getElementById('page-' + fcId)) {
@@ -142,19 +145,36 @@ export function generateNavigationJS(
         targetFrameId = null;
       }
     }
-
     var current = document.querySelector('.page-container.active');
 
     if (transition === 'modal') {
+      // Remove any existing modals first
+      document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+
       var backdrop = document.createElement('div');
       backdrop.className = 'modal-backdrop';
+      // Inline styles guarantee visibility regardless of CSS specificity
+      backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
       backdrop.onclick = function(e) { if (e.target === backdrop) { history.back(); } };
+
       var content = document.createElement('div');
       content.className = 'modal-content';
+      content.style.cssText = 'background:#fff;border-radius:12px;max-width:90vw;max-height:90vh;overflow:auto;position:relative;min-width:320px;box-shadow:0 25px 50px rgba(0,0,0,0.25);';
+
       var targetEl = document.getElementById('page-' + effectivePageId);
       if (!targetEl) { showNotFound(effectivePageId); return; }
       var cloned = targetEl.cloneNode(true);
       cloned.removeAttribute('id');
+      cloned.style.display = 'block';
+      cloned.style.position = 'relative';
+      cloned.style.minHeight = 'auto';
+      // Force page-root children to flow normally (not absolute)
+      var absChildren = cloned.querySelectorAll('.page-root > *');
+      for (var i = 0; i < absChildren.length; i++) {
+        absChildren[i].style.position = 'relative';
+        absChildren[i].style.left = 'auto';
+        absChildren[i].style.top = 'auto';
+      }
       content.appendChild(cloned);
       backdrop.appendChild(content);
       document.body.appendChild(backdrop);
@@ -200,6 +220,9 @@ export function generateNavigationJS(
   function updateBreadcrumb(pageId) {
     var bc = document.getElementById('preview-breadcrumb');
     if (bc) bc.textContent = pages[pageId] || pageId;
+    // Sync page selector dropdown
+    var sel = document.getElementById('preview-page-select');
+    if (sel) sel.value = pageId;
   }
 
   // Event delegation: click
@@ -255,6 +278,12 @@ export function generateNavigationJS(
   // Hotspot mode
   window.__toggleHotspots = function() {
     document.body.classList.toggle('hotspot-active');
+  };
+
+  // Page selector navigation (from toolbar dropdown)
+  window.__navigateToPage = function(pageId) {
+    showPage(pageId);
+    history.pushState({ pageId: pageId }, '', '#' + pageId);
   };
 
   // Initialize hash
