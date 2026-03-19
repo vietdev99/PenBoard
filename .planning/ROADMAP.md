@@ -95,6 +95,18 @@ Plans:
 - [x] 07-03-PLAN.md — Navigation + toolbar: connection-based navigation JS, transitions, toolbar, hotspot mode, HTML export (PREV-01, PREV-02)
 - [x] 07-04-PLAN.md — Human verification: end-to-end preview testing in browser (PREV-01, PREV-02, PREV-03, PREV-04)
 
+### Phase 07.1: Canvas Zoom Performance — Bitmap Snapshot During Gesture (INSERTED)
+
+**Goal:** Eliminate canvas freeze during zoom/pan on large documents by replacing per-frame re-rendering with a bitmap snapshot approach during active gestures
+**Requirements**: N/A (urgent inserted phase -- performance optimization)
+**Depends on:** Phase 7
+**Plans:** 2 plans
+
+Plans:
+
+- [ ] 07.1-01-PLAN.md — Core bitmap engine: snapshot capture/display in SkiaEngine, auto-detect threshold, gesture state machine, cleanup and timing fix
+- [ ] 07.1-02-PLAN.md — Unit tests for bitmap mode + human verification of zoom/pan performance
+
 ### Phase 8: Workflow Visualization
 
 **Goal**: Users can see an auto-generated diagram of their screen flow and data relationships
@@ -135,8 +147,8 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
-Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 requires Phase 5. Phase 9 must be last.
+Phases execute in numeric order: 5 -> 6 -> 7 -> 7.1 -> 8 -> 9
+Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 requires Phase 5. Phase 7.1 is an urgent insert after Phase 7. Phase 9 must be last.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
@@ -147,5 +159,6 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 2/2 | Complete | 2026-03-18 |
 | 7. Interactive Preview | v1.1 | 4/4 | Complete | 2026-03-19 |
+| 7.1 Canvas Zoom Performance | v1.1 | 0/2 | Planned | - |
 | 8. Workflow Visualization | v1.1 | 0/2 | Planned | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
