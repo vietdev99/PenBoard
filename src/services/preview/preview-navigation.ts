@@ -59,7 +59,9 @@ export function generateNavigationCSS(): string {
 
 /* Modal transition: fade overlay */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn 200ms ease; }
-.modal-content { background: var(--bg, #fff); border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto; animation: scaleIn 200ms ease; }
+.modal-content { background: var(--bg, #fff); border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto; animation: scaleIn 200ms ease; position: relative; min-width: 320px; }
+.modal-content .page-container { display: block; position: relative; min-height: auto; }
+.modal-content .page-container > * { position: relative !important; left: auto !important; top: auto !important; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
@@ -151,7 +153,9 @@ export function generateNavigationJS(
       content.className = 'modal-content';
       var targetEl = document.getElementById('page-' + effectivePageId);
       if (!targetEl) { showNotFound(effectivePageId); return; }
-      content.innerHTML = targetEl.innerHTML;
+      var cloned = targetEl.cloneNode(true);
+      cloned.removeAttribute('id');
+      content.appendChild(cloned);
       backdrop.appendChild(content);
       document.body.appendChild(backdrop);
       history.pushState({ pageId: effectivePageId, modal: true }, '', '#' + effectivePageId);
