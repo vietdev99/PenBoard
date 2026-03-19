@@ -95,6 +95,41 @@ Plans:
 - [x] 07-03-PLAN.md — Navigation + toolbar: connection-based navigation JS, transitions, toolbar, hotspot mode, HTML export (PREV-01, PREV-02)
 - [x] 07-04-PLAN.md — Human verification: end-to-end preview testing in browser (PREV-01, PREV-02, PREV-03, PREV-04)
 
+### Phase 07.2: Canvas offthread sync and worker-based document processing (INSERTED)
+
+**Goal:** Eliminate canvas jank during document sync and zoom/pan with large files (70K+ nodes) via viewport-filtered rendering, frame-level LOD, chunked async sync, and panel isolation
+**Requirements**: N/A (performance optimization)
+**Depends on:** Phase 07
+**Plans:** 3/3 plans executed
+
+Plans:
+- [x] 07.2-01-PLAN.md — Viewport-filtered render list (R-tree queryViewport) + frame-level LOD at zoom <30%
+- [x] 07.2-02-PLAN.md — Panel isolation (selective Zustand subscriptions + useIdleSelector hook)
+- [x] 07.2-03-PLAN.md — Chunked yield syncFromDocument (5-stage async + rebuildAsync)
+
+### Phase 07.3: Tile-Based Rendering + Adaptive LOD
+
+**Goal:** Figma-style tile-based rendering engine with adaptive LOD for buttery smooth canvas at any zoom/node count
+**Requirements**: N/A (performance optimization - Figma-inspired architecture)
+**Depends on:** Phase 07.2
+**Success Criteria** (what must be TRUE):
+
+1. Canvas renders smoothly at 60fps with 500+ frames visible (zoom 1-3%)
+2. Pan/zoom uses cached tile bitmaps — only dirty tiles re-render
+3. Adaptive LOD selects render tier based on hardware benchmark + visible node count
+4. Drag operations use delta tile invalidation (not full re-render)
+5. `canvas.quickReject()` eliminates off-screen draw calls natively
+
+**Plans:** 0 plans (run /gsd-plan-phase 07.3 to break down)
+
+Key implementation areas:
+- Tile grid system (256×256 scene units, SkSurface per tile)
+- Tile bitmap cache (SkImage) with dirty invalidation
+- Adaptive LOD tiers (T0 Full → T1 Quick → T2 Tile) based on hardware budget
+- SkPicture recording per root frame for instant replay
+- `canvas.quickReject()` integration for native CanvasKit culling
+- Delta tile invalidation during drag/edit operations
+
 ### Phase 07.1: Canvas Zoom Performance — Bitmap Snapshot During Gesture (INSERTED)
 
 **Goal:** Eliminate canvas freeze during zoom/pan on large documents by replacing per-frame re-rendering with a bitmap snapshot approach during active gestures
@@ -147,8 +182,8 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 -> 6 -> 7 -> 7.1 -> 8 -> 9
-Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 requires Phase 5. Phase 7.1 is an urgent insert after Phase 7. Phase 9 must be last.
+Phases execute in numeric order: 5 -> 6 -> 7 -> 7.1 -> 7.2 -> 7.3 -> 8 -> 9
+Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 requires Phase 5. Phases 7.1-7.3 are urgent performance inserts. Phase 9 must be last.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
@@ -160,5 +195,7 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 6. Context & AI | v1.1 | 2/2 | Complete | 2026-03-18 |
 | 7. Interactive Preview | v1.1 | 4/4 | Complete | 2026-03-19 |
 | 7.1 Canvas Zoom Performance | v1.1 | 0/2 | Planned | - |
+| 7.2 Canvas Offthread Sync | v1.1 | 3/3 | Complete | 2026-03-20 |
+| 7.3 Tile-Based Rendering | v1.1 | 0/0 | Next up | - |
 | 8. Workflow Visualization | v1.1 | 0/2 | Planned | - |
 | 9. MCP Integration | v1.1 | 0/0 | Not started | - |
