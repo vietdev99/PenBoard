@@ -569,6 +569,42 @@ export class SkiaEngine {
       this.markDirty()
       return
     }
+
+    // FAST PATH: property-only edit (same page, same node count)
+    // Skip full rebuild (resolveRefs, layout, flatten, spatial) — just patch node refs
+    if (activePageId === this.lastSyncPageId &&
+        this.renderNodes.length > 0 &&
+        pageChildren.length === (this.lastSyncChildrenRef?.length ?? -1)) {
+
+      // Build flat ID→node map from new tree (much cheaper than full resolve+flatten)
+      const newNodeMap = new Map<string, PenNode>()
+      const variables = docState.document.variables ?? {}
+      const themes = docState.document.themes
+      const defaultTheme = getDefaultTheme(themes)
+      const hasVars = Object.keys(variables).length > 0
+
+      const walkAndResolve = (nodes: PenNode[]) => {
+        for (const n of nodes) {
+          // Resolve variables on leaf level
+          const resolved = hasVars ? resolveNodeForCanvas(n, variables, defaultTheme) : n
+          newNodeMap.set(n.id, resolved)
+          if ('children' in n && n.children) walkAndResolve(n.children)
+        }
+      }
+      walkAndResolve(pageChildren)
+
+      // Patch existing renderNodes in-place
+      for (const rn of this.renderNodes) {
+        const newNode = newNodeMap.get(rn.node.id)
+        if (newNode) rn.node = newNode
+      }
+
+      this.lastSyncChildrenRef = pageChildren
+      this.tileManager.markAllDirty()
+      this.markDirty()
+      return
+    }
+
     this.lastSyncPageId = activePageId
     this.lastSyncChildrenRef = pageChildren
     this.tileManager.markAllDirty()  // Re-render tiles on page change
