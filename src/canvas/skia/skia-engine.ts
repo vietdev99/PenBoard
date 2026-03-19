@@ -1005,8 +1005,8 @@ export class SkiaEngine {
     // Add margin to avoid popping at edges (accounts for strokes, shadows, labels)
     const vpMargin = 100 / this.zoom
 
-    // ── Render pipeline: bitmap snapshot (<10%) vs direct (≥10%) ──
-    const useBitmapSnapshot = this.zoom < 0.1
+    // ── Render pipeline: bitmap snapshot (<6%) vs direct (≥6%) ──
+    const useBitmapSnapshot = this.zoom < 0.06
 
     if (useBitmapSnapshot) {
       // Bitmap snapshot mode: blit cached SkImages per root frame
