@@ -123,9 +123,9 @@ Plans:
 **Plans:** 0 plans (run /gsd-plan-phase 07.3 to break down)
 
 Key implementation areas:
-- Tile grid system (256×256 scene units, SkSurface per tile)
+- Tile grid system (256x256 scene units, SkSurface per tile)
 - Tile bitmap cache (SkImage) with dirty invalidation
-- Adaptive LOD tiers (T0 Full → T1 Quick → T2 Tile) based on hardware budget
+- Adaptive LOD tiers (T0 Full -> T1 Quick -> T2 Tile) based on hardware budget
 - SkPicture recording per root frame for instant replay
 - `canvas.quickReject()` integration for native CanvasKit culling
 - Delta tile invalidation during drag/edit operations
@@ -173,11 +173,12 @@ Plans:
 4. An MCP client can export the workflow diagram as mermaid text or SVG
 5. MCP tools for navigation, context, ERD, and component pages work correctly (full page-type coverage)
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 
-- [ ] 09-01: TBD
+- [ ] 09-01-PLAN.md — Refactor server.ts + document-level tools: data binding, context, entities, connections, page type (MCP-01, MCP-03, MCP-05)
+- [ ] 09-02-PLAN.md — Preview generation + workflow export tools with mermaid-cli SVG/PNG (MCP-02, MCP-04)
 
 ## Progress
 
@@ -198,4 +199,4 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 7.2 Canvas Offthread Sync | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 7.3 Tile-Based Rendering | v1.1 | — | Complete | 2026-03-20 |
 | 8. Workflow Visualization | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 9. MCP Integration | v1.1 | 0/0 | Not started | - |
+| 9. MCP Integration | v1.1 | 0/2 | Planned | - |
