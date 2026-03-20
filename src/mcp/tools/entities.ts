@@ -178,10 +178,14 @@ export async function handleManageEntities(
     case 'add_row': {
       const entity = getEntity(params.entityId)
       const id = generateId()
-      const newRow: DataRow = {
-        id,
-        values: params.fieldValues ?? {},
+      // Map field-name keys to field-ID keys so the UI can read them
+      const raw = params.fieldValues ?? {}
+      const mapped: Record<string, unknown> = {}
+      for (const [key, val] of Object.entries(raw)) {
+        const field = entity.fields.find((f) => f.name === key)
+        mapped[field ? field.id : key] = val
       }
+      const newRow: DataRow = { id, values: mapped }
       entity.rows.push(newRow)
       await saveDocument(filePath, doc)
       return { rowId: id, rowCount: entity.rows.length }
@@ -194,7 +198,11 @@ export async function handleManageEntities(
       if (!row) throw new Error(`Row not found: ${params.rowId}`)
 
       if (params.fieldValues) {
-        Object.assign(row.values, params.fieldValues)
+        // Map field-name keys to field-ID keys
+        for (const [key, val] of Object.entries(params.fieldValues)) {
+          const field = entity.fields.find((f) => f.name === key)
+          row.values[field ? field.id : key] = val
+        }
       }
       await saveDocument(filePath, doc)
       return { ok: true }

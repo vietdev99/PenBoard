@@ -42,6 +42,23 @@ export function findNodeInTree(
   return undefined
 }
 
+/** Search ALL pages in a document for a node by ID. Returns the node and the pageId where it was found. */
+export function findNodeAcrossPages(
+  doc: PenDocument,
+  nodeId: string,
+): { node: PenNode; pageId: string | undefined } | undefined {
+  if (doc.pages && doc.pages.length > 0) {
+    for (const page of doc.pages) {
+      const found = findNodeInTree(page.children, nodeId)
+      if (found) return { node: found, pageId: page.id }
+    }
+  }
+  // Fallback: search doc.children (no pages)
+  const found = findNodeInTree(doc.children, nodeId)
+  if (found) return { node: found, pageId: undefined }
+  return undefined
+}
+
 export function findParentInTree(
   nodes: PenNode[],
   id: string,

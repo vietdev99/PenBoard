@@ -46,6 +46,7 @@ import {
   handleWriteDoc,
   handleReadDoc,
 } from './tools/workspace'
+import { handleGetProjectContext } from './tools/project-context'
 
 // --- Tool definitions (shared across all Server instances) ---
 
@@ -682,6 +683,119 @@ export const TOOL_DEFINITIONS = [
       required: ['action'],
     },
   },
+  {
+    name: 'generate_preview',
+    description:
+      'Generate an interactive HTML preview for a screen page and return its URL. Requires a running PenBoard instance. Only screen pages are previewable (ERD and component pages return an error). Each call generates a fresh static snapshot.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        filePath: { type: 'string', description: 'Path to .pb/.op file, or omit for live canvas' },
+        pageId: { type: 'string', description: 'ID of the page to preview (must be a screen page)' },
+        frameId: { type: 'string', description: 'Optional: preview only this specific frame instead of the entire page' },
+      },
+      required: ['pageId'],
+    },
+  },
+  {
+    name: 'export_workflow',
+    description:
+      'Export the workflow diagram showing screen connections and data flows. Formats: "mermaid" (text, always available), "svg" (base64, requires mermaid-cli), "png" (base64, requires mermaid-cli). Use focusPageId to filter to a specific page and its neighbors.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        filePath: { type: 'string', description: 'Path to .pb/.op file, or omit for live canvas' },
+        format: { type: 'string', enum: ['mermaid', 'svg', 'png'], description: 'Output format (default: mermaid)' },
+        focusPageId: { type: 'string', description: 'Optional: filter diagram to this page and its direct neighbors' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'write_flow',
+    description:
+      'Write or update a mermaid business flow document in the .penboard/flows/ workspace directory. Creates the directory structure if needed. Auto-updates manifest.json.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Flow file name (without .md extension), e.g. "auth-flow"' },
+        content: { type: 'string', description: 'Full markdown content including mermaid code blocks' },
+      },
+      required: ['name', 'content'],
+    },
+  },
+  {
+    name: 'read_flow',
+    description: 'Read a mermaid business flow document from .penboard/flows/ workspace directory.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Flow file name (without .md extension)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'list_flows',
+    description: 'List all mermaid business flow documents in .penboard/flows/ workspace directory.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'write_doc',
+    description:
+      'Write or update a context document in .penboard/docs/ workspace directory. Useful for AI-readable project documentation. Auto-updates manifest.json.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        category: { type: 'string', description: 'Document category subfolder, e.g. "context", "specs"' },
+        name: { type: 'string', description: 'Document file name (without .md extension)' },
+        content: { type: 'string', description: 'Full markdown content' },
+      },
+      required: ['category', 'name', 'content'],
+    },
+  },
+  {
+    name: 'read_doc',
+    description: 'Read a context document from .penboard/docs/ workspace directory.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        category: { type: 'string', description: 'Document category subfolder' },
+        name: { type: 'string', description: 'Document file name (without .md extension)' },
+      },
+      required: ['category', 'name'],
+    },
+  },
+  {
+    name: 'get_project_context',
+    description:
+      'Get complete project context in one call — pages, screens, entities (ERD), connections (navigation), ' +
+      'workflow diagram, business flow documents, and context docs. Designed for AI agents to fully understand ' +
+      'the project before making changes. Always call this first when joining a project.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        filePath: { type: 'string', description: 'Path to .pb/.op file, or omit for live canvas' },
+        includeFlowContent: {
+          type: 'boolean',
+          description: 'Include full markdown content of flow documents (default: true). Set false for summary only.',
+        },
+        includeDocContent: {
+          type: 'boolean',
+          description: 'Include full markdown content of context docs (default: true). Set false for summary only.',
+        },
+        nodeDepth: {
+          type: 'number',
+          description: 'Depth of node tree summary per frame (default: 2). Higher = more detail, more tokens.',
+        },
+      },
+      required: [],
+    },
+  },
 ]
 
 // --- Tool execution handler ---
@@ -781,6 +895,8 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return JSON.stringify(await handleWriteDoc(a), null, 2)
     case 'read_doc':
       return JSON.stringify(await handleReadDoc(a), null, 2)
+    case 'get_project_context':
+      return JSON.stringify(await handleGetProjectContext(a), null, 2)
 
     default:
       throw new Error(`Unknown tool: ${name}`)

@@ -16,3 +16,5 @@ electron-dist/
 dist-electron/
 .openpencil-tmp/
 scripts/figma-*
+*.pb
+.penboard/

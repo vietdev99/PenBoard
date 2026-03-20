@@ -54,7 +54,7 @@ export const WORKFLOW_TOOLS = [
         focusPageId: {
           type: 'string',
           description:
-            'Optional: filter diagram to this page and its direct neighbors',
+            'Optional: filter diagram to this page/module and its direct neighbors',
         },
       },
       required: [],

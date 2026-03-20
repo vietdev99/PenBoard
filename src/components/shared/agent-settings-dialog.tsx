@@ -365,16 +365,16 @@ export default function AgentSettingsDialog() {
   }, [mcpServerRunning, mcpHttpPort, setMcpServerStatus, t])
 
   const handleCopyConfig = useCallback(() => {
-    if (!mcpServerLocalIp) return
+    if (!mcpServerRunning) return
     const config = JSON.stringify(
-      { type: 'http', url: `http://${mcpServerLocalIp}:${mcpHttpPort}/mcp` },
+      { type: 'http', url: `http://127.0.0.1:${mcpHttpPort}/mcp` },
       null,
       2,
     )
     navigator.clipboard.writeText(config)
     setConfigCopied(true)
     setTimeout(() => setConfigCopied(false), 2000)
-  }, [mcpServerLocalIp, mcpHttpPort])
+  }, [mcpServerRunning, mcpHttpPort])
 
   const handleToggleMCP = useCallback(
     async (tool: string) => {
@@ -525,7 +525,7 @@ export default function AgentSettingsDialog() {
                 )}
               </Button>
             </div>
-            {mcpServerRunning && mcpServerLocalIp && (
+            {mcpServerRunning && (
               <div className="mt-1.5 px-3 py-1.5 rounded-lg bg-secondary/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground">{t('agents.mcpClientConfig')}</span>
@@ -538,7 +538,7 @@ export default function AgentSettingsDialog() {
                     {configCopied ? <Check size={9} className="text-green-500" /> : <Copy size={9} />}
                   </Button>
                 </div>
-                <code className="text-[10px] text-muted-foreground font-mono select-all leading-none">{`{ "type": "http", "url": "http://${mcpServerLocalIp}:${mcpHttpPort}/mcp" }`}</code>
+                <code className="text-[10px] text-muted-foreground font-mono select-all leading-none">{`{ "type": "http", "url": "http://127.0.0.1:${mcpHttpPort}/mcp" }`}</code>
               </div>
             )}
             {mcpServerError && (

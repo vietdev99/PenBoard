@@ -995,6 +995,8 @@ export default function SkiaCanvas() {
             if (rn.clipRect) {
               rn.clipRect = { ...rn.clipRect, x: rn.clipRect.x + incrDx, y: rn.clipRect.y + incrDy }
             }
+            // Keep rnMap in sync so connection arrows follow dragged nodes
+            engine.rnMap.set(rn.node.id, { absX: rn.absX, absY: rn.absY, absW: rn.absW, absH: rn.absH })
           }
         }
 

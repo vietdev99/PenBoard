@@ -412,7 +412,7 @@ export class SkiaEngine {
   private labelNodes: RenderNode[] = []       // Root frames + reusable nodes with names
   private reusableRenderNodes: RenderNode[] = [] // Render nodes for reusable component badges
   private rootFrameNodes: RenderNode[] = []   // Root frames (no clipRect) for dim overlays
-  private rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
+  rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
 
   // Agent animation: track start time so glow only pulses ~2 times
   private agentAnimStart = 0
@@ -1257,10 +1257,22 @@ export class SkiaEngine {
           }
         }
 
+        // Expand selection to include ancestor root frames so child selection
+        // inherits parent connections (e.g. selecting a button inside Login Screen
+        // should find Login Screen's connections)
+        const expandedSelection = new Set<string>(selectedIds)
+        for (const id of selectedIds) {
+          let current = docState.getParentOf(id)
+          while (current) {
+            expandedSelection.add(current.id)
+            current = docState.getParentOf(current.id)
+          }
+        }
+
         // BFS: trace full chain forward (outputs) and backward (inputs) from selected
-        const visitedIds = new Set<string>(selectedIds)
+        const visitedIds = new Set<string>(expandedSelection)
         const chainConns = new Set<typeof allConnections[0]>()
-        const queue = [...selectedIds]
+        const queue = [...expandedSelection]
         while (queue.length > 0) {
           const id = queue.shift()!
           // Forward: connections FROM this element

@@ -157,7 +157,7 @@ function uninstallMcpServer(config: Record<string, any>): Record<string, any> {
 
 const CLI_CONFIGS: Record<string, CliConfigDef> = {
   'claude-code': {
-    configPath: () => join(homedir(), '.claude.json'),
+    configPath: () => join(homedir(), '.claude', 'settings.json'),
     read: readJsonConfig,
     write: writeJsonConfig,
   },

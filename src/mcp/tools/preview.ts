@@ -32,7 +32,8 @@ export const PREVIEW_TOOLS = [
   {
     name: 'generate_preview',
     description:
-      'Generate an interactive HTML preview for a screen page and return its URL. ' +
+      'Generate an interactive HTML preview for a page (module) and return its URL. ' +
+      'Pages act as modules — each page can contain multiple screens/views (frames) laid out side by side. ' +
       'Requires a running PenBoard instance. Only screen pages are previewable ' +
       '(ERD and component pages return an error). Each call generates a fresh static snapshot.',
     inputSchema: {
@@ -44,7 +45,7 @@ export const PREVIEW_TOOLS = [
         },
         pageId: {
           type: 'string',
-          description: 'ID of the page to preview (must be a screen page)',
+          description: 'ID of the page/module to preview (must be a screen page). Each page is a module that can contain multiple screens/views.',
         },
         frameId: {
           type: 'string',

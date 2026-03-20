@@ -1,6 +1,7 @@
 import { openDocument, saveDocument, resolveDocPath } from '../document-manager'
 import {
   findNodeInTree,
+  findNodeAcrossPages,
   findParentInTree,
   insertNodeInTree,
   updateNodeInTree,
@@ -258,17 +259,30 @@ export async function handleMoveNode(
   const filePath = resolveDocPath(params.filePath)
   let doc = await openDocument(filePath)
   doc = structuredClone(doc)
-  const pageId = params.pageId
+  const targetPageId = params.pageId
 
-  const node = findNodeInTree(getDocChildren(doc, pageId), params.nodeId)
-  if (!node) throw new Error(`Node not found: ${params.nodeId}`)
+  // First try to find node on the target page
+  let node = findNodeInTree(getDocChildren(doc, targetPageId), params.nodeId)
+  let sourcePageId: string | undefined = targetPageId
 
-  let children = removeNodeFromTree(getDocChildren(doc, pageId), params.nodeId)
-  children = insertNodeInTree(children, params.parent, node, params.index)
-  setDocChildren(doc, children, pageId)
+  // If not found on target page, search all pages
+  if (!node) {
+    const result = findNodeAcrossPages(doc, params.nodeId)
+    if (!result) throw new Error(`Node not found: ${params.nodeId}`)
+    node = result.node
+    sourcePageId = result.pageId
+  }
+
+  // Remove from source page
+  const sourceChildren = removeNodeFromTree(getDocChildren(doc, sourcePageId), params.nodeId)
+  setDocChildren(doc, sourceChildren, sourcePageId)
+
+  // Insert into target page
+  const targetChildren = insertNodeInTree(getDocChildren(doc, targetPageId), params.parent, node, params.index)
+  setDocChildren(doc, targetChildren, targetPageId)
 
   await saveDocument(filePath, doc)
-  const parentNode = findParentInTree(getDocChildren(doc, pageId), params.nodeId)
+  const parentNode = findParentInTree(getDocChildren(doc, targetPageId), params.nodeId)
   return { ok: true, nodeId: params.nodeId, parentId: parentNode?.id ?? null }
 }
 
@@ -290,10 +304,17 @@ export async function handleCopyNode(
   const filePath = resolveDocPath(params.filePath)
   let doc = await openDocument(filePath)
   doc = structuredClone(doc)
-  const pageId = params.pageId
+  const targetPageId = params.pageId
 
-  const source = findNodeInTree(getDocChildren(doc, pageId), params.sourceId)
-  if (!source) throw new Error(`Source node not found: ${params.sourceId}`)
+  // First try to find source on the target page
+  let source = findNodeInTree(getDocChildren(doc, targetPageId), params.sourceId)
+
+  // If not found on target page, search all pages
+  if (!source) {
+    const result = findNodeAcrossPages(doc, params.sourceId)
+    if (!result) throw new Error(`Source node not found: ${params.sourceId}`)
+    source = result.node
+  }
 
   const cloned = cloneNodeWithNewIds(source, generateId)
   if (params.overrides) {
@@ -303,11 +324,11 @@ export async function handleCopyNode(
     if (safe.id) delete (cloned as unknown as Record<string, unknown>).id
   }
 
-  setDocChildren(doc, insertNodeInTree(getDocChildren(doc, pageId), params.parent, cloned), pageId)
+  setDocChildren(doc, insertNodeInTree(getDocChildren(doc, targetPageId), params.parent, cloned), targetPageId)
   await saveDocument(filePath, doc)
   return {
     nodeId: cloned.id,
-    nodeCount: countNodes(getDocChildren(doc, pageId)),
+    nodeCount: countNodes(getDocChildren(doc, targetPageId)),
   }
 }
 
