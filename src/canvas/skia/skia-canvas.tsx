@@ -1212,25 +1212,32 @@ export default function SkiaCanvas() {
           }
 
           // Check if dragged into a different frame (reparent into frame)
-          const dropTargetFrame = engine.renderNodes.find((rn) => {
-            if (rn.node.id === orig.id) return false
-            if (rn.node.type !== 'frame') return false
-            if (parent && rn.node.id === parent.id) return false // already a child
-            if (docStore.isDescendantOf(rn.node.id, orig.id)) return false // can't drop into own descendant
-            // Node center must be inside the frame
-            const cx = objBounds.x + objBounds.w / 2
-            const cy = objBounds.y + objBounds.h / 2
-            return cx >= rn.absX && cx <= rn.absX + rn.absW &&
-                   cy >= rn.absY && cy <= rn.absY + rn.absH
-          })
+          // Only for non-frame nodes — root frames (screens) should never be
+          // auto-reparented into other frames by drag alone.
+          const draggedNode = docStore.getNodeById(orig.id)
+          const isRootFrame = !parent && draggedNode?.type === 'frame'
 
-          if (dropTargetFrame && !parent) {
-            // Reparent into the target frame with position relative to frame
-            const relX = objBounds.x - dropTargetFrame.absX
-            const relY = objBounds.y - dropTargetFrame.absY
-            docStore.updateNode(orig.id, { x: relX, y: relY } as Partial<PenNode>)
-            docStore.moveNode(orig.id, dropTargetFrame.node.id, 999999)
-            continue
+          if (!isRootFrame) {
+            const dropTargetFrame = engine.renderNodes.find((rn) => {
+              if (rn.node.id === orig.id) return false
+              if (rn.node.type !== 'frame') return false
+              if (parent && rn.node.id === parent.id) return false // already a child
+              if (docStore.isDescendantOf(rn.node.id, orig.id)) return false // can't drop into own descendant
+              // Node center must be inside the frame
+              const cx = objBounds.x + objBounds.w / 2
+              const cy = objBounds.y + objBounds.h / 2
+              return cx >= rn.absX && cx <= rn.absX + rn.absW &&
+                     cy >= rn.absY && cy <= rn.absY + rn.absH
+            })
+
+            if (dropTargetFrame && !parent) {
+              // Reparent into the target frame with position relative to frame
+              const relX = objBounds.x - dropTargetFrame.absX
+              const relY = objBounds.y - dropTargetFrame.absY
+              docStore.updateNode(orig.id, { x: relX, y: relY } as Partial<PenNode>)
+              docStore.moveNode(orig.id, dropTargetFrame.node.id, 999999)
+              continue
+            }
           }
 
           // Check if node is inside a layout container
