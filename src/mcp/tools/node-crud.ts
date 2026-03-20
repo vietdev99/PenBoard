@@ -70,6 +70,11 @@ function validateNodeTree(data: Record<string, unknown>): void {
 
 export function postProcessNode(doc: PenDocument, canvasWidth: number, pageId?: string): void {
   const children = getDocChildren(doc, pageId)
+  // Shared ID sets across ALL root frames to prevent cross-frame duplicates.
+  // Without this, two frames on the same page can have children with identical
+  // IDs, causing drag/selection to affect the wrong frame's children.
+  const usedIds = new Set<string>()
+  const idCounters = new Map<string, number>()
   for (const target of children) {
     resolveTreeRoles(target, canvasWidth)
     resolveTreePostPass(target, canvasWidth)
@@ -80,8 +85,6 @@ export function postProcessNode(doc: PenDocument, canvasWidth: number, pageId?: 
       if (node.type === 'text') applyNoEmojiIconHeuristic(node)
     }
 
-    const usedIds = new Set<string>()
-    const idCounters = new Map<string, number>()
     ensureUniqueNodeIds(target, usedIds, idCounters)
     sanitizeLayoutChildPositions(target, false)
     sanitizeScreenFrameBounds(target)

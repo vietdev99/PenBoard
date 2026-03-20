@@ -98,27 +98,35 @@ export function migrateToPages(doc: PenDocument): PenDocument {
   }
 }
 
-/** Recursively ensure all nodes in the tree have an `id`. */
-function ensureNodeIdsInTree(nodes: PenNode[]): void {
+/** Recursively ensure all nodes in the tree have an `id` and deduplicate. */
+function ensureNodeIdsInTree(nodes: PenNode[], seen: Set<string>): void {
   for (const node of nodes) {
     if (!node.id) {
       ;(node as PenNodeBase).id = nanoid()
     }
+    // Deduplicate: if this ID was already seen, assign a new one
+    if (seen.has(node.id)) {
+      ;(node as PenNodeBase).id = nanoid()
+    }
+    seen.add(node.id)
     if ('children' in node && node.children) {
-      ensureNodeIdsInTree(node.children)
+      ensureNodeIdsInTree(node.children, seen)
     }
   }
 }
 
-/** Ensure all nodes in a document have IDs (mutates in place). */
+/** Ensure all nodes in a document have unique IDs (mutates in place). */
 export function ensureDocumentNodeIds(doc: PenDocument): PenDocument {
+  const seen = new Set<string>()
   if (doc.pages) {
     for (const page of doc.pages) {
       if (!page.id) page.id = nanoid()
-      ensureNodeIdsInTree(page.children)
+      if (seen.has(page.id)) page.id = nanoid()
+      seen.add(page.id)
+      ensureNodeIdsInTree(page.children, seen)
     }
   }
-  ensureNodeIdsInTree(doc.children)
+  ensureNodeIdsInTree(doc.children, seen)
   return doc
 }
 

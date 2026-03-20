@@ -431,6 +431,8 @@ export default function SkiaCanvas() {
     let dragPrevDy = 0
     /** Set of node IDs being dragged (including descendants). */
     let dragAllIds: Set<string> | null = null
+    /** ClipRect references of dragged root frames — used to disambiguate duplicate IDs. */
+    let dragClipRefs: Set<object> | null = null
     const DRAG_THRESHOLD = 3
 
     // --- Resize handle state ---
@@ -964,7 +966,9 @@ export default function SkiaCanvas() {
           engine.dragSyncSuppressed = true
           dragPrevDx = 0
           dragPrevDy = 0
-          // Collect all node IDs being moved (selected + their descendants)
+          // Collect render nodes being moved (selected + their descendants).
+          // Use render node references instead of just IDs to avoid false
+          // matches when duplicate IDs exist across different frames.
           dragAllIds = new Set(dragNodeIds)
           for (const id of dragNodeIds) {
             const collectDescs = (nodeId: string) => {
@@ -978,6 +982,24 @@ export default function SkiaCanvas() {
             }
             collectDescs(id)
           }
+
+          // Build set of clipRect references belonging to dragged root frames
+          // so we can disambiguate duplicate IDs across different frames.
+          dragClipRefs = new Set<object>()
+          for (const rn of engine.renderNodes) {
+            if (dragNodeIds.includes(rn.node.id) && !rn.clipRect) {
+              // Root frame — find the clipRect used by its children
+              for (const crn of engine.renderNodes) {
+                if (crn.clipRect && dragAllIds!.has(crn.node.id)) {
+                  dragClipRefs!.add(crn.clipRect)
+                  break
+                }
+              }
+            } else if (dragNodeIds.includes(rn.node.id) && rn.clipRect) {
+              // Non-root drag target — its clipRect is the parent's
+              dragClipRefs!.add(rn.clipRect)
+            }
+          }
         }
 
         // Apply incremental delta directly to render nodes for immediate feedback
@@ -987,7 +1009,12 @@ export default function SkiaCanvas() {
         dragPrevDy = dy
 
         for (const rn of engine.renderNodes) {
-          if (dragAllIds!.has(rn.node.id)) {
+          if (!dragAllIds!.has(rn.node.id)) continue
+          // Verify render node actually belongs to the dragged frame.
+          // Prevents moving children of a different frame with duplicate IDs.
+          const isDirect = dragNodeIds.includes(rn.node.id)
+          const clipMatches = rn.clipRect ? dragClipRefs!.has(rn.clipRect) : dragClipRefs!.size === 0
+          if (isDirect || clipMatches) {
             rn.absX += incrDx
             rn.absY += incrDy
             rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
@@ -1001,10 +1028,13 @@ export default function SkiaCanvas() {
         }
 
         // --- Alignment guides: compute and snap ---
-        // Compute bounding box of all dragged nodes
+        // Compute bounding box of all dragged nodes (with clip verification)
         let dMinX = Infinity, dMinY = Infinity, dMaxX = -Infinity, dMaxY = -Infinity
         for (const rn of engine.renderNodes) {
-          if (dragAllIds!.has(rn.node.id)) {
+          if (!dragAllIds!.has(rn.node.id)) continue
+          const isDirect = dragNodeIds.includes(rn.node.id)
+          const clipOk = rn.clipRect ? dragClipRefs!.has(rn.clipRect) : dragClipRefs!.size === 0
+          if (isDirect || clipOk) {
             dMinX = Math.min(dMinX, rn.absX)
             dMinY = Math.min(dMinY, rn.absY)
             dMaxX = Math.max(dMaxX, rn.absX + rn.absW)
@@ -1016,10 +1046,13 @@ export default function SkiaCanvas() {
         const { guides, snapDx, snapDy } = computeGuides(dragBounds, engine.renderNodes, dragAllIds!, threshold)
         engine.activeGuides = guides
 
-        // Apply snap offset to dragged nodes
+        // Apply snap offset to dragged nodes (with clip verification)
         if (snapDx !== 0 || snapDy !== 0) {
           for (const rn of engine.renderNodes) {
-            if (dragAllIds!.has(rn.node.id)) {
+            if (!dragAllIds!.has(rn.node.id)) continue
+            const isDirect = dragNodeIds.includes(rn.node.id)
+            const clipOk = rn.clipRect ? dragClipRefs!.has(rn.clipRect) : dragClipRefs!.size === 0
+            if (isDirect || clipOk) {
               rn.absX += snapDx
               rn.absY += snapDy
               rn.node = { ...rn.node, x: rn.absX, y: rn.absY }
@@ -1285,6 +1318,7 @@ export default function SkiaCanvas() {
       dragNodeIds = []
       dragOrigPositions = []
       dragAllIds = null
+      dragClipRefs = null
       if (isMarquee && engine) {
         engine.marquee = null
         engine.markDirty()
