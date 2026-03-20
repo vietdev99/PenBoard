@@ -12,6 +12,7 @@ import {
   Minimize,
   Blocks,
   Play,
+  GitBranch,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ClaudeLogo from '@/components/icons/claude-logo'
@@ -40,7 +41,7 @@ import {
   openDocumentFS,
   openDocument,
 } from '@/utils/file-operations'
-import { syncCanvasPositionsToStore } from '@/canvas/skia-engine-ref'
+import { syncCanvasPositionsToStore, loadDocumentWithProgress } from '@/canvas/skia-engine-ref'
 import { zoomToFitContent } from '@/canvas/skia-engine-ref'
 import { normalizePenDocument } from '@/utils/normalize-pen-file'
 import { useAgentSettingsStore } from '@/stores/agent-settings-store'
@@ -284,25 +285,6 @@ export default function TopBar() {
   }, [])
 
   const handleOpen = useCallback(() => {
-    const showLoading = (name: string) =>
-      useCanvasStore.getState().setFileLoading({ open: true, name })
-    const hideLoading = () =>
-      useCanvasStore.getState().setFileLoading(null)
-    const loadAndFit = (loadFn: () => void) => {
-      // Yield to browser paint so the modal renders before heavy sync work
-      setTimeout(() => {
-        try {
-          loadFn()
-          requestAnimationFrame(() => {
-            zoomToFitContent()
-            hideLoading()
-          })
-        } catch {
-          hideLoading()
-        }
-      }, 50)
-    }
-
     if (isElectron()) {
       window.electronAPI!.openFile().then((result) => {
         if (!result) return
@@ -311,21 +293,27 @@ export default function TopBar() {
           if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
           const doc = normalizePenDocument(raw)
           const name = result.filePath.split(/[/\\]/).pop() || 'untitled.op'
-          showLoading(name)
-          loadAndFit(() => useDocumentStore.getState().loadDocument(doc, name, null, result.filePath))
+          loadDocumentWithProgress(
+            () => useDocumentStore.getState().loadDocument(doc, name, null, result.filePath),
+            name,
+          )
         } catch { /* invalid file */ }
       })
     } else if (supportsFileSystemAccess()) {
       openDocumentFS().then((result) => {
         if (!result) return
-        showLoading(result.fileName)
-        loadAndFit(() => useDocumentStore.getState().loadDocument(result.doc, result.fileName, result.handle))
+        loadDocumentWithProgress(
+          () => useDocumentStore.getState().loadDocument(result.doc, result.fileName, result.handle),
+          result.fileName,
+        )
       })
     } else {
       openDocument().then((result) => {
         if (!result) return
-        showLoading(result.fileName)
-        loadAndFit(() => useDocumentStore.getState().loadDocument(result.doc, result.fileName))
+        loadDocumentWithProgress(
+          () => useDocumentStore.getState().loadDocument(result.doc, result.fileName),
+          result.fileName,
+        )
       })
     }
   }, [])
@@ -430,6 +418,20 @@ export default function TopBar() {
           <TooltipContent side="bottom">{t('editor.preview', 'Preview')}</TooltipContent>
         </Tooltip>
 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={useCanvasStore.getState().workflowPanelOpen ? 'text-foreground' : 'text-muted-foreground'}
+              onClick={() => useCanvasStore.getState().toggleWorkflowPanel()}
+            >
+              <GitBranch size={15} strokeWidth={1.5} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Workflow (⌘⇧W)</TooltipContent>
+        </Tooltip>
+
         <div className="w-px h-3.5 bg-border/60 mx-1" />
 
         <AgentStatusButton />
@@ -464,6 +466,7 @@ export default function TopBar() {
       <LoadingModal
         open={fileLoading?.open ?? false}
         fileName={fileLoading?.name}
+        status={fileLoading?.status}
       />
     </div>
   )

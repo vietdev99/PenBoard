@@ -16,7 +16,7 @@ import {
   openDocumentFS,
   openDocument,
 } from '@/utils/file-operations'
-import { syncCanvasPositionsToStore, zoomToFitContent } from '@/canvas/skia-engine-ref'
+import { syncCanvasPositionsToStore, loadDocumentWithProgress } from '@/canvas/skia-engine-ref'
 import type { ToolType } from '@/types/canvas'
 
 const TOOL_KEYS: Record<string, ToolType> = {
@@ -214,42 +214,20 @@ export function useKeyboardShortcuts() {
       // Open: Cmd/Ctrl+O
       if (isMod && e.key === 'o' && !e.shiftKey) {
         e.preventDefault()
-        const showLoading = (name: string) =>
-          useCanvasStore.getState().setFileLoading({ open: true, name })
-        const hideLoading = () =>
-          useCanvasStore.getState().setFileLoading(null)
-        const loadAndFit = (loadFn: () => void) => {
-          setTimeout(() => {
-            try {
-              loadFn()
-              requestAnimationFrame(() => {
-                zoomToFitContent()
-                hideLoading()
-              })
-            } catch {
-              hideLoading()
-            }
-          }, 50)
-        }
-
         if (supportsFileSystemAccess()) {
           openDocumentFS().then((result) => {
             if (!result) return
-            showLoading(result.fileName)
-            loadAndFit(() =>
-              useDocumentStore
-                .getState()
-                .loadDocument(result.doc, result.fileName, result.handle),
+            loadDocumentWithProgress(
+              () => useDocumentStore.getState().loadDocument(result.doc, result.fileName, result.handle),
+              result.fileName,
             )
           })
         } else {
           openDocument().then((result) => {
             if (!result) return
-            showLoading(result.fileName)
-            loadAndFit(() =>
-              useDocumentStore
-                .getState()
-                .loadDocument(result.doc, result.fileName),
+            loadDocumentWithProgress(
+              () => useDocumentStore.getState().loadDocument(result.doc, result.fileName),
+              result.fileName,
             )
           })
         }

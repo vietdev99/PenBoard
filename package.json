@@ -72,6 +72,7 @@
         "i18next-browser-languagedetector": "^8.2.1",
         "kiwi-schema": "^0.5.0",
         "lucide-react": "^0.545.0",
+        "mermaid": "^11.13.0",
         "nanoid": "^5.1.6",
         "nitro": "npm:nitro-nightly@latest",
         "paper": "^0.12.18",

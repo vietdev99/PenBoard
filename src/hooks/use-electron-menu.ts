@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore } from '@/stores/document-store'
 import { useHistoryStore } from '@/stores/history-store'
-import { zoomToFitContent } from '@/canvas/skia-engine-ref'
+import { zoomToFitContent, loadDocumentWithProgress } from '@/canvas/skia-engine-ref'
 import { syncCanvasPositionsToStore } from '@/canvas/skia-engine-ref'
 import { normalizePenDocument } from '@/utils/normalize-pen-file'
 import {
@@ -21,24 +21,6 @@ export function useElectronMenu() {
     const api = window.electronAPI
     if (!api?.onMenuAction) return
 
-    const showLoading = (name: string) =>
-      useCanvasStore.getState().setFileLoading({ open: true, name })
-    const hideLoading = () =>
-      useCanvasStore.getState().setFileLoading(null)
-    const loadAndFit = (loadFn: () => void) => {
-      setTimeout(() => {
-        try {
-          loadFn()
-          requestAnimationFrame(() => {
-            zoomToFitContent()
-            hideLoading()
-          })
-        } catch {
-          hideLoading()
-        }
-      }, 50)
-    }
-
     const loadFileFromPath = (filePath: string) => {
       api.readFile?.(filePath).then((result) => {
         if (!result) return
@@ -47,8 +29,10 @@ export function useElectronMenu() {
           if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
           const doc = normalizePenDocument(raw)
           const name = filePath.split(/[/\\]/).pop() || 'untitled.pb'
-          showLoading(name)
-          loadAndFit(() => useDocumentStore.getState().loadDocument(doc, name, null, filePath))
+          loadDocumentWithProgress(
+            () => useDocumentStore.getState().loadDocument(doc, name, null, filePath),
+            name,
+          )
         } catch {
           // Invalid file — ignore
         }
@@ -79,11 +63,9 @@ export function useElectronMenu() {
                 if (!raw.version || (!Array.isArray(raw.children) && !Array.isArray(raw.pages))) return
                 const doc = normalizePenDocument(raw)
                 const name = result.filePath.split(/[/\\]/).pop() || 'untitled.pb'
-                showLoading(name)
-                loadAndFit(() =>
-                  useDocumentStore
-                    .getState()
-                    .loadDocument(doc, name, null, result.filePath),
+                loadDocumentWithProgress(
+                  () => useDocumentStore.getState().loadDocument(doc, name, null, result.filePath),
+                  name,
                 )
               } catch {
                 // Invalid file
@@ -92,21 +74,17 @@ export function useElectronMenu() {
           } else if (supportsFileSystemAccess()) {
             openDocumentFS().then((result) => {
               if (!result) return
-              showLoading(result.fileName)
-              loadAndFit(() =>
-                useDocumentStore
-                  .getState()
-                  .loadDocument(result.doc, result.fileName, result.handle),
+              loadDocumentWithProgress(
+                () => useDocumentStore.getState().loadDocument(result.doc, result.fileName, result.handle),
+                result.fileName,
               )
             })
           } else {
             openDocument().then((result) => {
               if (!result) return
-              showLoading(result.fileName)
-              loadAndFit(() =>
-                useDocumentStore
-                  .getState()
-                  .loadDocument(result.doc, result.fileName),
+              loadDocumentWithProgress(
+                () => useDocumentStore.getState().loadDocument(result.doc, result.fileName),
+                result.fileName,
               )
             })
           }

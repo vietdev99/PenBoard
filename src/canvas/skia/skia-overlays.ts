@@ -24,6 +24,29 @@ const textImageCache = new Map<string, { img: SkImage; w: number; h: number }>()
 const textCacheOrder: string[] = []
 const TEXT_CACHE_MAX = 200
 
+// Shared canvases for overlay text — avoids document.createElement per call
+let _overlayMeasureCtx: CanvasRenderingContext2D | null = null
+function getOverlayMeasureCtx(): CanvasRenderingContext2D {
+  if (!_overlayMeasureCtx) {
+    _overlayMeasureCtx = document.createElement('canvas').getContext('2d')!
+  }
+  return _overlayMeasureCtx
+}
+
+let _overlayRasterCanvas: HTMLCanvasElement | null = null
+let _overlayRasterCtx: CanvasRenderingContext2D | null = null
+function getOverlayRasterCtx(w: number, h: number): CanvasRenderingContext2D {
+  if (!_overlayRasterCtx) {
+    _overlayRasterCanvas = document.createElement('canvas')
+    _overlayRasterCtx = _overlayRasterCanvas.getContext('2d', { willReadFrequently: true })!
+  }
+  if (_overlayRasterCanvas!.width < w || _overlayRasterCanvas!.height < h) {
+    _overlayRasterCanvas!.width = Math.max(_overlayRasterCanvas!.width, w)
+    _overlayRasterCanvas!.height = Math.max(_overlayRasterCanvas!.height, h)
+  }
+  return _overlayRasterCtx
+}
+
 function evictTextCache() {
   while (textCacheOrder.length > TEXT_CACHE_MAX) {
     const key = textCacheOrder.shift()!
@@ -33,10 +56,9 @@ function evictTextCache() {
   }
 }
 
-/** Measure text width using Canvas 2D. */
+/** Measure text width using Canvas 2D (reuses shared canvas). */
 function measureText(text: string, fontSize: number, fontWeight = '500'): number {
-  const c = document.createElement('canvas')
-  const ctx = c.getContext('2d')!
+  const ctx = getOverlayMeasureCtx()
   ctx.font = `${fontWeight} ${Math.ceil(fontSize)}px ${OVERLAY_FONT}`
   return ctx.measureText(text).width
 }
@@ -54,23 +76,25 @@ function drawText2D(
   let entry = textImageCache.get(cacheKey)
   if (!entry) {
     const scale = 2
-    const mc = document.createElement('canvas')
-    const mCtx = mc.getContext('2d')!
+    const mCtx = getOverlayMeasureCtx()
     mCtx.font = `${fontWeight} ${renderSize}px ${OVERLAY_FONT}`
     const metrics = mCtx.measureText(text)
     const tw = Math.ceil(metrics.width) + 4
     const th = renderSize + 6
 
-    mc.width = tw * scale
-    mc.height = th * scale
-    const ctx = mc.getContext('2d')!
+    const cw = tw * scale
+    const ch = th * scale
+    const ctx = getOverlayRasterCtx(cw, ch)
+    ctx.clearRect(0, 0, cw, ch)
+    ctx.save()
     ctx.scale(scale, scale)
     ctx.font = `${fontWeight} ${renderSize}px ${OVERLAY_FONT}`
     ctx.fillStyle = color
     ctx.textBaseline = 'top'
     ctx.fillText(text, 1, 2)
+    ctx.restore()
 
-    const imageData = ctx.getImageData(0, 0, mc.width, mc.height)
+    const imageData = ctx.getImageData(0, 0, cw, ch)
     const premul = new Uint8Array(imageData.data.length)
     for (let p = 0; p < premul.length; p += 4) {
       const a = imageData.data[p + 3]
@@ -89,12 +113,12 @@ function drawText2D(
     }
     const img = ck.MakeImage(
       {
-        width: mc.width, height: mc.height,
+        width: cw, height: ch,
         alphaType: ck.AlphaType.Premul,
         colorType: ck.ColorType.RGBA_8888,
         colorSpace: ck.ColorSpace.SRGB,
       },
-      premul, mc.width * 4,
+      premul, cw * 4,
     )
     if (!img) return 0
 
@@ -204,7 +228,7 @@ export function drawHoverOutline(
   paint.setStrokeWidth(1.5)
   paint.setColor(parseColor(ck, '#3b82f6'))
   const effect = ck.PathEffect.MakeDash([4, 4], 0)
-  if (effect) paint.setPathEffect(effect)
+  if (effect) { paint.setPathEffect(effect); effect.delete() }
   canvas.drawRect(ck.LTRBRect(x, y, x + w, y + h), paint)
   paint.delete()
 }
@@ -251,7 +275,7 @@ export function drawGuide(
   paint.setColor(parseColor(ck, '#FF6B35'))
   const dashLen = 3 / zoom
   const effect = ck.PathEffect.MakeDash([dashLen, dashLen], 0)
-  if (effect) paint.setPathEffect(effect)
+  if (effect) { paint.setPathEffect(effect); effect.delete() }
   canvas.drawLine(x1, y1, x2, y2, paint)
   paint.delete()
 }
@@ -327,7 +351,7 @@ export function drawPenPreview(
     paint.setColor(parseColor(ck, PEN_RUBBER_BAND_STROKE))
     const dashLen = PEN_RUBBER_BAND_DASH[0] * invZ
     const effect = ck.PathEffect.MakeDash([dashLen, dashLen], 0)
-    if (effect) paint.setPathEffect(effect)
+    if (effect) { paint.setPathEffect(effect); effect.delete() }
     canvas.drawLine(last.x, last.y, cursorPos.x, cursorPos.y, paint)
     paint.delete()
   }
@@ -544,7 +568,7 @@ export function drawAgentNodeBorder(
   paint.setAlphaf(breath * 0.7)
   const dashLen = 4 * invZ
   const effect = ck.PathEffect.MakeDash([dashLen, 3 * invZ], 0)
-  if (effect) paint.setPathEffect(effect)
+  if (effect) { paint.setPathEffect(effect); effect.delete() }
   canvas.drawRect(ck.LTRBRect(x, y, x + w, y + h), paint)
   paint.delete()
 }
@@ -721,7 +745,7 @@ export function drawCrossPageArrow(
   linePaint.setStrokeCap(ck.StrokeCap.Round)
   const dashLen = 6 * invZ
   const effect = ck.PathEffect.MakeDash([dashLen, 4 * invZ], 0)
-  if (effect) linePaint.setPathEffect(effect)
+  if (effect) { linePaint.setPathEffect(effect); effect.delete() }
   canvas.drawLine(x1, y1, x2, y2, linePaint)
   linePaint.delete()
 
@@ -911,7 +935,7 @@ export function drawOffScreenIndicator(
   arrowPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.6))
   const dashLen = 3 * invZ
   const effect = ck.PathEffect.MakeDash([dashLen, dashLen], 0)
-  if (effect) arrowPaint.setPathEffect(effect)
+  if (effect) { arrowPaint.setPathEffect(effect); effect.delete() }
   canvas.drawLine(fromX + fromW, y, x - padX, y, arrowPaint)
   arrowPaint.delete()
 

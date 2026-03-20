@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { normalizePenDocument } from '@/utils/normalize-pen-file'
+import { loadDocumentWithProgress } from '@/canvas/skia-engine-ref'
 import type { PenDocument } from '@/types/pen'
 
 /**
@@ -78,20 +79,10 @@ export function useFileDrop() {
     const result = await parseDroppedFile(file)
     if (!result) return
 
-    useCanvasStore.getState().setFileLoading({ open: true, name: result.fileName })
-    // Yield to browser paint so the modal renders before heavy sync
-    setTimeout(async () => {
-      try {
-        useDocumentStore.getState().loadDocument(result.doc, result.fileName)
-        const { zoomToFitContent } = await import('@/canvas/skia-engine-ref')
-        requestAnimationFrame(() => {
-          zoomToFitContent()
-          useCanvasStore.getState().setFileLoading(null)
-        })
-      } catch {
-        useCanvasStore.getState().setFileLoading(null)
-      }
-    }, 50)
+    loadDocumentWithProgress(
+      () => useDocumentStore.getState().loadDocument(result.doc, result.fileName),
+      result.fileName,
+    )
   }, [])
 
   useEffect(() => {

@@ -18,6 +18,7 @@ interface CanvasPreferences {
   variablesPanelOpen: boolean
   dataPanelOpen: boolean
   codePanelOpen: boolean
+  workflowPanelOpen?: boolean
   rightPanelTab?: RightPanelTab
 }
 
@@ -39,6 +40,7 @@ interface CanvasStoreState {
   variablesPanelOpen: boolean
   dataPanelOpen: boolean
   codePanelOpen: boolean
+  workflowPanelOpen: boolean
   rightPanelTab: RightPanelTab
   figmaImportDialogOpen: boolean
   pendingFigmaFile: File | null
@@ -47,7 +49,7 @@ interface CanvasStoreState {
   showConnections: boolean
   dragConnectState: DragConnectState | null
   pendingBindNodeId: string | null
-  fileLoading: { open: boolean; name: string } | null
+  fileLoading: { open: boolean; name: string; status?: string } | null
 
   toggleShowConnections: () => void
   setActiveTool: (tool: ToolType) => void
@@ -69,13 +71,15 @@ interface CanvasStoreState {
   setDataFocusEntityId: (id: string | null) => void
   toggleCodePanel: () => void
   setCodePanelOpen: (open: boolean) => void
+  toggleWorkflowPanel: () => void
+  setWorkflowPanelOpen: (open: boolean) => void
   setRightPanelTab: (tab: RightPanelTab) => void
   setFigmaImportDialogOpen: (open: boolean) => void
   setPendingFigmaFile: (file: File | null) => void
   setActivePageId: (pageId: string | null) => void
   setDragConnectState: (state: DragConnectState | null) => void
   setPendingBindNodeId: (id: string | null) => void
-  setFileLoading: (val: { open: boolean; name: string } | null) => void
+  setFileLoading: (val: { open: boolean; name: string; status?: string } | null) => void
   hydrate: () => void
 }
 
@@ -100,6 +104,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   variablesPanelOpen: false,
   dataPanelOpen: false,
   codePanelOpen: false,
+  workflowPanelOpen: false,
   rightPanelTab: 'design',
   figmaImportDialogOpen: false,
   pendingFigmaFile: null,
@@ -211,6 +216,17 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
     const { layerPanelOpen, variablesPanelOpen, dataPanelOpen } = get()
     persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen: open })
   },
+  toggleWorkflowPanel: () => {
+    const next = !get().workflowPanelOpen
+    set({ workflowPanelOpen: next })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen, workflowPanelOpen: next })
+  },
+  setWorkflowPanelOpen: (open) => {
+    set({ workflowPanelOpen: open })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen, workflowPanelOpen: open })
+  },
   setRightPanelTab: (tab) => {
     set({ rightPanelTab: tab })
     const { layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
@@ -232,6 +248,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       if (typeof data.variablesPanelOpen === 'boolean') set({ variablesPanelOpen: data.variablesPanelOpen })
       if (typeof data.dataPanelOpen === 'boolean') set({ dataPanelOpen: data.dataPanelOpen })
       if (typeof data.codePanelOpen === 'boolean') set({ codePanelOpen: data.codePanelOpen })
+      if (typeof data.workflowPanelOpen === 'boolean') set({ workflowPanelOpen: data.workflowPanelOpen })
       if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code' || data.rightPanelTab === 'navigate' || data.rightPanelTab === 'context') set({ rightPanelTab: data.rightPanelTab })
     } catch { /* ignore */ }
   },

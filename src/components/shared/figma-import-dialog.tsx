@@ -4,7 +4,7 @@ import { X, Upload, AlertCircle, Loader2, FileUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDocumentStore } from '@/stores/document-store'
 import { useCanvasStore } from '@/stores/canvas-store'
-import { zoomToFitContent, getSkiaEngineRef } from '@/canvas/skia-engine-ref'
+import { getSkiaEngineRef, loadDocumentWithProgress } from '@/canvas/skia-engine-ref'
 import { parseFigFile } from '@/services/figma/fig-parser'
 import { figmaToPenDocument, figmaAllPagesToPenDocument, getFigmaPages } from '@/services/figma/figma-node-mapper'
 import { resolveImageBlobs } from '@/services/figma/figma-image-resolver'
@@ -148,14 +148,11 @@ export default function FigmaImportDialog({ open, onClose }: FigmaImportDialogPr
         engine.renderer.fontManager.ensureFonts([...fontFamilies])
       }
 
-      // Load into the document store
-      useCanvasStore.getState().setFileLoading({ open: true, name: `${name}.op` })
-      useDocumentStore.getState().loadDocument(doc, `${name}.op`)
-      // Double-RAF ensures React effects (canvas sync) complete before fitting
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        zoomToFitContent()
-        useCanvasStore.getState().setFileLoading(null)
-      }))
+      // Load into the document store with progress UI
+      loadDocumentWithProgress(
+        () => useDocumentStore.getState().loadDocument(doc, `${name}.op`),
+        `${name}.op`,
+      )
 
       setProgress(100)
       setState('done')

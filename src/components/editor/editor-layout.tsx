@@ -10,6 +10,7 @@ import AIChatPanel, { AIChatMinimizedBar } from '@/components/panels/ai-chat-pan
 import VariablesPanel from '@/components/panels/variables-panel'
 import DataPanel from '@/components/panels/data-panel'
 import ComponentBrowserPanel from '@/components/panels/component-browser-panel'
+import WorkflowPanel from '@/components/panels/workflow-panel'
 import ExportDialog from '@/components/shared/export-dialog'
 import SaveDialog from '@/components/shared/save-dialog'
 import AgentSettingsDialog from '@/components/shared/agent-settings-dialog'
@@ -34,6 +35,7 @@ export default function EditorLayout() {
   const layerPanelOpen = useCanvasStore((s) => s.layerPanelOpen)
   const variablesPanelOpen = useCanvasStore((s) => s.variablesPanelOpen)
   const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
+  const workflowPanelOpen = useCanvasStore((s) => s.workflowPanelOpen)
   const figmaImportOpen = useCanvasStore((s) => s.figmaImportDialogOpen)
   const closeFigmaImport = useCallback(() => {
     useCanvasStore.getState().setFigmaImportDialogOpen(false)
@@ -92,6 +94,13 @@ export default function EditorLayout() {
       if (isMod && e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         useUIKitStore.getState().toggleBrowser()
+        return
+      }
+
+      // Cmd+Shift+W: toggle workflow panel
+      if (isMod && e.shiftKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        useCanvasStore.getState().toggleWorkflowPanel()
         return
       }
 
@@ -170,6 +179,10 @@ export default function EditorLayout() {
               {/* Expanded AI panel (floating, draggable) */}
               <AIChatPanel />
             </div>
+
+            {/* Workflow panel (bottom, resizable) */}
+            {workflowPanelOpen && <WorkflowPanel />}
+
             <RightPanel />
           </div>
         </div>

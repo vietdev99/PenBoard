@@ -319,7 +319,7 @@ export class SkiaErdRenderer {
     shadowPaint.setColor(parseColor(ck, '#000000'))
     shadowPaint.setAlphaf(0.3)
     const shadowFilter = ck.MaskFilter.MakeBlur(ck.BlurStyle.Normal, 4 * invZ, true)
-    if (shadowFilter) shadowPaint.setMaskFilter(shadowFilter)
+    if (shadowFilter) { shadowPaint.setMaskFilter(shadowFilter); shadowFilter.delete() }
     const shadowRRect = ck.RRectXY(
       ck.LTRBRect(x + 2 * invZ, y + 2 * invZ, x + width + 2 * invZ, y + height + 2 * invZ),
       NODE_BORDER_RADIUS, NODE_BORDER_RADIUS,
