@@ -2,33 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Data-Driven Design
-status: unknown
-stopped_at: Completed 09-02-PLAN.md (Phase 09 complete)
-last_updated: "2026-03-20T17:52:10.765Z"
+status: executing
+stopped_at: Completed 09.1-01-PLAN.md
+last_updated: "2026-03-20T20:29:48.000Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 4
-  total_plans: 22
-  completed_plans: 12
+  total_plans: 24
+  completed_plans: 13
 ---
 
 # Project State: PenBoard
 
 **Last Updated:** 2026-03-20
 **Milestone:** v1.1 Data-Driven Design
-**Overall Status:** Phase 09 Complete -- All MCP Integration Tools Shipped
+**Overall Status:** Phase 09.1 In Progress -- Workspace Backend Complete
 
 ## Current Position
 
-Phase: 09 (mcp-integration) — COMPLETE
-Plan: 2 of 2 (done)
+Phase: 09.1 (penboard-workspace-external-mermaid-docs) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Visual design canvas + storyboard intelligence with data-driven design
-**Current focus:** Phase 09 — mcp-integration
+**Current focus:** Phase 09.1 — penboard-workspace-external-mermaid-docs
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 | Phase 07.1 P01 | 9min | 2 tasks | 3 files |
 | Phase 09 P01 | 9min | 2 tasks | 11 files |
 | Phase 09 P02 | 5min | 3 tasks | 7 files |
+| Phase 09.1 P01 | 6min | 3 tasks | 10 files |
 
 ## Milestone History
 
@@ -115,6 +116,7 @@ Decisions logged in PROJECT.md Key Decisions table.
 
 - Phase 07.1 inserted after Phase 7: Canvas Zoom Performance — Bitmap Snapshot During Gesture (URGENT)
 - Phase 07.2 inserted after Phase 07: Canvas offthread sync and worker-based document processing (URGENT)
+- Phase 09.1 inserted after Phase 09: PenBoard Workspace & External Mermaid Docs (URGENT)
 
 - [09-01] Extracted tool registry from server.ts as single file (not modular per-tool) for simpler import graph
 - [09-01] Re-implemented clearDataBindingInTree in entities.ts independently of Zustand store layer
@@ -122,6 +124,11 @@ Decisions logged in PROJECT.md Key Decisions table.
 - [09-02] Dynamic import for preview-html-generator to avoid browser-only dependency issues in MCP bundle
 - [09-02] Puppeteer browser caching at module level for repeated mermaid-cli SVG/PNG renders
 - [09-02] Graceful error with helpful message when mermaid-cli rendering fails (not hard crash)
+
+- [09.1-01] Workspace root = dirname of .pb file (file-based); live canvas uses /api/workspace/root
+- [09.1-01] Manifest auto-updates on every write_flow/write_doc (upsert pattern)
+- [09.1-01] filePath plumbing: use-mcp-sync -> document.post -> setSyncFilePath -> workspace/root.get
+- [09.1-01] Tool-registry at 788 LOC after adding 5 workspace tool cases (under 800 limit)
 
 ### Pending Todos
 
@@ -139,7 +146,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:43:17Z
-Stopped at: Completed 09-02-PLAN.md (Phase 09 complete)
-Resume file: N/A (Phase 09 done)
-Next step: Next phase planning or new milestone
+Last session: 2026-03-20T20:29:48Z
+Stopped at: Completed 09.1-01-PLAN.md
+Resume file: .planning/phases/09.1-penboard-workspace-external-mermaid-docs/09.1-02-PLAN.md
+Next step: Execute plan 09.1-02 (Flow tab UI)
