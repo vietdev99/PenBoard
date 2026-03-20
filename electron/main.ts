@@ -359,6 +359,7 @@ function createWindow(): void {
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
     title: 'PenBoard',
+    icon: join(__dirname, 'icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(isWinOrLinux
       ? {
