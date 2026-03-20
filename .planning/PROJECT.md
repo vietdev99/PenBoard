@@ -67,7 +67,7 @@ Previous OpenBoard (Vite React + Express + Prisma) abandoned in favor of this fo
 - **Connections**: Document-level `PenConnection[]` with sourceElement, targetPage/Frame, trigger, transition
 - **Data entities**: `DataEntity[]` with typed fields, sample rows, relation edges, views
 - **ERD renderer**: Dedicated `SkiaErdRenderer` class for table node visualization
-- **MCP**: Full server (stdio + HTTP), 20+ tools for design manipulation
+- **MCP**: Full server (stdio + HTTP), 35+ tools for design manipulation, data binding, context, entities, connections, preview, workflow export
 - **Electron**: Main process forks Nitro, port discovery via `~/.penboard/.port`
 - **App model**: Local-only, file-based — no auth, no database, no server persistence
 
@@ -93,7 +93,7 @@ Previous OpenBoard (Vite React + Express + Prisma) abandoned in favor of this fo
 - Interactive HTML preview in separate browser tab with navigation and sample data
 - Context tab on right sidebar (textarea per element) for AI generation/comprehension
 - Auto-generated workflow view (mermaid diagram) from screen connections + data flows
-- MCP tool updates for all new capabilities
+- MCP tool updates for all new capabilities — **COMPLETE** (Phase 9: 7 new tool handlers, 35 total MCP tools)
 
 ## v2 Ideas (Deferred)
 
@@ -106,4 +106,4 @@ Previous OpenBoard (Vite React + Express + Prisma) abandoned in favor of this fo
 - Custom PenBoard logo
 
 ---
-*Last updated: 2026-03-17 after v1.1 milestone started*
+*Last updated: 2026-03-21 after Phase 9 MCP Integration complete*
