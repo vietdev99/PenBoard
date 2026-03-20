@@ -1,10 +1,11 @@
 import { defineEventHandler, readBody, setResponseHeaders } from 'h3'
-import { setSyncDocument } from '../../utils/mcp-sync-state'
+import { setSyncDocument, setSyncFilePath } from '../../utils/mcp-sync-state'
 import type { PenDocument } from '../../../src/types/pen'
 
 interface PostBody {
   document: PenDocument
   sourceClientId?: string
+  filePath?: string
 }
 
 /** POST /api/mcp/document — Receives document update from MCP or renderer, triggers SSE broadcast. */
@@ -25,5 +26,8 @@ export default defineEventHandler(async (event) => {
     })
   }
   const version = setSyncDocument(doc, body.sourceClientId)
+  if (body.filePath && typeof body.filePath === 'string') {
+    setSyncFilePath(body.filePath)
+  }
   return { ok: true, version }
 })

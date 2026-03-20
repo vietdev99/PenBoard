@@ -10,6 +10,7 @@ let currentDocument: PenDocument | null = null
 let documentVersion = 0
 let currentSelection: string[] = []
 let currentActivePageId: string | null = null
+let currentFilePath: string | null = null
 
 interface SSEClient {
   id: string
@@ -36,6 +37,14 @@ export function getSyncSelection(): { selectedIds: string[]; activePageId: strin
 export function setSyncSelection(selectedIds: string[], activePageId?: string | null): void {
   currentSelection = selectedIds
   if (activePageId !== undefined) currentActivePageId = activePageId
+}
+
+export function getSyncFilePath(): string | null {
+  return currentFilePath
+}
+
+export function setSyncFilePath(filePath: string | null): void {
+  currentFilePath = filePath
 }
 
 export function registerSSEClient(id: string, res: ServerResponse): void {

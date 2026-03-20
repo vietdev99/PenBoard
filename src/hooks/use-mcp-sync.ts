@@ -12,11 +12,13 @@ function getBaseUrl(): string {
 }
 
 function pushDocumentToServer(clientId: string | null) {
-  const doc = useDocumentStore.getState().document
+  const state = useDocumentStore.getState()
+  const doc = state.document
+  const filePath = state.filePath ?? null
   fetch(`${getBaseUrl()}/api/mcp/document`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ document: doc, sourceClientId: clientId }),
+    body: JSON.stringify({ document: doc, sourceClientId: clientId, filePath }),
   }).catch(() => {})
 }
 
