@@ -2,39 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Data-Driven Design
-status: completed
+status: unknown
 stopped_at: Phase 07.2 context gathered
-last_updated: "2026-03-19T17:31:49.057Z"
-last_activity: 2026-03-19 -- Phase 07.1 Plan 01 executed (bitmap snapshot state machine)
+last_updated: "2026-03-20T17:23:54.952Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 3
-  total_plans: 13
+  total_plans: 22
   completed_plans: 10
-  percent: 100
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-03-20
 **Milestone:** v1.1 Data-Driven Design
-**Overall Status:** Phase 7.1 In Progress -- Bitmap Snapshot Plan 01 Complete
+**Overall Status:** Phase 09 In Progress -- MCP Tool Registry Plan 01 Complete
 
 ## Current Position
 
-Phase: 7.1 (Canvas Zoom Performance)
-Plan: 1 of 2 in current phase (1 complete)
-Status: Plan 01 complete, Plan 02 pending
-Last activity: 2026-03-19 -- Phase 07.1 Plan 01 executed (bitmap snapshot state machine)
-
-Progress: [██████████] 100% (phases 5-7 complete, 7.1 in progress)
+Phase: 09 (mcp-integration) — EXECUTING
+Plan: 2 of 2
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Visual design canvas + storyboard intelligence with data-driven design
-**Current focus:** Phase 7.1 - Canvas Zoom Performance (bitmap snapshot during gesture)
+**Current focus:** Phase 09 — mcp-integration
 
 ## Performance Metrics
 
@@ -64,6 +58,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 | Phase 07 P03 | 5min | 2 tasks | 4 files |
 | Phase 07 P04 | manual | 4 fixes | 3 files |
 | Phase 07.1 P01 | 9min | 2 tasks | 3 files |
+| Phase 09 P01 | 9min | 2 tasks | 11 files |
 
 ## Milestone History
 
@@ -120,6 +115,10 @@ Decisions logged in PROJECT.md Key Decisions table.
 - Phase 07.1 inserted after Phase 7: Canvas Zoom Performance — Bitmap Snapshot During Gesture (URGENT)
 - Phase 07.2 inserted after Phase 07: Canvas offthread sync and worker-based document processing (URGENT)
 
+- [09-01] Extracted tool registry from server.ts as single file (not modular per-tool) for simpler import graph
+- [09-01] Re-implemented clearDataBindingInTree in entities.ts independently of Zustand store layer
+- [09-01] Entity existence validation on set_binding to prevent dangling references
+
 ### Pending Todos
 
 - Preview rendering fidelity for complex/nested layouts (deferred from Phase 7)
@@ -136,7 +135,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T17:31:49.054Z
-Stopped at: Phase 07.2 context gathered
-Resume file: .planning/phases/07.2-canvas-offthread-sync-and-worker-based-document-processing/07.2-CONTEXT.md
-Next step: Execute 07.1-02-PLAN.md (remaining canvas zoom performance tasks)
+Last session: 2026-03-20T17:33:41Z
+Stopped at: Completed 09-01-PLAN.md
+Resume file: .planning/phases/09-mcp-integration/09-02-PLAN.md
+Next step: Execute 09-02-PLAN.md (remaining MCP integration tasks)

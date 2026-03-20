@@ -177,7 +177,7 @@ Plans:
 
 Plans:
 
-- [ ] 09-01-PLAN.md — Refactor server.ts + document-level tools: data binding, context, entities, connections, page type (MCP-01, MCP-03, MCP-05)
+- [x] 09-01-PLAN.md — Refactor server.ts + document-level tools: data binding, context, entities, connections, page type (MCP-01, MCP-03, MCP-05)
 - [ ] 09-02-PLAN.md — Preview generation + workflow export tools with mermaid-cli SVG/PNG (MCP-02, MCP-04)
 
 ## Progress
@@ -199,4 +199,4 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 7.2 Canvas Offthread Sync | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 7.3 Tile-Based Rendering | v1.1 | — | Complete | 2026-03-20 |
 | 8. Workflow Visualization | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 9. MCP Integration | v1.1 | 0/2 | Planned | - |
+| 9. MCP Integration | v1.1 | 1/2 | In Progress | - |

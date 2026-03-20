@@ -35,11 +35,11 @@ Requirements for v1.1 Data-Driven Design milestone. Each maps to roadmap phases.
 
 ### MCP
 
-- [ ] **MCP-01**: MCP tools to set/get data bindings on nodes
+- [x] **MCP-01**: MCP tools to set/get data bindings on nodes
 - [ ] **MCP-02**: MCP tool to trigger preview generation
-- [ ] **MCP-03**: MCP tools to read/write element context
+- [x] **MCP-03**: MCP tools to read/write element context
 - [ ] **MCP-04**: MCP tool to export workflow diagram (mermaid/SVG)
-- [ ] **MCP-05**: MCP full support for navigation, context, ERD, and component pages
+- [x] **MCP-05**: MCP full support for navigation, context, ERD, and component pages
 
 ## v2 Requirements
 
@@ -90,11 +90,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WF-01 | Phase 8 | Pending |
 | WF-02 | Phase 8 | Pending |
 | WF-03 | Phase 8 | Pending |
-| MCP-01 | Phase 9 | Pending |
+| MCP-01 | Phase 9 | Complete |
 | MCP-02 | Phase 9 | Pending |
-| MCP-03 | Phase 9 | Pending |
+| MCP-03 | Phase 9 | Complete |
 | MCP-04 | Phase 9 | Pending |
-| MCP-05 | Phase 9 | Pending |
+| MCP-05 | Phase 9 | Complete |
 
 **Coverage:**
 
