@@ -32,13 +32,46 @@ function isPidAlive(pid: number): boolean {
   }
 }
 
-/** Read the port file and return the Nitro sync base URL, or null if unavailable. */
+/** Cached host after successful probe (reset when PID changes). */
+let _cachedSyncHost: string | null = null
+let _cachedSyncPid: number | null = null
+
+/** Read the port file and return the Nitro sync base URL, or null if unavailable.
+ *  Probes both IPv4 (127.0.0.1) and IPv6 ([::1]) to handle Windows where Vite
+ *  may bind only on IPv6. Caches the working host for subsequent calls. */
 export async function getSyncUrl(): Promise<string | null> {
   try {
     const raw = await readFile(PORT_FILE_PATH, 'utf-8')
     const { port, pid } = JSON.parse(raw) as { port: number; pid: number }
-    if (!isPidAlive(pid)) return null
-    return `http://127.0.0.1:${port}`
+    if (!isPidAlive(pid)) {
+      _cachedSyncHost = null
+      _cachedSyncPid = null
+      return null
+    }
+
+    // Return cached result if PID hasn't changed
+    if (_cachedSyncHost && _cachedSyncPid === pid) {
+      return `http://${_cachedSyncHost}:${port}`
+    }
+
+    // Probe IPv4 then IPv6 — Vite on Windows often binds [::1] only
+    for (const host of ['127.0.0.1', '[::1]']) {
+      try {
+        const res = await fetch(`http://${host}:${port}/`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(1500),
+        })
+        // Any response (even 404) means the server is reachable
+        if (res) {
+          _cachedSyncHost = host
+          _cachedSyncPid = pid
+          return `http://${host}:${port}`
+        }
+      } catch { /* try next host */ }
+    }
+
+    // Fallback: return localhost and let caller handle errors
+    return `http://localhost:${port}`
   } catch {
     return null
   }
@@ -185,6 +218,14 @@ export async function fetchLiveSelection(): Promise<{ selectedIds: string[]; act
   } catch {
     return { selectedIds: [], activePageId: null }
   }
+}
+
+/** Get the file path of the currently cached document, if file-based. */
+export function getCachedFilePath(): string | undefined {
+  for (const [path] of cache) {
+    if (path !== LIVE_CANVAS_PATH) return path
+  }
+  return undefined
 }
 
 /** Invalidate cache for a file. */

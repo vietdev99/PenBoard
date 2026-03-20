@@ -38,6 +38,14 @@ import { handleManageEntities } from './tools/entities'
 import { handleManageConnections } from './tools/connections'
 import { PREVIEW_TOOLS, handleGeneratePreview } from './tools/preview'
 import { WORKFLOW_TOOLS, handleExportWorkflow } from './tools/workflow'
+import {
+  WORKSPACE_TOOLS,
+  handleWriteFlow,
+  handleReadFlow,
+  handleListFlows,
+  handleWriteDoc,
+  handleReadDoc,
+} from './tools/workspace'
 
 // --- Tool definitions (shared across all Server instances) ---
 
@@ -45,7 +53,8 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'open_document',
     description:
-      'Open an existing .pb/.op file or connect to the live Electron canvas. Returns document metadata, context summary, and design prompt. Always call this first. Omit filePath to connect to the live canvas.',
+      'Open an existing .pb/.op file or connect to the live Electron canvas. Returns document metadata, context summary, and design prompt. Always call this first. Omit filePath to connect to the live canvas. ' +
+      'Note: Pages act as modules — each page can contain multiple screens or views (frames) laid out side by side on the canvas.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -84,7 +93,7 @@ export const TOOL_DEFINITIONS = [
         parentId: { type: 'string', description: 'Limit search to children of this parent node' },
         readDepth: { type: 'number', description: 'How deep to include children in results (default 1)' },
         searchDepth: { type: 'number', description: 'How deep to search for matching nodes (default unlimited)' },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: [],
     },
@@ -109,6 +118,7 @@ export const TOOL_DEFINITIONS = [
       'Insert a new node into the document. Node types: frame, rectangle, ellipse, text, path, image, group, line, polygon, ref. ' +
       'Fill is always an array: [{ type: "solid", color: "#hex" }]. ' +
       'When inserting a frame at root level and an empty root frame exists, it is auto-replaced. ' +
+      'Multiple root-level frames can be placed on the same page at different x positions to represent separate screens/views within the module. ' +
       'Returns the final node state (after post-processing if enabled).',
     inputSchema: {
       type: 'object' as const,
@@ -139,7 +149,7 @@ export const TOOL_DEFINITIONS = [
           description:
             'Canvas width for post-processing layout (default 1200, use 375 for mobile).',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views as separate root-level frames.' },
       },
       required: ['parent', 'data'],
     },
@@ -165,7 +175,7 @@ export const TOOL_DEFINITIONS = [
           type: 'number',
           description: 'Canvas width for post-processing layout (default 1200).',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['nodeId', 'data'],
     },
@@ -178,7 +188,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
         nodeId: { type: 'string', description: 'ID of the node to delete' },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['nodeId'],
     },
@@ -200,7 +210,7 @@ export const TOOL_DEFINITIONS = [
           type: 'number',
           description: 'Insertion index within the parent (default: append at end)',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['nodeId', 'parent'],
     },
@@ -222,7 +232,7 @@ export const TOOL_DEFINITIONS = [
           type: 'object',
           description: 'Properties to override on the cloned node (name, x, y, etc.)',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['sourceId', 'parent'],
     },
@@ -248,7 +258,7 @@ export const TOOL_DEFINITIONS = [
           type: 'number',
           description: 'Canvas width for post-processing layout (default 1200).',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['nodeId', 'data'],
     },
@@ -278,7 +288,7 @@ export const TOOL_DEFINITIONS = [
           type: 'number',
           description: 'Canvas width for post-processing layout (default 1200).',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['svgPath'],
     },
@@ -337,7 +347,7 @@ export const TOOL_DEFINITIONS = [
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
         parentId: { type: 'string', description: 'Only return layout under this parent node' },
         maxDepth: { type: 'number', description: 'Max depth to traverse (default 1)' },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: [],
     },
@@ -354,7 +364,7 @@ export const TOOL_DEFINITIONS = [
         padding: { type: 'number', description: 'Minimum padding from other elements (default 50)' },
         direction: { type: 'string', enum: ['top', 'right', 'bottom', 'left'], description: 'Direction to search for empty space' },
         nodeId: { type: 'string', description: 'Search relative to this node (default: entire canvas)' },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['width', 'height', 'direction'],
     },
@@ -398,7 +408,8 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'add_page',
     description:
-      'Add a new page to a .pb/.op file. If the document has no pages yet, the existing children are migrated to the first page automatically.',
+      'Add a new page (module) to a .pb/.op file. Pages act as modules — each page is a workspace that can contain multiple screens or views as separate root-level frames laid out side by side on the canvas. ' +
+      'If the document has no pages yet, the existing children are migrated to the first page automatically.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -417,24 +428,24 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'remove_page',
-    description: 'Remove a page from a .pb/.op file. Cannot remove the last remaining page.',
+    description: 'Remove a page (module) from a .pb/.op file. This removes the entire module and all its screens/views. Cannot remove the last remaining page.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
-        pageId: { type: 'string', description: 'ID of the page to remove' },
+        pageId: { type: 'string', description: 'ID of the page/module to remove' },
       },
       required: ['pageId'],
     },
   },
   {
     name: 'rename_page',
-    description: 'Rename a page in a .pb/.op file.',
+    description: 'Rename a page (module) in a .pb/.op file. The name applies to the entire module workspace, not a single screen.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
-        pageId: { type: 'string', description: 'ID of the page to rename' },
+        pageId: { type: 'string', description: 'ID of the page/module to rename' },
         name: { type: 'string', description: 'New page name' },
       },
       required: ['pageId', 'name'],
@@ -442,12 +453,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'reorder_page',
-    description: 'Move a page to a new position (index) in a .pb/.op file.',
+    description: 'Move a page (module) to a new position (index) in a .pb/.op file. Reorders the module within the document tab bar.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
-        pageId: { type: 'string', description: 'ID of the page to move' },
+        pageId: { type: 'string', description: 'ID of the page/module to reorder' },
         index: { type: 'number', description: 'New zero-based index for the page' },
       },
       required: ['pageId', 'index'],
@@ -456,12 +467,12 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'duplicate_page',
     description:
-      'Duplicate a page (deep-clone with new IDs) and insert the copy right after the original.',
+      'Duplicate a page/module (deep-clone all screens/views with new IDs) and insert the copy right after the original.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit to use the live canvas (default)' },
-        pageId: { type: 'string', description: 'ID of the page to duplicate' },
+        pageId: { type: 'string', description: 'ID of the page/module to duplicate' },
         name: { type: 'string', description: 'Name for the duplicated page (default: "original copy")' },
       },
       required: ['pageId'],
@@ -518,7 +529,7 @@ export const TOOL_DEFINITIONS = [
           type: 'number',
           description: 'Canvas width for post-processing (default 1200, use 375 for mobile).',
         },
-        pageId: { type: 'string', description: 'Target page ID (defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['operations'],
     },
@@ -556,7 +567,7 @@ export const TOOL_DEFINITIONS = [
             required: ['slotKey', 'fieldId'],
           },
         },
-        pageId: { type: 'string', description: 'Target page ID (for list_bindings, defaults to first page)' },
+        pageId: { type: 'string', description: 'Target page/module ID (for list_bindings, defaults to first page). Each page is a module that can contain multiple screens/views.' },
       },
       required: ['action'],
     },
@@ -570,7 +581,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit for live canvas' },
         nodeId: { type: 'string', description: 'Target node ID (mutually exclusive with pageId)' },
-        pageId: { type: 'string', description: 'Target page ID (mutually exclusive with nodeId)' },
+        pageId: { type: 'string', description: 'Target page/module ID (mutually exclusive with nodeId). Each page is a module that can contain multiple screens/views.' },
         context: { type: 'string', description: 'Context annotation text' },
       },
       required: ['context'],
@@ -585,7 +596,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         filePath: { type: 'string', description: 'Path to .pb/.op file, or omit for live canvas' },
         nodeId: { type: 'string', description: 'Target node ID' },
-        pageId: { type: 'string', description: 'Target page ID' },
+        pageId: { type: 'string', description: 'Target page/module ID. Each page is a module that can contain multiple screens/views.' },
       },
       required: [],
     },
@@ -642,10 +653,12 @@ export const TOOL_DEFINITIONS = [
   },
   ...PREVIEW_TOOLS,
   ...WORKFLOW_TOOLS,
+  ...WORKSPACE_TOOLS,
   {
     name: 'manage_connections',
     description:
-      'CRUD operations for screen connections (navigation arrows between pages). Actions: add_connection, update_connection, remove_connection, list_connections.',
+      'CRUD operations for screen connections (navigation arrows between pages/modules). Actions: add_connection, update_connection, remove_connection, list_connections. ' +
+      'Pages act as modules — connections link screens/views across different modules.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -657,14 +670,14 @@ export const TOOL_DEFINITIONS = [
         },
         connectionId: { type: 'string', description: 'Target connection ID (for update/remove)' },
         sourceElementId: { type: 'string', description: 'Source node ID (for add)' },
-        sourcePageId: { type: 'string', description: 'Source page ID (for add)' },
-        targetPageId: { type: 'string', description: 'Target page ID (for add)' },
+        sourcePageId: { type: 'string', description: 'Source page/module ID (for add)' },
+        targetPageId: { type: 'string', description: 'Target page/module ID (for add)' },
         targetFrameId: { type: 'string', description: 'Target frame ID within target page (optional)' },
         label: { type: 'string', description: 'Connection label (optional)' },
         triggerEvent: { type: 'string', enum: ['click', 'hover', 'submit'], description: 'Trigger event type (for add)' },
         transitionType: { type: 'string', enum: ['push', 'modal', 'replace'], description: 'Transition type (for add)' },
         updates: { type: 'object', description: 'Partial connection updates (for update_connection)' },
-        pageId: { type: 'string', description: 'Filter connections by page ID (for list_connections)' },
+        pageId: { type: 'string', description: 'Filter connections by page/module ID (for list_connections)' },
       },
       required: ['action'],
     },
@@ -758,6 +771,16 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return JSON.stringify(await handleGeneratePreview(a), null, 2)
     case 'export_workflow':
       return JSON.stringify(await handleExportWorkflow(a), null, 2)
+    case 'write_flow':
+      return JSON.stringify(await handleWriteFlow(a), null, 2)
+    case 'read_flow':
+      return JSON.stringify(await handleReadFlow(a), null, 2)
+    case 'list_flows':
+      return JSON.stringify(await handleListFlows(a), null, 2)
+    case 'write_doc':
+      return JSON.stringify(await handleWriteDoc(a), null, 2)
+    case 'read_doc':
+      return JSON.stringify(await handleReadDoc(a), null, 2)
 
     default:
       throw new Error(`Unknown tool: ${name}`)

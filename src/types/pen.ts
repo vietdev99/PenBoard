@@ -56,7 +56,15 @@ export interface PenDocument {
   pages?: PenPage[]
   connections?: ScreenConnection[]
   dataEntities?: DataEntity[]
+  workspace?: string  // Relative path to project root containing .penboard/
   children: PenNode[]
+}
+
+/** Shape of a flow file returned by the workspace API. Shared between server and client. */
+export interface FlowFile {
+  name: string
+  title: string
+  content: string
 }
 
 // --- Node Types ---
