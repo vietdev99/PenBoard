@@ -451,6 +451,11 @@ export class SkiaEngine {
   private lastSyncPageId: string | null = null
   private lastSyncChildrenRef: PenNode[] | null = null
 
+  /** Invalidate sync cache to force a full rebuild on next syncFromDocument(). */
+  invalidateSyncCache() {
+    this.lastSyncChildrenRef = null
+  }
+
   // Interaction state
   hoveredNodeId: string | null = null
   marquee: { x1: number; y1: number; x2: number; y2: number } | null = null

@@ -1300,8 +1300,11 @@ export default function SkiaCanvas() {
           }
         }
 
-        // Re-enable sync and do a full rebuild
+        // Re-enable sync and force a FULL rebuild (not fast path).
+        // During drag, clipRect objects were replaced with spread copies,
+        // so a full rebuild is needed to recreate shared clipRect references.
         engine.dragSyncSuppressed = false
+        engine.invalidateSyncCache()
         engine.syncFromDocument()
       } else if (engine) {
         engine.dragSyncSuppressed = false
