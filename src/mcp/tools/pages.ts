@@ -10,6 +10,7 @@ import type { PenPage, PenNode } from '../../types/pen'
 export interface AddPageParams {
   filePath?: string
   name?: string
+  type?: 'screen' | 'erd' | 'component'
   children?: Record<string, any>[]
 }
 
@@ -36,6 +37,7 @@ export async function handleAddPage(
   const newPage: PenPage = {
     id: generateId(),
     name: params.name ?? `Page ${pageNum}`,
+    type: params.type ?? 'screen',
     children: (params.children as PenNode[]) ?? [
       {
         id: generateId(),
