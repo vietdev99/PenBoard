@@ -36,6 +36,8 @@ import { handleManageDataBinding } from './tools/data-binding'
 import { handleSetContext, handleGetContext } from './tools/context'
 import { handleManageEntities } from './tools/entities'
 import { handleManageConnections } from './tools/connections'
+import { PREVIEW_TOOLS, handleGeneratePreview } from './tools/preview'
+import { WORKFLOW_TOOLS, handleExportWorkflow } from './tools/workflow'
 
 // --- Tool definitions (shared across all Server instances) ---
 
@@ -638,6 +640,8 @@ export const TOOL_DEFINITIONS = [
       required: ['action'],
     },
   },
+  ...PREVIEW_TOOLS,
+  ...WORKFLOW_TOOLS,
   {
     name: 'manage_connections',
     description:
@@ -750,6 +754,10 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return JSON.stringify(await handleManageEntities(a), null, 2)
     case 'manage_connections':
       return JSON.stringify(await handleManageConnections(a), null, 2)
+    case 'generate_preview':
+      return JSON.stringify(await handleGeneratePreview(a), null, 2)
+    case 'export_workflow':
+      return JSON.stringify(await handleExportWorkflow(a), null, 2)
 
     default:
       throw new Error(`Unknown tool: ${name}`)
