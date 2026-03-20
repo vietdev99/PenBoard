@@ -178,10 +178,10 @@ export default function EditorLayout() {
 
               {/* Expanded AI panel (floating, draggable) */}
               <AIChatPanel />
-            </div>
 
-            {/* Workflow panel (bottom, resizable) */}
-            {workflowPanelOpen && <WorkflowPanel />}
+              {/* Workflow panel (bottom, resizable) */}
+              {workflowPanelOpen && <WorkflowPanel />}
+            </div>
 
             <RightPanel />
           </div>

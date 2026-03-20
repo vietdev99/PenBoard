@@ -22,11 +22,12 @@ export default function WorkflowPanel() {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const renderCounter = useRef(0)
 
-  // Render mermaid diagram
+  // Render mermaid diagram and auto-fit
   useEffect(() => {
-    if (!containerRef.current || !mermaidText) return
+    if (!containerRef.current || !wrapperRef.current || !mermaidText) return
 
     const render = async () => {
       try {
@@ -37,8 +38,27 @@ export default function WorkflowPanel() {
           const svgEl = containerRef.current.querySelector('svg')
           if (svgEl) {
             svgRef.current = svgEl
+            // Let SVG be its natural size for proper fitting
             svgEl.style.maxWidth = 'none'
             svgEl.style.maxHeight = 'none'
+
+            // Auto-fit: compute scale to fit in wrapper
+            requestAnimationFrame(() => {
+              if (!wrapperRef.current || !svgEl) return
+              const wrapperRect = wrapperRef.current.getBoundingClientRect()
+              const svgW = svgEl.getBoundingClientRect().width
+              const svgH = svgEl.getBoundingClientRect().height
+              if (svgW > 0 && svgH > 0) {
+                const scaleX = (wrapperRect.width - 32) / svgW
+                const scaleY = (wrapperRect.height - 16) / svgH
+                const fitScale = Math.min(scaleX, scaleY, 1) // never zoom in beyond 1x
+                setZoom(fitScale)
+                // Center horizontally
+                const scaledW = svgW * fitScale
+                const centerX = Math.max(0, (wrapperRect.width - scaledW) / 2)
+                setPan({ x: centerX, y: 8 })
+              }
+            })
           }
         }
       } catch (err) {
@@ -110,9 +130,24 @@ export default function WorkflowPanel() {
 
   // Fit to view
   const fitToView = useCallback(() => {
-    setZoom(1)
-    setPan({ x: 0, y: 0 })
-  }, [])
+    if (!wrapperRef.current || !svgRef.current) {
+      setZoom(1)
+      setPan({ x: 0, y: 0 })
+      return
+    }
+    const wrapperRect = wrapperRef.current.getBoundingClientRect()
+    const svgW = svgRef.current.getBoundingClientRect().width / zoom
+    const svgH = svgRef.current.getBoundingClientRect().height / zoom
+    if (svgW > 0 && svgH > 0) {
+      const scaleX = (wrapperRect.width - 32) / svgW
+      const scaleY = (wrapperRect.height - 16) / svgH
+      const fitScale = Math.min(scaleX, scaleY, 1)
+      setZoom(fitScale)
+      const scaledW = svgW * fitScale
+      const centerX = Math.max(0, (wrapperRect.width - scaledW) / 2)
+      setPan({ x: centerX, y: 8 })
+    }
+  }, [zoom])
 
   // Resize drag
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -220,6 +255,7 @@ export default function WorkflowPanel() {
 
       {/* Diagram area */}
       <div
+        ref={wrapperRef}
         className="flex-1 overflow-hidden cursor-grab active:cursor-grabbing"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
