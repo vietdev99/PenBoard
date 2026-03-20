@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import TopBar from './top-bar'
 import Toolbar from './toolbar'
@@ -28,6 +28,9 @@ import { useMcpSync } from '@/hooks/use-mcp-sync'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { initAppStorage } from '@/utils/app-storage'
 import SkiaCanvas from '@/canvas/skia/skia-canvas'
+import EditorTabs from './editor-tabs'
+
+const FlowView = lazy(() => import('./flow-view'))
 
 export default function EditorLayout() {
   const toggleMinimize = useAIStore((s) => s.toggleMinimize)
@@ -36,6 +39,7 @@ export default function EditorLayout() {
   const variablesPanelOpen = useCanvasStore((s) => s.variablesPanelOpen)
   const dataPanelOpen = useCanvasStore((s) => s.dataPanelOpen)
   const workflowPanelOpen = useCanvasStore((s) => s.workflowPanelOpen)
+  const activeEditorTab = useCanvasStore((s) => s.activeEditorTab)
   const figmaImportOpen = useCanvasStore((s) => s.figmaImportDialogOpen)
   const closeFigmaImport = useCallback(() => {
     useCanvasStore.getState().setFigmaImportDialogOpen(false)
@@ -149,42 +153,49 @@ export default function EditorLayout() {
       <div className="h-screen flex flex-col bg-background">
         <UpdateReadyBanner />
         <TopBar />
+        <EditorTabs />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 flex overflow-hidden">
-            {layerPanelOpen && <LayerPanel />}
-            <div className="flex-1 flex flex-col min-w-0 relative">
-              <SkiaCanvas />
-              <Toolbar />
-              <BooleanToolbar />
+          {activeEditorTab === 'canvas' ? (
+            <div className="flex-1 flex overflow-hidden">
+              {layerPanelOpen && <LayerPanel />}
+              <div className="flex-1 flex flex-col min-w-0 relative">
+                <SkiaCanvas />
+                <Toolbar />
+                <BooleanToolbar />
 
-              {/* Floating variables panel — anchored to the right of the toolbar */}
-              {variablesPanelOpen && <VariablesPanel />}
+                {/* Floating variables panel — anchored to the right of the toolbar */}
+                {variablesPanelOpen && <VariablesPanel />}
 
-              {/* Floating data entities panel */}
-              {dataPanelOpen && <DataPanel />}
+                {/* Floating data entities panel */}
+                {dataPanelOpen && <DataPanel />}
 
-              {/* Floating UIKit browser panel */}
-              {browserOpen && <ComponentBrowserPanel />}
+                {/* Floating UIKit browser panel */}
+                {browserOpen && <ComponentBrowserPanel />}
 
-              {/* Bottom bar: minimized AI (left) + zoom controls (right) */}
-              <div className="absolute bottom-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
-                <div className="pointer-events-auto">
-                  <AIChatMinimizedBar />
+                {/* Bottom bar: minimized AI (left) + zoom controls (right) */}
+                <div className="absolute bottom-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
+                  <div className="pointer-events-auto">
+                    <AIChatMinimizedBar />
+                  </div>
+                  <div className="pointer-events-auto">
+                    <StatusBar />
+                  </div>
                 </div>
-                <div className="pointer-events-auto">
-                  <StatusBar />
-                </div>
+
+                {/* Expanded AI panel (floating, draggable) */}
+                <AIChatPanel />
+
+                {/* Workflow panel (bottom, resizable) */}
+                {workflowPanelOpen && <WorkflowPanel />}
               </div>
 
-              {/* Expanded AI panel (floating, draggable) */}
-              <AIChatPanel />
-
-              {/* Workflow panel (bottom, resizable) */}
-              {workflowPanelOpen && <WorkflowPanel />}
+              <RightPanel />
             </div>
-
-            <RightPanel />
-          </div>
+          ) : (
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading...</div>}>
+              <FlowView />
+            </Suspense>
+          )}
         </div>
         <ExportDialog open={exportOpen} onClose={closeExport} />
         <SaveDialog open={saveDialogOpen} onClose={closeSaveDialog} />

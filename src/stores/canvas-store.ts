@@ -12,6 +12,7 @@ import { appStorage } from '@/utils/app-storage'
 const PREFS_KEY = 'penboard-canvas-preferences'
 
 export type RightPanelTab = 'design' | 'navigate' | 'context' | 'code'
+export type EditorTab = 'canvas' | 'flow'
 
 interface CanvasPreferences {
   layerPanelOpen: boolean
@@ -20,6 +21,7 @@ interface CanvasPreferences {
   codePanelOpen: boolean
   workflowPanelOpen?: boolean
   rightPanelTab?: RightPanelTab
+  activeEditorTab?: EditorTab
 }
 
 export interface DragConnectState {
@@ -49,8 +51,10 @@ interface CanvasStoreState {
   showConnections: boolean
   dragConnectState: DragConnectState | null
   pendingBindNodeId: string | null
+  activeEditorTab: EditorTab
   fileLoading: { open: boolean; name: string; status?: string } | null
 
+  setActiveEditorTab: (tab: EditorTab) => void
   toggleShowConnections: () => void
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
@@ -113,8 +117,14 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   dataFocusEntityId: null,
   dragConnectState: null,
   pendingBindNodeId: null,
+  activeEditorTab: 'canvas' as EditorTab,
   fileLoading: null,
 
+  setActiveEditorTab: (tab) => {
+    set({ activeEditorTab: tab })
+    const { layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen } = get()
+    persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen, activeEditorTab: tab })
+  },
   toggleShowConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -250,6 +260,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       if (typeof data.codePanelOpen === 'boolean') set({ codePanelOpen: data.codePanelOpen })
       if (typeof data.workflowPanelOpen === 'boolean') set({ workflowPanelOpen: data.workflowPanelOpen })
       if (data.rightPanelTab === 'design' || data.rightPanelTab === 'code' || data.rightPanelTab === 'navigate' || data.rightPanelTab === 'context') set({ rightPanelTab: data.rightPanelTab })
+      if (data.activeEditorTab === 'canvas' || data.activeEditorTab === 'flow') set({ activeEditorTab: data.activeEditorTab })
     } catch { /* ignore */ }
   },
 }))
