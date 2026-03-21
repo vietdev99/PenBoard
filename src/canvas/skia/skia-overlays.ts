@@ -644,6 +644,8 @@ export function drawStoryboardArrow(
   zoom: number,
   label?: string,
   alphaOverride?: number,
+  /** When set, draw animated dashes with this phase offset (marching ants). */
+  dashPhase?: number,
 ): void {
   // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
   const invZ = Math.max(1 / zoom, 0.1)
@@ -682,6 +684,13 @@ export function drawStoryboardArrow(
   // Thicker line when highlighted
   if (alphaOverride !== undefined && alphaOverride >= 1) {
     linePaint.setStrokeWidth(3 * invZ)
+  }
+  // Animated dash for flow highlight
+  if (dashPhase !== undefined) {
+    const dashLen = 10 * invZ
+    const gapLen = 6 * invZ
+    const effect = ck.PathEffect.MakeDash([dashLen, gapLen], dashPhase * invZ)
+    if (effect) { linePaint.setPathEffect(effect); effect.delete() }
   }
 
   const path = new ck.Path()
@@ -749,6 +758,7 @@ export function drawCrossPageArrow(
   targetName: string,
   index = 0, total = 1,
   alphaOverride?: number,
+  dashPhase?: number,
 ): void {
   // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
   const invZ = Math.max(1 / zoom, 0.1)
@@ -774,8 +784,10 @@ export function drawCrossPageArrow(
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   linePaint.setAlphaf(baseAlpha)
   linePaint.setStrokeCap(ck.StrokeCap.Round)
-  const dashLen = 6 * invZ
-  const effect = ck.PathEffect.MakeDash([dashLen, 4 * invZ], 0)
+  const dashLen = dashPhase !== undefined ? 10 * invZ : 6 * invZ
+  const gapLen = dashPhase !== undefined ? 6 * invZ : 4 * invZ
+  const phase = dashPhase !== undefined ? dashPhase * invZ : 0
+  const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
   if (effect) { linePaint.setPathEffect(effect); effect.delete() }
   canvas.drawLine(x1, y1, x2, y2, linePaint)
   linePaint.delete()

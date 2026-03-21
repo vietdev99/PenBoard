@@ -1920,9 +1920,9 @@ export class SkiaRenderer {
     canvas: Canvas,
     sx: number, sy: number, sw: number, sh: number,
     tx: number, ty: number, tw: number, th: number,
-    zoom: number, label?: string, alphaOverride?: number,
+    zoom: number, label?: string, alphaOverride?: number, dashPhase?: number,
   ) {
-    _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label, alphaOverride)
+    _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label, alphaOverride, dashPhase)
   }
 
   drawCrossPageArrow(
@@ -1930,9 +1930,9 @@ export class SkiaRenderer {
     sx: number, sy: number, sw: number, sh: number,
     zoom: number, targetName: string,
     index = 0, total = 1,
-    alphaOverride?: number,
+    alphaOverride?: number, dashPhase?: number,
   ) {
-    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName, index, total, alphaOverride)
+    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName, index, total, alphaOverride, dashPhase)
   }
 
   drawComponentBadge(

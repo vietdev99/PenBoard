@@ -956,9 +956,18 @@ export class SkiaEngine {
     this.dirty = true
   }
 
+  /** Monotonic phase counter for animated dash on highlighted connections. */
+  flowDashPhase = 0
+  private flowAnimating = false
+
   private startRenderLoop() {
     const loop = () => {
       this.animFrameId = requestAnimationFrame(loop)
+      // Keep animating while flow is highlighted (marching ants)
+      if (this.flowAnimating) {
+        this.flowDashPhase = (performance.now() / 15) % 1000 // ~66px/s march speed
+        this.dirty = true
+      }
       if (!this.dirty || !this.surface) return
       this.dirty = false
       this.render()
@@ -1188,6 +1197,7 @@ export class SkiaEngine {
     // Skip during active pan/zoom for performance — arrows re-appear once pan settles
     const connections = this.isPanning ? [] : (useDocumentStore.getState().document.connections ?? [])
     const { showConnections, hoveredConnectionId, highlightedFlow } = useCanvasStore.getState()
+    this.flowAnimating = !!(highlightedFlow && highlightedFlow.connectionIds.length > 0)
     this.connectionHitAreas = []
     if (connections.length > 0 && showConnections) {
       const activePageId = useCanvasStore.getState().activePageId
@@ -1217,11 +1227,12 @@ export class SkiaEngine {
             const tgt = this.rnMap.get(targetId)
             if (tgt) {
               const alpha = isDimmed ? 0.15 : isHovered || isInFlow ? 1.0 : undefined
+              const dash = isInFlow ? this.flowDashPhase : undefined
               this.renderer.drawStoryboardArrow(
                 canvas,
                 src.absX, src.absY, src.absW, src.absH,
                 tgt.absX, tgt.absY, tgt.absW, tgt.absH,
-                this.zoom, c.label, alpha,
+                this.zoom, c.label, alpha, dash,
               )
               // Build hit area: sample bezier curve points
               const invZ = Math.max(1 / this.zoom, 0.1)
@@ -1282,13 +1293,14 @@ export class SkiaEngine {
             const isInFlowCross = highlightedFlow?.connectionIds.includes(t.connectionId) ?? false
             const isDimmedCross = highlightedFlow && !isInFlowCross
             const alphaCross = isDimmedCross ? 0.15 : isHoveredCross || isInFlowCross ? 1.0 : undefined
+            const dashCross = isInFlowCross ? this.flowDashPhase : undefined
 
             this.renderer.drawCrossPageArrow(
               canvas,
               src.absX, src.absY, src.absW, src.absH,
               this.zoom, t.targetName,
               i, targets.length,
-              alphaCross,
+              alphaCross, dashCross,
             )
             // Compute pill rect in scene-space (mirrors drawCrossPageArrow math)
             const invZ = Math.max(1 / this.zoom, 0.1)
