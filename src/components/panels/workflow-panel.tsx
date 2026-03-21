@@ -28,10 +28,6 @@ function getSvgNaturalSize(svgEl: SVGElement): { w: number; h: number } {
   return { w: 0, h: 0 }
 }
 
-const HEADER_HEIGHT = 34 // header + resize handle
-const MIN_PANEL = 120
-const MAX_PANEL_RATIO = 0.5
-
 export default function WorkflowPanel() {
   const { mermaidText, focusMode, toggleFocus, isLoading } = useWorkflow()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -44,13 +40,6 @@ export default function WorkflowPanel() {
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const wrapperRef = useRef<HTMLDivElement>(null)
   const renderCounter = useRef(0)
-  const isManualResize = useRef(false)
-
-  /** Compute panel height to fit content (scaled SVG + header + padding). */
-  const computeContentHeight = useCallback((naturalH: number, scale: number) => {
-    const contentH = naturalH * scale + HEADER_HEIGHT + 24 // 24px padding
-    return Math.max(MIN_PANEL, Math.min(window.innerHeight * MAX_PANEL_RATIO, contentH))
-  }, [])
 
   // Render mermaid diagram and auto-fit
   useEffect(() => {
@@ -65,32 +54,25 @@ export default function WorkflowPanel() {
           const svgEl = containerRef.current.querySelector('svg')
           if (svgEl) {
             svgRef.current = svgEl
-            // Let SVG be its natural size for proper fitting
-            svgEl.style.maxWidth = 'none'
-            svgEl.style.maxHeight = 'none'
 
-            // Read natural SVG dimensions (unaffected by CSS transforms)
+            // Read natural SVG dimensions before modifying the element
             const nat = getSvgNaturalSize(svgEl)
             svgNatural.current = nat
 
-            // Auto-fit: compute scale to fit in wrapper
-            requestAnimationFrame(() => {
-              if (!wrapperRef.current) return
-              const wrapperRect = wrapperRef.current.getBoundingClientRect()
-              if (nat.w > 0 && nat.h > 0) {
-                const scaleX = (wrapperRect.width - 32) / nat.w
-                const scaleY = (wrapperRect.height - 16) / nat.h
-                const fitScale = Math.min(scaleX, scaleY, 1) // never zoom in beyond 1x
-                setZoom(fitScale)
-                // Center horizontally
-                const scaledW = nat.w * fitScale
-                const centerX = Math.max(0, (wrapperRect.width - scaledW) / 2)
-                setPan({ x: centerX, y: 8 })
-                // Adjust panel height to content
-                isManualResize.current = false
-                setPanelHeight(computeContentHeight(nat.h, fitScale))
-              }
-            })
+            // Use viewBox so SVG scales to fill container automatically
+            if (nat.w > 0 && nat.h > 0) {
+              svgEl.setAttribute('viewBox', `0 0 ${nat.w} ${nat.h}`)
+            }
+            svgEl.removeAttribute('width')
+            svgEl.removeAttribute('height')
+            svgEl.style.width = '100%'
+            svgEl.style.height = '100%'
+            svgEl.style.maxWidth = 'none'
+            svgEl.style.maxHeight = 'none'
+
+            // Reset zoom/pan — viewBox handles fitting
+            setZoom(1)
+            setPan({ x: 0, y: 0 })
           }
         }
       } catch (err) {
@@ -102,7 +84,7 @@ export default function WorkflowPanel() {
     }
 
     render()
-  }, [mermaidText, computeContentHeight])
+  }, [mermaidText])
 
   // Click-to-navigate: click page node → navigate
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -137,17 +119,11 @@ export default function WorkflowPanel() {
     }
   }, [])
 
-  // Zoom: scroll to zoom + dynamic panel height
+  // Zoom: scroll to zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
-    setZoom((prev) => {
-      const next = Math.max(0.1, Math.min(5, prev - e.deltaY * 0.001))
-      if (!isManualResize.current && svgNatural.current.h > 0) {
-        setPanelHeight(computeContentHeight(svgNatural.current.h, next))
-      }
-      return next
-    })
-  }, [computeContentHeight])
+    setZoom((prev) => Math.max(0.5, Math.min(5, prev - e.deltaY * 0.001)))
+  }, [])
 
   // Pan: drag to pan
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -166,31 +142,15 @@ export default function WorkflowPanel() {
 
   const handleMouseUp = useCallback(() => setIsPanning(false), [])
 
-  // Fit to view
+  // Fit to view — reset zoom/pan, viewBox handles fitting
   const fitToView = useCallback(() => {
-    if (!wrapperRef.current || svgNatural.current.w === 0) {
-      setZoom(1)
-      setPan({ x: 0, y: 0 })
-      return
-    }
-    const nat = svgNatural.current
-    const wrapperRect = wrapperRef.current.getBoundingClientRect()
-    const scaleX = (wrapperRect.width - 32) / nat.w
-    const scaleY = (wrapperRect.height - 16) / nat.h
-    const fitScale = Math.min(scaleX, scaleY, 1)
-    setZoom(fitScale)
-    const scaledW = nat.w * fitScale
-    const centerX = Math.max(0, (wrapperRect.width - scaledW) / 2)
-    setPan({ x: centerX, y: 8 })
-    // Update panel height to fit content
-    isManualResize.current = false
-    setPanelHeight(computeContentHeight(nat.h, fitScale))
-  }, [computeContentHeight])
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+  }, [])
 
-  // Resize drag — marks manual so zoom doesn't override
+  // Resize drag
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    isManualResize.current = true
     const startY = e.clientY
     const startH = panelHeight
 
@@ -308,7 +268,7 @@ export default function WorkflowPanel() {
           className="w-full h-full"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: 'top left',
+            transformOrigin: 'center center',
           }}
         />
       </div>
