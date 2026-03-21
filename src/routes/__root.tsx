@@ -6,6 +6,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { ErrorBoundary } from '@/components/shared/error-boundary'
 
 import '@/i18n'
 import { detectLanguagePostHydration } from '@/i18n'
@@ -47,7 +48,11 @@ function NotFoundComponent() {
 }
 
 function RootComponent() {
-  return <Outlet />
+  return (
+    <ErrorBoundary>
+      <Outlet />
+    </ErrorBoundary>
+  )
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {

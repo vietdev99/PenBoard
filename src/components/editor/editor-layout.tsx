@@ -16,6 +16,7 @@ import SaveDialog from '@/components/shared/save-dialog'
 import AgentSettingsDialog from '@/components/shared/agent-settings-dialog'
 import FigmaImportDialog from '@/components/shared/figma-import-dialog'
 import UpdateReadyBanner from './update-ready-banner'
+import ErrorToast from './error-toast'
 import { useAIStore } from '@/stores/ai-store'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore } from '@/stores/document-store'
@@ -210,6 +211,9 @@ export default function EditorLayout() {
         {isDragging && (
           <div className="fixed inset-0 z-50 border-2 border-dashed border-primary bg-primary/5 pointer-events-none" />
         )}
+
+        {/* Global error toast */}
+        <ErrorToast />
       </div>
     </TooltipProvider>
   )
