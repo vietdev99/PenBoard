@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Database, Monitor, Component } from 'lucide-react'
+import { Plus, X, Database, Monitor, Component, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useCanvasStore } from '@/stores/canvas-store'
@@ -17,6 +17,7 @@ export default function PageTabs() {
   const reorderPage = useDocumentStore((s) => s.reorderPage)
   const duplicatePage = useDocumentStore((s) => s.duplicatePage)
 
+  const [loadingPageId, setLoadingPageId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [contextMenu, setContextMenu] = useState<{
@@ -33,11 +34,18 @@ export default function PageTabs() {
   const canDelete = pages.length > 1
 
   const handleSwitchPage = (pageId: string) => {
-    if (pageId === activePageId) return
-    useCanvasStore.getState().clearSelection()
-    useCanvasStore.getState().exitAllFrames()
-    setActivePageId(pageId)
-    requestAnimationFrame(() => zoomToFitContent())
+    if (pageId === activePageId || loadingPageId) return
+    setLoadingPageId(pageId)
+    // Defer heavy sync to next frame so spinner renders first
+    requestAnimationFrame(() => {
+      useCanvasStore.getState().clearSelection()
+      useCanvasStore.getState().exitAllFrames()
+      setActivePageId(pageId)
+      requestAnimationFrame(() => {
+        zoomToFitContent()
+        setLoadingPageId(null)
+      })
+    })
   }
 
   const handleDoubleClick = (pageId: string, name: string) => {
@@ -174,7 +182,9 @@ export default function PageTabs() {
                   />
                 ) : (
                   <>
-                    {page.type === 'component' ? (
+                    {loadingPageId === page.id ? (
+                      <Loader2 className="w-3 h-3 shrink-0 mr-1 animate-spin text-muted-foreground" />
+                    ) : page.type === 'component' ? (
                       <Component className="w-3 h-3 shrink-0 mr-1 text-purple-400" />
                     ) : page.type === 'erd' ? (
                       <Database className="w-3 h-3 shrink-0 mr-1" />
