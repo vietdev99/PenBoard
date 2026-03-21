@@ -56,7 +56,9 @@ export const TOOL_DEFINITIONS = [
     name: 'open_document',
     description:
       'Open an existing .pb/.op file or connect to the live Electron canvas. Returns document metadata, context summary, and design prompt. Always call this first. Omit filePath to connect to the live canvas. ' +
-      'Note: Pages act as modules — each page can contain multiple screens or views (frames) laid out side by side on the canvas.',
+      'IMPORTANT — Page = Module architecture: each page is a MODULE (e.g. "Tasks", "Team", "Settings") that contains MULTIPLE related views as root-level frames laid out side by side on the canvas. ' +
+      'For example, a "Tasks" module page would contain: Task List view + Task Detail view + Create Task dialog + Edit Task form. ' +
+      'Do NOT create one page per view — group related views into the same page module. Use find_empty_space to position additional views next to existing ones.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -120,7 +122,8 @@ export const TOOL_DEFINITIONS = [
       'Insert a new node into the document. Node types: frame, rectangle, ellipse, text, path, image, group, line, polygon, ref. ' +
       'Fill is always an array: [{ type: "solid", color: "#hex" }]. ' +
       'When inserting a frame at root level and an empty root frame exists, it is auto-replaced. ' +
-      'Multiple root-level frames can be placed on the same page at different x positions to represent separate screens/views within the module. ' +
+      'Multiple root-level frames SHOULD be placed on the same page to represent related views within a module (e.g. list + detail + create form). ' +
+      'Use find_empty_space(direction="right") to position additional views next to existing ones. ' +
       'Returns the final node state (after post-processing if enabled).',
     inputSchema: {
       type: 'object' as const,
@@ -410,8 +413,10 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'add_page',
     description:
-      'Add a new page (module) to a .pb/.op file. Pages act as modules — each page is a workspace that can contain multiple screens or views as separate root-level frames laid out side by side on the canvas. ' +
-      'If the document has no pages yet, the existing children are migrated to the first page automatically.',
+      'Add a new page (module) to a .pb/.op file. IMPORTANT: Pages are MODULES, not individual views. ' +
+      'Each page groups related views together — e.g. a "Tasks" module contains Task List + Task Detail + Create Task + Edit Task as separate root-level frames on the same canvas. ' +
+      'Only create a new page when adding a genuinely different feature module (e.g. "Dashboard", "Tasks", "Team", "Settings"). ' +
+      'Do NOT create a new page for every single screen. If the document has no pages yet, the existing children are migrated to the first page automatically.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -512,7 +517,8 @@ export const TOOL_DEFINITIONS = [
       '  D(nodeId)                           -- Delete node\n' +
       'Use null for root-level parent. Reference previous bindings by name. ' +
       'Path expressions support binding+"/ childId" for nested access. ' +
-      'Always set postProcess=true when generating designs for best visual quality.',
+      'Always set postProcess=true when generating designs for best visual quality. ' +
+      'TIP: Each page is a MODULE — insert multiple root-level frames (views) on the same page for related screens (e.g. list + detail + create form). Use find_empty_space to position them.',
     inputSchema: {
       type: 'object' as const,
       properties: {

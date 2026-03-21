@@ -20,7 +20,12 @@ Classify by the design's PURPOSE to choose the correct root frame size — reaso
 - Data-rich workspace (dashboards, admin panels, analytics) → Desktop: width=1200, height=0
 - CRITICAL: Single-task screens MUST be 375×812. NEVER use 1200 width for focused app screens.
 - Multi-section page height hints: nav 64-80px, hero 500-600px, feature sections 400-600px, CTA 200-300px, footer 200-300px.
-- Single-task screen height hints: status bar 44px, header 56-64px, form fields 48-56px each, buttons 48px, spacing 16-24px.`
+- Single-task screen height hints: status bar 44px, header 56-64px, form fields 48-56px each, buttons 48px, spacing 16-24px.
+
+PAGE = MODULE (CRITICAL):
+Each page is a MODULE grouping related views — NOT one page per view. Place multiple root-level frames (views) side by side on the same page.
+Example: "Tasks" module page contains Task List (375×812) + Task Detail (375×812) + Create Task (375×520) side by side.
+Use find_empty_space(direction="right") to position additional views. Only create a new page for a different feature module.`
 
 const ROLE_GUIDE = `SEMANTIC ROLES (context-aware defaults):
 Add "role" to nodes for automatic smart defaults. System fills unset props based on role. Your explicit props always override.
@@ -183,10 +188,19 @@ SECTION DECOMPOSITION RULES:
 - Multi-section pages: include Navigation as FIRST section
 - Single-task screens: do NOT include Navigation, Hero, or Footer
 
+PAGE = MODULE ARCHITECTURE:
+Pages are MODULES, not individual views. Each page groups related views as separate root-level frames on the same canvas:
+- "Dashboard" module → Dashboard main view + Dashboard settings + Empty state
+- "Tasks" module → Task List + Task Detail + Create Task dialog + Edit Task form
+- "Team" module → Member List + Member Profile + Add Member form
+Only create a new page for a genuinely different feature module. Within a module, use find_empty_space(direction="right") to position views side by side.
+Connections can link to specific views within the same module (same-page navigation) or across modules (cross-page navigation).
+
 LAYERED WORKFLOW:
-1. Call design_skeleton with rootFrame + sections to create the layout structure
+1. Call design_skeleton with rootFrame + sections to create ONE view's layout structure
 2. For each section, call design_content to populate content nodes
 3. Call design_refine to run full-tree validation and auto-fixes
+4. Repeat steps 1-3 for each additional view in the module, using find_empty_space to position them
 This approach produces higher-fidelity designs than generating everything at once.`
 
 // ---------------------------------------------------------------------------
