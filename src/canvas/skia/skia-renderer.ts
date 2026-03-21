@@ -573,8 +573,8 @@ export class SkiaRenderer {
   ) {
     const node = rn.node
 
-    // LOD Tier 1: node extremely small (<3px) → solid fill rect only
-    if (pixelW < 3 && pixelH < 3) {
+    // LOD Tier 1: node sub-pixel (<1px) → solid fill rect only
+    if (pixelW < 1 && pixelH < 1) {
       const fills = 'fill' in node ? (node as any).fill : undefined
       if (fills && Array.isArray(fills) && fills.length > 0 && fills[0].type === 'solid') {
         const paint = new this.ck.Paint()
@@ -589,8 +589,8 @@ export class SkiaRenderer {
       return
     }
 
-    // LOD Tier 2: node small (<3px) or 'quick' render tier → fill + stroke only
-    if ((pixelW < 3 && pixelH < 3) || simplified) {
+    // LOD Tier 2: node tiny (<2px) or 'quick' render tier → fill + stroke only
+    if ((pixelW < 2 && pixelH < 2) || simplified) {
       this.drawSimplifiedNode(canvas, rn)
       return
     }
@@ -1396,7 +1396,7 @@ export class SkiaRenderer {
     // LOD: when text node is too small on screen to be readable, draw a colored
     // rectangle placeholder instead of doing full text measurement + rasterization.
     const screenH = h * this.zoom
-    if (screenH < 3 && h > 0) {
+    if (screenH < 2 && h > 0) {
       const tNode = node as TextNode
       const fillColor = resolveFillColor(tNode.fill)
       const paint = new ck.Paint()
