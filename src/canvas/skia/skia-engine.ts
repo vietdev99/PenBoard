@@ -1457,6 +1457,15 @@ export class SkiaEngine {
     // Dim root frames not in highlighted flow (connection-click highlighting)
     if (highlightedFlow && highlightedFlow.nodeIds.length > 0 && selectedIds.size === 0) {
       const flowSet = new Set(highlightedFlow.nodeIds)
+      // Expand: include ancestor root frames of flow nodes (sourceElementId may be a child)
+      const docState = useDocumentStore.getState()
+      for (const nodeId of highlightedFlow.nodeIds) {
+        let current = docState.getParentOf(nodeId)
+        while (current) {
+          flowSet.add(current.id)
+          current = docState.getParentOf(current.id)
+        }
+      }
       for (const rn of this.rootFrameNodes) {
         if (!flowSet.has(rn.node.id)) {
           this.renderer.drawDimOverlay(canvas, rn.absX, rn.absY, rn.absW, rn.absH, 0.5)
