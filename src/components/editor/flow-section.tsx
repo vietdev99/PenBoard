@@ -145,53 +145,35 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     </div>
   )
 
-  const diagramContent = (
-    <>
-      <div
-        ref={viewportRef}
-        className={`${fullscreen ? 'flex-1 overflow-auto' : ''} p-4 ${zoomEnabled ? 'cursor-grab' : 'overflow-x-auto'}`}
-      >
-        <div
-          ref={containerRef}
-          className={fullscreen ? 'min-h-full flex items-start justify-center' : ''}
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: fullscreen ? 'top center' : 'top left',
-            transition: zoomEnabled ? 'none' : 'transform 0.2s ease',
-          }}
-        />
-      </div>
-      {renderError && (
-        <div className="text-sm text-destructive bg-destructive/10 p-3 mx-4 mb-4 rounded-lg">
-          {renderError}
-        </div>
-      )}
-    </>
-  )
-
-  // Fullscreen overlay
-  if (fullscreen) {
-    return (
-      <>
-        {/* Inline placeholder to preserve scroll position */}
-        <div className="bg-card border border-border rounded-lg my-4 h-20 flex items-center justify-center text-xs text-muted-foreground">
-          Viewing fullscreen...
-        </div>
-        {/* Fullscreen overlay */}
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
-          <div className="relative flex-1 flex flex-col">
-            {toolbar}
-            {diagramContent}
-          </div>
-        </div>
-      </>
-    )
-  }
-
   return (
-    <div className="relative bg-card border border-border rounded-lg my-4 overflow-hidden group">
-      {toolbar}
-      {diagramContent}
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col'
+          : 'relative bg-card border border-border rounded-lg my-4 overflow-hidden group'
+      }
+    >
+      <div className={fullscreen ? 'relative flex-1 flex flex-col min-h-0' : ''}>
+        {toolbar}
+        <div
+          ref={viewportRef}
+          className={`${fullscreen ? 'flex-1 overflow-auto' : ''} p-4 ${zoomEnabled ? 'cursor-grab' : 'overflow-x-auto'}`}
+        >
+          <div
+            ref={containerRef}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: fullscreen ? 'top center' : 'top left',
+              transition: zoomEnabled ? 'none' : 'transform 0.2s ease',
+            }}
+          />
+        </div>
+        {renderError && (
+          <div className="text-sm text-destructive bg-destructive/10 p-3 mx-4 mb-4 rounded-lg">
+            {renderError}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
