@@ -404,6 +404,7 @@ export default function TopBar() {
 
       {/* Right section */}
       <div className="flex items-center gap-0.5 app-region-no-drag electron-win-controls-pad">
+        {/* Preview button temporarily hidden
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -417,6 +418,7 @@ export default function TopBar() {
           </TooltipTrigger>
           <TooltipContent side="bottom">{t('editor.preview', 'Preview')}</TooltipContent>
         </Tooltip>
+        */}
 
         <Tooltip>
           <TooltipTrigger asChild>

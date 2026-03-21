@@ -1,5 +1,5 @@
 import { defineEventHandler, setResponseHeaders } from 'h3'
-import { getSyncDocument } from '../../utils/mcp-sync-state'
+import { getSyncDocument, getSyncFilePath } from '../../utils/mcp-sync-state'
 
 /** GET /api/mcp/document — Returns the current canvas document for MCP to read. */
 export default defineEventHandler((event) => {
@@ -11,5 +11,5 @@ export default defineEventHandler((event) => {
       headers: { 'Content-Type': 'application/json' },
     })
   }
-  return { version, document: doc }
+  return { version, document: doc, filePath: getSyncFilePath() }
 })

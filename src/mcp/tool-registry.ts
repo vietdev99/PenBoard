@@ -47,6 +47,7 @@ import {
   handleReadDoc,
 } from './tools/workspace'
 import { handleGetProjectContext } from './tools/project-context'
+import { openDocument, saveDocument, resolveDocPath, getCachedFilePath, fetchLiveFilePath, LIVE_CANVAS_PATH } from './document-manager'
 
 // --- Tool definitions (shared across all Server instances) ---
 
@@ -796,7 +797,56 @@ export const TOOL_DEFINITIONS = [
       required: [],
     },
   },
+  {
+    name: 'save_document',
+    description:
+      'Save the current document to disk. For live canvas, fetches the current state and writes to the associated .pb file. ' +
+      'For file-based MCP, saves the cached document to the specified path. ' +
+      'Use filePath to explicitly set the save target, or omit to auto-detect from the live canvas.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Target .pb/.op file path to save to. Omit to auto-detect from the live canvas.',
+        },
+      },
+      required: [],
+    },
+  },
 ]
+
+// --- save_document handler ---
+
+async function handleSaveDocumentTool(params: { filePath?: string }): Promise<{ ok: true; filePath: string }> {
+  let targetPath = params.filePath
+
+  if (!targetPath) {
+    // Try to detect from cached file path first
+    targetPath = getCachedFilePath()
+    // Fallback: ask the live canvas for its file path
+    if (!targetPath) {
+      targetPath = (await fetchLiveFilePath()) ?? undefined
+    }
+    if (!targetPath) {
+      throw new Error(
+        'No file path available. The document has not been saved before. ' +
+        'Provide a filePath parameter (e.g. "C:/path/to/project.pb") to save.',
+      )
+    }
+  }
+
+  const resolvedPath = resolveDocPath(targetPath)
+  if (resolvedPath === LIVE_CANVAS_PATH) {
+    throw new Error('Cannot save to live://canvas. Provide an actual file path.')
+  }
+
+  // Fetch the current document (from live canvas or cache)
+  const doc = await openDocument(LIVE_CANVAS_PATH).catch(() => null)
+    ?? await openDocument(resolvedPath)
+  await saveDocument(resolvedPath, doc)
+  return { ok: true, filePath: resolvedPath }
+}
 
 // --- Tool execution handler ---
 
@@ -897,6 +947,8 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return JSON.stringify(await handleReadDoc(a), null, 2)
     case 'get_project_context':
       return JSON.stringify(await handleGetProjectContext(a), null, 2)
+    case 'save_document':
+      return JSON.stringify(await handleSaveDocumentTool(a), null, 2)
 
     default:
       throw new Error(`Unknown tool: ${name}`)

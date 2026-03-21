@@ -228,6 +228,20 @@ export function getCachedFilePath(): string | undefined {
   return undefined
 }
 
+/** Fetch the file path of the currently open document from the live canvas Nitro server. */
+export async function fetchLiveFilePath(): Promise<string | null> {
+  const syncUrl = await getSyncUrl()
+  if (!syncUrl) return null
+  try {
+    const res = await fetch(`${syncUrl}/api/mcp/document`)
+    if (!res.ok) return null
+    const data = (await res.json()) as { filePath?: string | null }
+    return data.filePath ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Invalidate cache for a file. */
 export function invalidateCache(filePath: string): void {
   cache.delete(filePath)
