@@ -27,6 +27,7 @@ import {
   isPreviewNode,
 } from '../agent-indicator'
 import { isNodeBorderReady, getNodeRevealTime } from '@/services/ai/design-animation'
+import { measureText as measureOverlayText } from './skia-overlays'
 import { SkiaErdRenderer } from './skia-erd-renderer'
 import { applyPropertyValue as _applyPropertyValue, applyBindingsToTree as _applyBindingsToTree, applyArgumentValues as _applyArgumentValues } from './argument-apply'
 
@@ -413,6 +414,18 @@ export class SkiaEngine {
   private reusableRenderNodes: RenderNode[] = [] // Render nodes for reusable component badges
   private rootFrameNodes: RenderNode[] = []   // Root frames (no clipRect) for dim overlays
   rnMap = new Map<string, { absX: number; absY: number; absW: number; absH: number }>()
+
+  /** Cross-page navigation pill rects — rebuilt each render, used for dblclick hit test. */
+  crossPagePills: { x: number; y: number; w: number; h: number; targetPageId: string }[] = []
+
+  /** Connection hit areas — rebuilt each render, used for hover/click hit test on connection lines. */
+  connectionHitAreas: {
+    connectionId: string
+    /** Sampled points along the connection path (scene-space) for proximity hit test. */
+    points: { x: number; y: number }[]
+    /** Label pill rect (if exists). */
+    labelRect?: { x: number; y: number; w: number; h: number }
+  }[] = []
 
   // Agent animation: track start time so glow only pulses ~2 times
   private agentAnimStart = 0
@@ -1174,7 +1187,8 @@ export class SkiaEngine {
     // Storyboard-style connection arrows between elements
     // Skip during active pan/zoom for performance — arrows re-appear once pan settles
     const connections = this.isPanning ? [] : (useDocumentStore.getState().document.connections ?? [])
-    const { showConnections } = useCanvasStore.getState()
+    const { showConnections, hoveredConnectionId, highlightedFlow } = useCanvasStore.getState()
+    this.connectionHitAreas = []
     if (connections.length > 0 && showConnections) {
       const activePageId = useCanvasStore.getState().activePageId
       const activePage = (useDocumentStore.getState().document.pages ?? []).find(
@@ -1185,12 +1199,16 @@ export class SkiaEngine {
         const pages = useDocumentStore.getState().document.pages ?? []
 
         // Group cross-page connections by source element to offset labels
-        const crossPageBySource = new Map<string, { targetName: string }[]>()
+        const crossPageBySource = new Map<string, { targetName: string; targetPageId: string }[]>()
 
         for (const c of connections) {
           if (c.sourcePageId !== activePageId) continue
           const src = this.rnMap.get(c.sourceElementId)
           if (!src) continue
+
+          const isHovered = hoveredConnectionId === c.id
+          const isInFlow = highlightedFlow?.connectionIds.includes(c.id) ?? false
+          const isDimmed = highlightedFlow && !isInFlow
 
           const samePage = c.targetPageId === activePageId
           if (samePage) {
@@ -1198,12 +1216,43 @@ export class SkiaEngine {
             const targetId = c.targetFrameId || c.targetPageId
             const tgt = this.rnMap.get(targetId)
             if (tgt) {
+              const alpha = isDimmed ? 0.15 : isHovered || isInFlow ? 1.0 : undefined
               this.renderer.drawStoryboardArrow(
                 canvas,
                 src.absX, src.absY, src.absW, src.absH,
                 tgt.absX, tgt.absY, tgt.absW, tgt.absH,
-                this.zoom, c.label,
+                this.zoom, c.label, alpha,
               )
+              // Build hit area: sample bezier curve points
+              const invZ = Math.max(1 / this.zoom, 0.1)
+              const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2
+              const tCx = tgt.absX + tgt.absW / 2, tCy = tgt.absY + tgt.absH / 2
+              const x1 = tCx >= sCx ? src.absX + src.absW : src.absX
+              const y1 = sCy
+              const x2 = tCx >= sCx ? tgt.absX : tgt.absX + tgt.absW
+              const y2 = tCy
+              const dx = Math.abs(x2 - x1)
+              const cp = Math.max(40 * invZ, dx * 0.4)
+              const cpx1 = tCx >= sCx ? x1 + cp : x1 - cp
+              const cpx2 = tCx >= sCx ? x2 - cp : x2 + cp
+              const pts: { x: number; y: number }[] = []
+              for (let t = 0; t <= 1; t += 0.1) {
+                const u = 1 - t
+                pts.push({
+                  x: u * u * u * x1 + 3 * u * u * t * cpx1 + 3 * u * t * t * cpx2 + t * t * t * x2,
+                  y: u * u * u * y1 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y2,
+                })
+              }
+              // Label rect at midpoint
+              const midX = (x1 + x2) / 2
+              const midY = (y1 + y2) / 2 - 10 * invZ
+              const labelRect = c.label ? (() => {
+                const fs = 10 * invZ, px = 4 * invZ, py = 2 * invZ
+                const tw = measureOverlayText(c.label!, 10, '500') * invZ
+                const bw = tw + px * 2, bh = fs + py * 2
+                return { x: midX - bw / 2, y: midY - bh / 2, w: bw, h: bh }
+              })() : undefined
+              this.connectionHitAreas.push({ connectionId: c.id, points: pts, labelRect })
             }
           } else {
             // Cross-page: collect for grouped rendering
@@ -1216,11 +1265,12 @@ export class SkiaEngine {
             if (!crossPageBySource.has(c.sourceElementId)) {
               crossPageBySource.set(c.sourceElementId, [])
             }
-            crossPageBySource.get(c.sourceElementId)!.push({ targetName })
+            crossPageBySource.get(c.sourceElementId)!.push({ targetName, targetPageId: c.targetPageId })
           }
         }
 
-        // Draw cross-page arrows with vertical offset to avoid overlap
+        // Draw cross-page arrows and build pill hit-test rects
+        this.crossPagePills = []
         for (const [sourceId, targets] of crossPageBySource) {
           const src = this.rnMap.get(sourceId)
           if (!src) continue
@@ -1231,6 +1281,25 @@ export class SkiaEngine {
               this.zoom, targets[i].targetName,
               i, targets.length,
             )
+            // Compute pill rect in scene-space (mirrors drawCrossPageArrow math)
+            const invZ = Math.max(1 / this.zoom, 0.1)
+            const rowH = 20 * invZ
+            const groupH = targets.length * rowH
+            const sCy = src.absY + src.absH / 2 - groupH / 2 + rowH / 2 + i * rowH
+            const x2 = src.absX + src.absW + 60 * invZ
+            const fontSize = 10 * invZ
+            const padX = 5 * invZ
+            const padY = 3 * invZ
+            const gap = 4 * invZ
+            const textW = measureOverlayText(targets[i].targetName, 10, '500') * invZ
+            const pillW = textW + padX * 2
+            const pillH = fontSize + padY * 2
+            const pillX = x2 + gap
+            const pillY = sCy - pillH / 2
+            this.crossPagePills.push({
+              x: pillX, y: pillY, w: pillW, h: pillH,
+              targetPageId: targets[i].targetPageId,
+            })
           }
         }
       }
@@ -1365,6 +1434,16 @@ export class SkiaEngine {
             src.absX, src.absY, src.absW, src.absH,
             this.zoom, targetName,
           )
+        }
+      }
+    }
+
+    // Dim root frames not in highlighted flow (connection-click highlighting)
+    if (highlightedFlow && highlightedFlow.nodeIds.length > 0 && selectedIds.size === 0) {
+      const flowSet = new Set(highlightedFlow.nodeIds)
+      for (const rn of this.rootFrameNodes) {
+        if (!flowSet.has(rn.node.id)) {
+          this.renderer.drawDimOverlay(canvas, rn.absX, rn.absY, rn.absW, rn.absH, 0.5)
         }
       }
     }

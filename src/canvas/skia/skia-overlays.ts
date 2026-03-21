@@ -57,7 +57,7 @@ function evictTextCache() {
 }
 
 /** Measure text width using Canvas 2D (reuses shared canvas). */
-function measureText(text: string, fontSize: number, fontWeight = '500'): number {
+export function measureText(text: string, fontSize: number, fontWeight = '500'): number {
   const ctx = getOverlayMeasureCtx()
   ctx.font = `${fontWeight} ${Math.ceil(fontSize)}px ${OVERLAY_FONT}`
   return ctx.measureText(text).width
@@ -643,6 +643,7 @@ export function drawStoryboardArrow(
   tx: number, ty: number, tw: number, th: number,
   zoom: number,
   label?: string,
+  alphaOverride?: number,
 ): void {
   // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
   const invZ = Math.max(1 / zoom, 0.1)
@@ -674,9 +675,14 @@ export function drawStoryboardArrow(
   linePaint.setStyle(ck.PaintStyle.Stroke)
   linePaint.setAntiAlias(true)
   linePaint.setStrokeWidth(2 * invZ)
+  const baseAlpha = alphaOverride ?? 0.85
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  linePaint.setAlphaf(0.85)
+  linePaint.setAlphaf(baseAlpha)
   linePaint.setStrokeCap(ck.StrokeCap.Round)
+  // Thicker line when highlighted
+  if (alphaOverride !== undefined && alphaOverride >= 1) {
+    linePaint.setStrokeWidth(3 * invZ)
+  }
 
   const path = new ck.Path()
   path.moveTo(x1, y1)
@@ -695,7 +701,7 @@ export function drawStoryboardArrow(
   arrowPaint.setStyle(ck.PaintStyle.Fill)
   arrowPaint.setAntiAlias(true)
   arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  arrowPaint.setAlphaf(0.85)
+  arrowPaint.setAlphaf(baseAlpha)
 
   const arrowPath = new ck.Path()
   arrowPath.moveTo(ax, ay)
@@ -723,12 +729,12 @@ export function drawStoryboardArrow(
     bgPaint.setStyle(ck.PaintStyle.Fill)
     bgPaint.setAntiAlias(true)
     bgPaint.setColor(parseColor(ck, '#1e293b'))
-    bgPaint.setAlphaf(0.8)
+    bgPaint.setAlphaf(Math.min(baseAlpha, 0.8))
     const r = 3 * invZ
     canvas.drawRRect(ck.RRectXY(ck.LTRBRect(bgX, bgY, bgX + bgW, bgY + bgH), r, r), bgPaint)
     bgPaint.delete()
 
-    drawText2D(ck, canvas, label, bgX + padX, bgY + padY, '#e2e8f0', fontSize, '500')
+    drawText2D(ck, canvas, label, bgX + padX, bgY + padY, '#e2e8f0', fontSize, '500', Math.min(baseAlpha, 1))
   }
 }
 

@@ -374,6 +374,20 @@ export default function SkiaCanvas() {
     return unsub
   }, [])
 
+  // Connection hover/highlight sync: re-render when hovered connection or highlighted flow changes
+  useEffect(() => {
+    let prevHovConn = useCanvasStore.getState().hoveredConnectionId
+    let prevFlow = useCanvasStore.getState().highlightedFlow
+    const unsub = useCanvasStore.subscribe((state) => {
+      if (state.hoveredConnectionId !== prevHovConn || state.highlightedFlow !== prevFlow) {
+        prevHovConn = state.hoveredConnectionId
+        prevFlow = state.highlightedFlow
+        engineRef.current?.markDirty()
+      }
+    })
+    return unsub
+  }, [])
+
   // ---- Event handlers ----
 
   // Wheel: zoom + pan
@@ -706,6 +720,10 @@ export default function SkiaCanvas() {
         const hits = engine.spatialIndex.hitTest(scene.x, scene.y)
 
         if (hits.length > 0) {
+          // Clicking a node clears any active flow highlight
+          if (useCanvasStore.getState().highlightedFlow) {
+            useCanvasStore.getState().setHighlightedFlow(null)
+          }
           const topHit = hits[0]
           let nodeId = topHit.node.id
           const currentSelection = useCanvasStore.getState().selection.selectedIds
@@ -754,14 +772,97 @@ export default function SkiaCanvas() {
             return { id, x: n?.x ?? 0, y: n?.y ?? 0 }
           })
         } else {
-          // Empty space → start marquee or clear selection
-          if (!e.shiftKey) {
-            useCanvasStore.getState().clearSelection()
+          // Empty space — check if a connection line was clicked
+          let clickedConnId: string | null = null
+          const hitRadius = 8 / engine.zoom
+          for (const area of engine.connectionHitAreas) {
+            if (area.labelRect) {
+              const lr = area.labelRect
+              if (scene.x >= lr.x && scene.x <= lr.x + lr.w &&
+                  scene.y >= lr.y && scene.y <= lr.y + lr.h) {
+                clickedConnId = area.connectionId
+                break
+              }
+            }
+            for (const pt of area.points) {
+              if (Math.abs(scene.x - pt.x) <= hitRadius && Math.abs(scene.y - pt.y) <= hitRadius) {
+                clickedConnId = area.connectionId
+                break
+              }
+            }
+            if (clickedConnId) break
           }
-          isMarquee = true
-          lastX = scene.x
-          lastY = scene.y
-          engine.marquee = { x1: scene.x, y1: scene.y, x2: scene.x, y2: scene.y }
+
+          if (clickedConnId) {
+            // Trace the full flow from this connection
+            const connections = useDocumentStore.getState().document.connections ?? []
+            const conn = connections.find((c) => c.id === clickedConnId)
+            if (conn) {
+              const flowNodeIds = new Set<string>()
+              const flowConnIds = new Set<string>()
+              flowConnIds.add(conn.id)
+              flowNodeIds.add(conn.sourceElementId)
+              const targetId = conn.targetFrameId || conn.targetPageId
+              flowNodeIds.add(targetId)
+
+              // BFS forward: follow connections from target, stop at branch points
+              const visited = new Set<string>([conn.sourceElementId])
+              const queue = [targetId]
+              while (queue.length > 0) {
+                const nodeId = queue.shift()!
+                if (visited.has(nodeId)) continue
+                visited.add(nodeId)
+                // Find outgoing connections from this node
+                const outgoing = connections.filter((c) => c.sourceElementId === nodeId)
+                if (outgoing.length > 1) continue // Branch point — stop
+                for (const out of outgoing) {
+                  flowConnIds.add(out.id)
+                  const nextId = out.targetFrameId || out.targetPageId
+                  flowNodeIds.add(nextId)
+                  queue.push(nextId)
+                }
+              }
+
+              // BFS backward: follow connections to source
+              const visitedBack = new Set<string>([targetId])
+              const queueBack = [conn.sourceElementId]
+              while (queueBack.length > 0) {
+                const nodeId = queueBack.shift()!
+                if (visitedBack.has(nodeId)) continue
+                visitedBack.add(nodeId)
+                // Find incoming connections to this node
+                const incoming = connections.filter((c) =>
+                  (c.targetFrameId || c.targetPageId) === nodeId,
+                )
+                if (incoming.length > 1) continue // Merge point — stop
+                for (const inc of incoming) {
+                  flowConnIds.add(inc.id)
+                  flowNodeIds.add(inc.sourceElementId)
+                  queueBack.push(inc.sourceElementId)
+                }
+              }
+
+              useCanvasStore.getState().setHighlightedFlow({
+                nodeIds: Array.from(flowNodeIds),
+                connectionIds: Array.from(flowConnIds),
+              })
+              useCanvasStore.getState().clearSelection()
+              engine.markDirty()
+            }
+          } else {
+            // Truly empty space → clear highlight + start marquee
+            if (useCanvasStore.getState().highlightedFlow) {
+              useCanvasStore.getState().setHighlightedFlow(null)
+              engine.markDirty()
+            }
+            if (!e.shiftKey) {
+              useCanvasStore.getState().clearSelection()
+            }
+            isMarquee = true
+            lastX = scene.x
+            lastY = scene.y
+            engine.marquee = { x1: scene.x, y1: scene.y, x2: scene.x, y2: scene.y }
+          }
         }
       }
     }
@@ -1089,10 +1190,41 @@ export default function SkiaCanvas() {
         } else {
           const hoverHits = engine.spatialIndex.hitTest(scene.x, scene.y)
           const newHoveredId = hoverHits.length > 0 ? hoverHits[0].node.id : null
-          canvasEl.style.cursor = newHoveredId ? 'move' : 'default'
+
+          // Connection hover: check proximity to connection lines
+          let newConnHoverId: string | null = null
+          if (!newHoveredId) {
+            const hitRadius = 8 / engine.zoom // 8px screen-space tolerance
+            for (const area of engine.connectionHitAreas) {
+              // Check label rect first (cheap)
+              if (area.labelRect) {
+                const lr = area.labelRect
+                if (scene.x >= lr.x && scene.x <= lr.x + lr.w &&
+                    scene.y >= lr.y && scene.y <= lr.y + lr.h) {
+                  newConnHoverId = area.connectionId
+                  break
+                }
+              }
+              // Check proximity to sampled curve points
+              for (const pt of area.points) {
+                if (Math.abs(scene.x - pt.x) <= hitRadius && Math.abs(scene.y - pt.y) <= hitRadius) {
+                  newConnHoverId = area.connectionId
+                  break
+                }
+              }
+              if (newConnHoverId) break
+            }
+          }
+
+          canvasEl.style.cursor = newHoveredId ? 'move' : newConnHoverId ? 'pointer' : 'default'
           if (newHoveredId !== engine.hoveredNodeId) {
             engine.hoveredNodeId = newHoveredId
             useCanvasStore.getState().setHoveredId(newHoveredId)
+            engine.markDirty()
+          }
+          const prevConnId = useCanvasStore.getState().hoveredConnectionId
+          if (newConnHoverId !== prevConnId) {
+            useCanvasStore.getState().setHoveredConnectionId(newConnHoverId)
             engine.markDirty()
           }
         }
@@ -1339,6 +1471,22 @@ export default function SkiaCanvas() {
           useCanvasStore.getState().setDataPanelOpen(true)
         }
         return
+      }
+
+      // --- Double-click on cross-page navigation pill → jump to target page ---
+      {
+        const scene = getScene(e)
+        if (scene) {
+          for (const pill of engine.crossPagePills) {
+            if (
+              scene.x >= pill.x && scene.x <= pill.x + pill.w &&
+              scene.y >= pill.y && scene.y <= pill.y + pill.h
+            ) {
+              useCanvasStore.getState().setActivePageId(pill.targetPageId)
+              return
+            }
+          }
+        }
       }
 
       // Pen tool: double-click finalizes the path (open)

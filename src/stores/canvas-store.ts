@@ -49,6 +49,9 @@ interface CanvasStoreState {
   activePageId: string | null
   dataFocusEntityId: string | null
   showConnections: boolean
+  hoveredConnectionId: string | null
+  /** When set, highlight a traced flow path (node IDs and connection IDs). */
+  highlightedFlow: { nodeIds: string[]; connectionIds: string[] } | null
   dragConnectState: DragConnectState | null
   pendingBindNodeId: string | null
   activeEditorTab: EditorTab
@@ -56,6 +59,8 @@ interface CanvasStoreState {
 
   setActiveEditorTab: (tab: EditorTab) => void
   toggleShowConnections: () => void
+  setHoveredConnectionId: (id: string | null) => void
+  setHighlightedFlow: (flow: { nodeIds: string[]; connectionIds: string[] } | null) => void
   setActiveTool: (tool: ToolType) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
@@ -114,6 +119,8 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   pendingFigmaFile: null,
   activePageId: DEFAULT_PAGE_ID,
   showConnections: true,
+  hoveredConnectionId: null,
+  highlightedFlow: null,
   dataFocusEntityId: null,
   dragConnectState: null,
   pendingBindNodeId: null,
@@ -126,6 +133,8 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
     persistPrefs({ layerPanelOpen, variablesPanelOpen, dataPanelOpen, codePanelOpen, activeEditorTab: tab })
   },
   toggleShowConnections: () => set((s) => ({ showConnections: !s.showConnections })),
+  setHoveredConnectionId: (id) => set({ hoveredConnectionId: id }),
+  setHighlightedFlow: (flow) => set({ highlightedFlow: flow }),
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   setZoom: (zoom) =>
