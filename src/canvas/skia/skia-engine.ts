@@ -679,10 +679,14 @@ export class SkiaEngine {
 
     const pageChildren = getActivePageChildren(docState.document, activePageId)
 
-    // Re-enable connections when switching pages (gives user a fresh start)
-    if (activePageId !== this.lastSyncPageId && this._connectionsDisabled) {
-      this._connectionsDisabled = false
-      this._renderCrashCount = 0
+    // Re-enable rendering when switching pages — reinit surface if WASM was corrupted
+    if (activePageId !== this.lastSyncPageId) {
+      if (this._wasmCorrupted) {
+        this._reinitSurface()
+      } else if (this._connectionsDisabled) {
+        this._connectionsDisabled = false
+        this._renderCrashCount = 0
+      }
     }
 
     // Skip expensive re-processing if document children haven't changed
@@ -1003,11 +1007,15 @@ export class SkiaEngine {
    */
   private _renderCrashCount = 0
   private _connectionsDisabled = false
-  private static CRASH_THRESHOLD = 3 // disable connections after 3 consecutive crashes
+  /** After a WASM crash, the entire CanvasKit instance is corrupted beyond repair.
+   *  We null the surface to stop rendering and reinit on next page switch. */
+  private _wasmCorrupted = false
 
   private startRenderLoop() {
     const loop = () => {
       this.animFrameId = requestAnimationFrame(loop)
+      // Don't render if WASM is corrupted — wait for page switch to reinit
+      if (this._wasmCorrupted) return
       // Keep animating while flow is highlighted (marching ants)
       if (this.flowAnimating && !this._connectionsDisabled) {
         this.flowDashPhase = -(performance.now() / 15) % 1000 // ~66px/s march, negative = forward direction
@@ -1018,36 +1026,37 @@ export class SkiaEngine {
       try {
         this.render()
         // Successful render — reset crash counter
-        if (this._renderCrashCount > 0) {
-          this._renderCrashCount = 0
-        }
+        this._renderCrashCount = 0
       } catch (renderErr) {
         this._renderCrashCount++
-        if (this._renderCrashCount >= SkiaEngine.CRASH_THRESHOLD && !this._connectionsDisabled) {
-          console.warn(`[SkiaEngine] ${this._renderCrashCount} consecutive render crashes — disabling connections to recover`)
+        if (this._renderCrashCount === 1) {
+          // First crash: disable connections and try to continue rendering
+          console.warn('[SkiaEngine] render() crashed — disabling connections:', renderErr)
           this._connectionsDisabled = true
-          // Recreate surface to clear corrupted WASM state
-          try {
-            try { this.surface?.delete() } catch { /* */ }
-            this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl!)
-            if (!this.surface) this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl!)
-          } catch { /* surface recreation failed */ }
-          this.markDirty() // re-render without connections
-        } else if (!this._connectionsDisabled) {
-          console.warn('[SkiaEngine] render() crashed, will retry next frame:', renderErr)
+          this.markDirty() // retry without connections
+        } else {
+          // Second+ crash: WASM is permanently corrupted, stop rendering
+          console.error('[SkiaEngine] WASM corrupted — canvas halted. Switch pages to recover.')
+          this._wasmCorrupted = true
+          this.surface = null
         }
       }
     }
     this.animFrameId = requestAnimationFrame(loop)
   }
 
-  /** Re-enable connections after page switch or user action. */
-  enableConnections() {
-    if (this._connectionsDisabled) {
-      this._connectionsDisabled = false
-      this._renderCrashCount = 0
-      this.markDirty()
+  /** Reinitialize surface after WASM corruption (called on page switch). */
+  private _reinitSurface() {
+    if (!this.canvasEl) return
+    try { this.surface?.delete() } catch { /* */ }
+    this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl)
+    if (!this.surface) {
+      this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl)
     }
+    this._wasmCorrupted = false
+    this._renderCrashCount = 0
+    this._connectionsDisabled = false
+    this.markDirty()
   }
 
   /** Callback fired once after the next render() completes (used for post-load modal dismissal). */
@@ -1271,7 +1280,10 @@ export class SkiaEngine {
     // Storyboard-style connection arrows between elements
     // Skip during active pan/zoom for performance — arrows re-appear once pan settles
     // Skip when connections are disabled due to WASM crashes
-    const connections = (this.isPanning || this._connectionsDisabled) ? [] : (useDocumentStore.getState().document.connections ?? [])
+    // At very low zoom with many visible nodes, connections cause WASM heap pressure
+    const skipConnections = this.isPanning || this._connectionsDisabled ||
+      (this.zoom < 0.15 && this.visibleRenderNodes.length > 30)
+    const connections = skipConnections ? [] : (useDocumentStore.getState().document.connections ?? [])
     const { showConnections, hoveredConnectionId, highlightedFlow } = useCanvasStore.getState()
     this.flowAnimating = !!(highlightedFlow && highlightedFlow.connectionIds.length > 0)
     this.connectionHitAreas = []
@@ -1641,23 +1653,7 @@ export class SkiaEngine {
     }
 
     canvas.restore()
-    try {
-      this.surface.flush()
-    } catch (flushErr) {
-      // WASM surface corrupted — attempt recovery by recreating surface (once, no loop)
-      console.warn('[SkiaEngine] surface.flush() failed, recreating surface:', flushErr)
-      try {
-        try { this.surface?.delete() } catch { /* already deleted */ }
-        this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl!)
-        if (!this.surface) {
-          this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl!)
-        }
-        // Do NOT call markDirty() here — would create infinite render→crash→recreate loop.
-        // Next user interaction (pan/zoom/click) will naturally trigger a re-render.
-      } catch (recreateErr) {
-        console.error('[SkiaEngine] surface recreation failed:', recreateErr)
-      }
-    }
+    this.surface.flush() // let crash propagate to loop-level handler for proper recovery
 
     // Track frame time for CSS-transform gesture mode
     const _elapsed = performance.now() - _t0
