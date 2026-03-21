@@ -30,13 +30,17 @@ export default function FlowView() {
   const handleScroll = useCallback(() => {
     if (!scrollRef.current || flows.length === 0) return
     const container = scrollRef.current
-    const scrollTop = container.scrollTop + 80 // offset for header
+    const containerTop = container.getBoundingClientRect().top
 
+    // Find the last section whose top edge is at or above the container's top + offset
     for (let i = flows.length - 1; i >= 0; i--) {
       const el = document.getElementById(`flow-${flows[i].name}`)
-      if (el && el.offsetTop <= scrollTop) {
-        setActiveFlow(flows[i].name)
-        return
+      if (el) {
+        const elTop = el.getBoundingClientRect().top - containerTop
+        if (elTop <= 80) {
+          setActiveFlow(flows[i].name)
+          return
+        }
       }
     }
     setActiveFlow(flows[0]?.name)
