@@ -193,8 +193,22 @@ Pages are MODULES, not individual views. Each page groups related views as separ
 - "Dashboard" module → Dashboard main view + Dashboard settings + Empty state
 - "Tasks" module → Task List + Task Detail + Create Task dialog + Edit Task form
 - "Team" module → Member List + Member Profile + Add Member form
-Only create a new page for a genuinely different feature module. Within a module, use find_empty_space(direction="right") to position views side by side.
+Only create a new page for a genuinely different feature module.
 Connections can link to specific views within the same module (same-page navigation) or across modules (cross-page navigation).
+
+VIEW PLACEMENT — TREE LAYOUT:
+Arrange views in a tree structure so navigation connections are easy to follow:
+- Main views (top-level screens) stack VERTICALLY (use find_empty_space(direction="bottom")).
+- Child views (detail screens, modals, sub-flows) branch out to the RIGHT of their parent (use find_empty_space(direction="right")).
+- If a parent has only 1-2 child views, keep children VERTICAL (stacked below/beside the parent) instead of branching horizontally — this avoids sparse horizontal spread.
+- If a parent has 3+ child views, branch them HORIZONTALLY to the right.
+- This creates a readable tree: main flow reads top-to-bottom, sub-flows branch left-to-right.
+Example layout for a Tasks module:
+  Task List (main)
+    ├─ below → Task Empty State (only child → vertical)
+    └─ right → Task Detail
+                 ├─ right → Edit Task
+                 └─ right → Delete Confirmation
 
 LAYERED WORKFLOW:
 1. Call design_skeleton with rootFrame + sections to create ONE view's layout structure

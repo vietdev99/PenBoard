@@ -622,7 +622,7 @@ export function drawConnectionBadge(
   _targetName?: string,
 ): void {
   // Small green dot at top-right corner as subtle indicator
-  const invZ = 1 / zoom
+  const invZ = Math.max(1 / zoom, 0.1)
   const dotR = 4 * invZ
   const paint = new ck.Paint()
   paint.setStyle(ck.PaintStyle.Fill)
@@ -644,7 +644,8 @@ export function drawStoryboardArrow(
   zoom: number,
   label?: string,
 ): void {
-  const invZ = 1 / zoom
+  // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
+  const invZ = Math.max(1 / zoom, 0.1)
 
   // Source and target centers
   const sCx = sx + sw / 2, sCy = sy + sh / 2
@@ -742,7 +743,8 @@ export function drawCrossPageArrow(
   targetName: string,
   index = 0, total = 1,
 ): void {
-  const invZ = 1 / zoom
+  // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
+  const invZ = Math.max(1 / zoom, 0.1)
   // Offset each arrow vertically when multiple connections from same source
   const rowH = 20 * invZ
   const groupH = total * rowH
