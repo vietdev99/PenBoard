@@ -1001,7 +1001,11 @@ export class SkiaEngine {
       }
       if (!this.dirty || !this.surface) return
       this.dirty = false
-      this.render()
+      try {
+        this.render()
+      } catch (renderErr) {
+        console.warn('[SkiaEngine] render() crashed, will retry next frame:', renderErr)
+      }
     }
     this.animFrameId = requestAnimationFrame(loop)
   }
@@ -1033,7 +1037,7 @@ export class SkiaEngine {
         this.hoveredErdEntityId,
         this.erdDragOffset,
       )
-      this.surface.flush()
+      try { this.surface.flush() } catch { /* ERD flush failed — non-critical */ }
       return
     }
 
@@ -1596,7 +1600,24 @@ export class SkiaEngine {
     }
 
     canvas.restore()
-    this.surface.flush()
+    try {
+      this.surface.flush()
+    } catch (flushErr) {
+      // WASM surface corrupted — attempt recovery by recreating surface
+      console.warn('[SkiaEngine] surface.flush() failed, recreating surface:', flushErr)
+      try {
+        this.surface?.delete()
+        this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl!)
+        if (!this.surface) {
+          this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl!)
+        }
+        if (this.surface) {
+          this.markDirty() // schedule a clean re-render
+        }
+      } catch (recreateErr) {
+        console.error('[SkiaEngine] surface recreation failed:', recreateErr)
+      }
+    }
 
     // Track frame time for CSS-transform gesture mode
     const _elapsed = performance.now() - _t0

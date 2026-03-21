@@ -63,6 +63,17 @@ export function measureText(text: string, fontSize: number, fontWeight = '500'):
   return ctx.measureText(text).width
 }
 
+// Cached paint for drawText2D — avoids creating/deleting a Paint per label per frame
+let _textImagePaint: any = null
+let _textImagePaintCk: CanvasKit | null = null
+function _ensureTextImagePaint(ck: CanvasKit) {
+  if (_textImagePaintCk === ck && _textImagePaint) return
+  _textImagePaint?.delete()
+  _textImagePaint = new ck.Paint()
+  _textImagePaint.setAntiAlias(true)
+  _textImagePaintCk = ck
+}
+
 /** Draw text via Canvas 2D rasterization → CanvasKit image. Returns rendered width. */
 function drawText2D(
   ck: CanvasKit, canvas: Canvas,
@@ -128,9 +139,9 @@ function drawText2D(
     evictTextCache()
   }
 
-  const paint = new ck.Paint()
-  paint.setAntiAlias(true)
-  if (alpha < 1) paint.setAlphaf(alpha)
+  // Reuse cached paint — only mutate alpha per call (no alloc/delete)
+  _ensureTextImagePaint(ck)
+  _textImagePaint.setAlphaf(alpha)
 
   // Draw at scene-space size matching fontSize
   const drawW = entry.w * (fontSize / renderSize)
@@ -139,9 +150,8 @@ function drawText2D(
     entry.img,
     ck.LTRBRect(0, 0, entry.img.width(), entry.img.height()),
     ck.LTRBRect(x, y, x + drawW, y + drawH),
-    paint,
+    _textImagePaint,
   )
-  paint.delete()
   return drawW
 }
 
@@ -667,6 +677,42 @@ function _getArrowFillPaint(ck: CanvasKit) { _ensureArrowCache(ck); return _arro
 function _getArrowBgPaint(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowBgPaint }
 function _getArrowPath(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowPath }
 
+// Cached PathEffect for dashed connections — all connections in a frame share the same
+// zoom and dashPhase, so we only need one PathEffect instead of creating/deleting per connection.
+let _dashEffect: any = null
+let _dashEffectKey = '' // "dashLen|gapLen|phase" — recreate only when params change
+let _crossDashEffect: any = null
+let _crossDashEffectKey = ''
+
+function _getDashEffect(ck: CanvasKit, dashLen: number, gapLen: number, phase: number): any {
+  const key = `${dashLen.toFixed(2)}|${gapLen.toFixed(2)}|${phase.toFixed(2)}`
+  if (_dashEffect && _dashEffectKey === key) return _dashEffect
+  _dashEffect?.delete()
+  _dashEffect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+  _dashEffectKey = key
+  return _dashEffect
+}
+
+function _getCrossDashEffect(ck: CanvasKit, dashLen: number, gapLen: number, phase: number): any {
+  const key = `${dashLen.toFixed(2)}|${gapLen.toFixed(2)}|${phase.toFixed(2)}`
+  if (_crossDashEffect && _crossDashEffectKey === key) return _crossDashEffect
+  _crossDashEffect?.delete()
+  _crossDashEffect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+  _crossDashEffectKey = key
+  return _crossDashEffect
+}
+
+let _offscreenDashEffect: any = null
+let _offscreenDashKey = ''
+function _getOffscreenDashEffect(ck: CanvasKit, dashLen: number, gapLen: number, phase: number): any {
+  const key = `${dashLen.toFixed(2)}|${gapLen.toFixed(2)}|${phase.toFixed(2)}`
+  if (_offscreenDashEffect && _offscreenDashKey === key) return _offscreenDashEffect
+  _offscreenDashEffect?.delete()
+  _offscreenDashEffect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+  _offscreenDashKey = key
+  return _offscreenDashEffect
+}
+
 /**
  * Draw a storyboard-style arrow from source element to target element.
  * Finds the best edge pair (closest sides) and draws a curved path with arrowhead.
@@ -716,14 +762,14 @@ export function drawStoryboardArrow(
   const baseAlpha = alphaOverride ?? 0.85
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   linePaint.setAlphaf(baseAlpha)
-  // Animated dash for flow highlight
+  // Animated dash for flow highlight — reuse cached PathEffect (same params for all connections in a frame)
   if (dashPhase !== undefined) {
     const dashLen = 10 * invZ
     const gapLen = 6 * invZ
     const phase = dashPhase * invZ
     if (isFinite(phase)) {
-      const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
-      if (effect) { linePaint.setPathEffect(effect); effect.delete() }
+      const effect = _getDashEffect(ck, dashLen, gapLen, phase)
+      if (effect) linePaint.setPathEffect(effect)
     }
   } else {
     linePaint.setPathEffect(null)
@@ -812,8 +858,8 @@ export function drawCrossPageArrow(
   const gapLen = dashPhase !== undefined ? 6 * invZ : 4 * invZ
   const phase = dashPhase !== undefined ? dashPhase * invZ : 0
   if (isFinite(phase)) {
-    const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
-    if (effect) { linePaint.setPathEffect(effect); effect.delete() }
+    const effect = _getCrossDashEffect(ck, dashLen, gapLen, phase)
+    if (effect) linePaint.setPathEffect(effect)
   } else {
     linePaint.setPathEffect(null)
   }
@@ -915,6 +961,26 @@ export function drawDimOverlay(
   canvas.drawRect(ck.XYWHRect(x, y, w, h), _dimPaint)
 }
 
+// Cached paints for drawConnectionArrow — avoids 2 Paint + 1 Path alloc/delete per call
+let _connArrowLinePaint: any = null
+let _connArrowHeadPaint: any = null
+let _connArrowPath: any = null
+let _connArrowCk: CanvasKit | null = null
+function _ensureConnArrowCache(ck: CanvasKit) {
+  if (_connArrowCk === ck && _connArrowLinePaint) return
+  _connArrowLinePaint?.delete()
+  _connArrowHeadPaint?.delete()
+  _connArrowPath?.delete()
+  _connArrowLinePaint = new ck.Paint()
+  _connArrowLinePaint.setStyle(ck.PaintStyle.Stroke)
+  _connArrowLinePaint.setAntiAlias(true)
+  _connArrowHeadPaint = new ck.Paint()
+  _connArrowHeadPaint.setStyle(ck.PaintStyle.Fill)
+  _connArrowHeadPaint.setAntiAlias(true)
+  _connArrowPath = new ck.Path()
+  _connArrowCk = ck
+}
+
 /** Draw a directional arrow between two render nodes (for connection visualization). */
 export function drawConnectionArrow(
   ck: CanvasKit, canvas: Canvas,
@@ -922,6 +988,7 @@ export function drawConnectionArrow(
   toX: number, toY: number, _toW: number, toH: number,
   zoom: number,
 ): void {
+  _ensureConnArrowCache(ck)
   const invZ = 1 / zoom
   // Arrow from center-right of source to center-left of target
   const x1 = fromX + fromW
@@ -930,12 +997,9 @@ export function drawConnectionArrow(
   const y2 = toY + toH / 2
 
   // Line
-  const linePaint = new ck.Paint()
-  linePaint.setStyle(ck.PaintStyle.Stroke)
-  linePaint.setStrokeWidth(2 * invZ)
-  linePaint.setAntiAlias(true)
-  linePaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
-  canvas.drawLine(x1, y1, x2, y2, linePaint)
+  _connArrowLinePaint.setStrokeWidth(2 * invZ)
+  _connArrowLinePaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
+  canvas.drawLine(x1, y1, x2, y2, _connArrowLinePaint)
 
   // Arrowhead at target
   const headLen = 10 * invZ
@@ -943,21 +1007,30 @@ export function drawConnectionArrow(
   const a1 = angle + Math.PI * 0.8
   const a2 = angle - Math.PI * 0.8
 
-  const headPaint = new ck.Paint()
-  headPaint.setStyle(ck.PaintStyle.Fill)
-  headPaint.setAntiAlias(true)
-  headPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
+  _connArrowHeadPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.8))
 
-  const path = new ck.Path()
-  path.moveTo(x2, y2)
-  path.lineTo(x2 + headLen * Math.cos(a1), y2 + headLen * Math.sin(a1))
-  path.lineTo(x2 + headLen * Math.cos(a2), y2 + headLen * Math.sin(a2))
-  path.close()
-  canvas.drawPath(path, headPaint)
+  _connArrowPath.reset()
+  _connArrowPath.moveTo(x2, y2)
+  _connArrowPath.lineTo(x2 + headLen * Math.cos(a1), y2 + headLen * Math.sin(a1))
+  _connArrowPath.lineTo(x2 + headLen * Math.cos(a2), y2 + headLen * Math.sin(a2))
+  _connArrowPath.close()
+  canvas.drawPath(_connArrowPath, _connArrowHeadPaint)
+}
 
-  path.delete()
-  headPaint.delete()
-  linePaint.delete()
+// Cached paints for drawOffScreenIndicator
+let _offscreenBgPaint: any = null
+let _offscreenLinePaint: any = null
+let _offscreenCk: CanvasKit | null = null
+function _ensureOffscreenCache(ck: CanvasKit) {
+  if (_offscreenCk === ck && _offscreenBgPaint) return
+  _offscreenBgPaint?.delete()
+  _offscreenLinePaint?.delete()
+  _offscreenBgPaint = new ck.Paint()
+  _offscreenBgPaint.setStyle(ck.PaintStyle.Fill)
+  _offscreenLinePaint = new ck.Paint()
+  _offscreenLinePaint.setStyle(ck.PaintStyle.Stroke)
+  _offscreenLinePaint.setAntiAlias(true)
+  _offscreenCk = ck
 }
 
 /** Draw an off-screen indicator label for cross-page connections. */
@@ -967,6 +1040,7 @@ export function drawOffScreenIndicator(
   label: string,
   zoom: number,
 ): void {
+  _ensureOffscreenCache(ck)
   const invZ = 1 / zoom
   const x = fromX + fromW + 8 * invZ
   const y = fromY + fromH / 2
@@ -976,34 +1050,24 @@ export function drawOffScreenIndicator(
   const padX = 6 * invZ
   const padY = 3 * invZ
 
-  // Measure label text width via Canvas 2D
-  const mc = document.createElement('canvas')
-  const ctx = mc.getContext('2d')!
-  ctx.font = `500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-  const textWidth = ctx.measureText(label).width * invZ
+  // Measure label text width — reuse shared overlay measure context
+  const textWidth = measureText(label, 11, '500') * invZ
 
-  // Background pill
-  const bgPaint = new ck.Paint()
-  bgPaint.setStyle(ck.PaintStyle.Fill)
-  bgPaint.setColor(ck.Color4f(0.2, 0.2, 0.3, 0.85))
+  // Background pill — reuse cached paint
+  _offscreenBgPaint.setColor(ck.Color4f(0.2, 0.2, 0.3, 0.85))
   const rrect = ck.RRectXY(
     ck.XYWHRect(x - padX, y - padY - fontSize / 2, textWidth + padX * 2, fontSize + padY * 2),
     3 * invZ, 3 * invZ,
   )
-  canvas.drawRRect(rrect, bgPaint)
-  bgPaint.delete()
+  canvas.drawRRect(rrect, _offscreenBgPaint)
 
-  // Arrow indicator line from element edge to label
-  const arrowPaint = new ck.Paint()
-  arrowPaint.setStyle(ck.PaintStyle.Stroke)
-  arrowPaint.setStrokeWidth(1.5 * invZ)
-  arrowPaint.setAntiAlias(true)
-  arrowPaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.6))
+  // Arrow indicator line from element edge to label — reuse cached paint + cached PathEffect
+  _offscreenLinePaint.setStrokeWidth(1.5 * invZ)
+  _offscreenLinePaint.setColor(ck.Color4f(0.3, 0.7, 0.4, 0.6))
   const dashLen = 3 * invZ
-  const effect = ck.PathEffect.MakeDash([dashLen, dashLen], 0)
-  if (effect) { arrowPaint.setPathEffect(effect); effect.delete() }
-  canvas.drawLine(fromX + fromW, y, x - padX, y, arrowPaint)
-  arrowPaint.delete()
+  const effect = _getOffscreenDashEffect(ck, dashLen, dashLen, 0)
+  if (effect) _offscreenLinePaint.setPathEffect(effect)
+  canvas.drawLine(fromX + fromW, y, x - padX, y, _offscreenLinePaint)
 
   // Text via drawText2D (reuse the helper from this file)
   drawText2D(ck, canvas, label, x, y - fontSize / 2, '#e2e8f0', fontSize, '500')
