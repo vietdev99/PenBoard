@@ -589,8 +589,8 @@ export class SkiaRenderer {
       return
     }
 
-    // LOD Tier 2: node small (<8px) or 'quick' render tier → fill + stroke only
-    if ((pixelW < 8 && pixelH < 8) || simplified) {
+    // LOD Tier 2: node small (<3px) or 'quick' render tier → fill + stroke only
+    if ((pixelW < 3 && pixelH < 3) || simplified) {
       this.drawSimplifiedNode(canvas, rn)
       return
     }
@@ -1396,7 +1396,7 @@ export class SkiaRenderer {
     // LOD: when text node is too small on screen to be readable, draw a colored
     // rectangle placeholder instead of doing full text measurement + rasterization.
     const screenH = h * this.zoom
-    if (screenH < 8 && h > 0) {
+    if (screenH < 3 && h > 0) {
       const tNode = node as TextNode
       const fillColor = resolveFillColor(tNode.fill)
       const paint = new ck.Paint()
@@ -1875,9 +1875,9 @@ export class SkiaRenderer {
 
   drawFrameLabelColored(
     canvas: Canvas, name: string, x: number, y: number,
-    isReusable: boolean, isInstance: boolean, zoom = 1,
+    isReusable: boolean, isInstance: boolean, zoom = 1, frameW = 0,
   ) {
-    _drawFrameLabelColored(this.ck, canvas, name, x, y, isReusable, isInstance, zoom)
+    _drawFrameLabelColored(this.ck, canvas, name, x, y, isReusable, isInstance, zoom, frameW)
   }
 
   drawAgentGlow(
@@ -1929,8 +1929,9 @@ export class SkiaRenderer {
     canvas: Canvas,
     sx: number, sy: number, sw: number, sh: number,
     zoom: number, targetName: string,
+    index = 0, total = 1,
   ) {
-    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName)
+    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName, index, total)
   }
 
   drawComponentBadge(

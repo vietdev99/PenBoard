@@ -1100,7 +1100,7 @@ export class SkiaEngine {
       try {
         this.renderer.drawFrameLabelColored(
           canvas, rn.node.name!, rn.absX, rn.absY,
-          isReusable, false, this.zoom,
+          isReusable, false, this.zoom, rn.absW,
         )
       } catch {
         // Skip labels that cause CanvasKit WASM errors
@@ -1184,6 +1184,9 @@ export class SkiaEngine {
       if (activePage?.type !== 'erd') {
         const pages = useDocumentStore.getState().document.pages ?? []
 
+        // Group cross-page connections by source element to offset labels
+        const crossPageBySource = new Map<string, { targetName: string }[]>()
+
         for (const c of connections) {
           if (c.sourcePageId !== activePageId) continue
           const src = this.rnMap.get(c.sourceElementId)
@@ -1203,17 +1206,30 @@ export class SkiaEngine {
               )
             }
           } else {
-            // Cross-page: dashed arrow going off-screen with page name pill
+            // Cross-page: collect for grouped rendering
             const targetPage = pages.find((p) => p.id === c.targetPageId)
             let targetName = targetPage?.name || ''
             if (c.targetFrameId && targetPage) {
               const frame = (targetPage.children ?? []).find((n) => n.id === c.targetFrameId)
               if (frame?.name) targetName = `${targetPage.name} / ${frame.name}`
             }
+            if (!crossPageBySource.has(c.sourceElementId)) {
+              crossPageBySource.set(c.sourceElementId, [])
+            }
+            crossPageBySource.get(c.sourceElementId)!.push({ targetName })
+          }
+        }
+
+        // Draw cross-page arrows with vertical offset to avoid overlap
+        for (const [sourceId, targets] of crossPageBySource) {
+          const src = this.rnMap.get(sourceId)
+          if (!src) continue
+          for (let i = 0; i < targets.length; i++) {
             this.renderer.drawCrossPageArrow(
               canvas,
               src.absX, src.absY, src.absW, src.absH,
-              this.zoom, targetName,
+              this.zoom, targets[i].targetName,
+              i, targets.length,
             )
           }
         }

@@ -432,12 +432,28 @@ export function drawFrameLabelColored(
   ck: CanvasKit, canvas: Canvas,
   name: string, x: number, y: number,
   isReusable: boolean, isInstance: boolean,
-  zoom = 1,
+  zoom = 1, _frameW = 0,
 ) {
   // Guard: skip if coordinates are invalid or name too long (prevents WASM OOM)
   if (!Number.isFinite(x) || !Number.isFinite(y) || !name || name.length > 200) return
+  // Skip labels when zoomed out too far — they're unreadable anyway
+  if (zoom < 0.05) return
   const color = isReusable ? COMPONENT_COLOR : isInstance ? INSTANCE_COLOR : FRAME_LABEL_COLOR
-  const rawFontSize = Math.max(4, Math.min(120, 12 / zoom))
+  // Base: 12px screen-space (12 / zoom in scene-space).
+  // When zoomed out (< 0.5), blend toward scene-proportional sizing so labels
+  // shrink with frames and don't overlap. Cap min screen size at 6px.
+  let rawFontSize: number
+  if (zoom >= 0.5) {
+    rawFontSize = 12 / zoom // constant 12px on screen
+  } else {
+    // Blend: at zoom=0.5 → 24 scene-px (12 screen-px); at zoom→0 → approach 14 scene-px
+    // This makes labels progressively smaller on screen as you zoom out
+    const t = zoom / 0.5 // 0..1
+    const fixedSize = 12 / zoom
+    const scaledSize = 14 // fixed scene-space size → shrinks on screen with zoom
+    rawFontSize = scaledSize + t * (fixedSize - scaledSize)
+  }
+  rawFontSize = Math.max(4, Math.min(120, rawFontSize))
   // Quantize to 0.5px steps so the drawText2D cache can actually hit during smooth zoom
   // (~232 possible sizes across full zoom range instead of infinite continuous values)
   const fontSize = Math.round(rawFontSize * 2) / 2
@@ -724,9 +740,13 @@ export function drawCrossPageArrow(
   sx: number, sy: number, sw: number, sh: number,
   zoom: number,
   targetName: string,
+  index = 0, total = 1,
 ): void {
   const invZ = 1 / zoom
-  const sCy = sy + sh / 2
+  // Offset each arrow vertically when multiple connections from same source
+  const rowH = 20 * invZ
+  const groupH = total * rowH
+  const sCy = sy + sh / 2 - groupH / 2 + rowH / 2 + index * rowH
 
   // Start from right edge of source
   const x1 = sx + sw
