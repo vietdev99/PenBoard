@@ -701,7 +701,7 @@ app.on('ready', async () => {
 
   if (!isDev) {
     const settings = await readAppSettings()
-    const autoUpdate = settings.autoUpdate !== false
+    const autoUpdate = settings.autoUpdate === true // disabled by default
     setAutoUpdateEnabled(autoUpdate)
     if (autoUpdate) {
       setupAutoUpdater()

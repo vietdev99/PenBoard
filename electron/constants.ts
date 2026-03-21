@@ -3,8 +3,8 @@
  */
 
 // GitHub publish target — used by auto-updater feed URL
-export const GITHUB_OWNER = 'ZSeven-W'
-export const GITHUB_REPO = 'penboard'
+export const GITHUB_OWNER = 'vietdev99'
+export const GITHUB_REPO = 'PenBoard'
 
 // Port file for MCP sync discovery
 export const PORT_FILE_DIR_NAME = '.penboard'
