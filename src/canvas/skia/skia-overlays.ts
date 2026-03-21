@@ -633,6 +633,40 @@ export function drawConnectionBadge(
   paint.delete()
 }
 
+// ---------------------------------------------------------------------------
+// Reusable CanvasKit objects for connection arrows — avoids per-call allocation
+// that fragments WASM heap and causes "table index out of bounds" crashes.
+// ---------------------------------------------------------------------------
+let _arrowLinePaint: any = null
+let _arrowFillPaint: any = null
+let _arrowBgPaint: any = null
+let _arrowPath: any = null
+let _arrowCk: CanvasKit | null = null
+
+function _ensureArrowCache(ck: CanvasKit) {
+  if (_arrowCk === ck && _arrowLinePaint) return
+  _arrowLinePaint?.delete()
+  _arrowFillPaint?.delete()
+  _arrowBgPaint?.delete()
+  _arrowPath?.delete()
+  _arrowLinePaint = new ck.Paint()
+  _arrowLinePaint.setStyle(ck.PaintStyle.Stroke)
+  _arrowLinePaint.setAntiAlias(true)
+  _arrowLinePaint.setStrokeCap(ck.StrokeCap.Round)
+  _arrowFillPaint = new ck.Paint()
+  _arrowFillPaint.setStyle(ck.PaintStyle.Fill)
+  _arrowFillPaint.setAntiAlias(true)
+  _arrowBgPaint = new ck.Paint()
+  _arrowBgPaint.setStyle(ck.PaintStyle.Fill)
+  _arrowBgPaint.setAntiAlias(true)
+  _arrowPath = new ck.Path()
+  _arrowCk = ck
+}
+function _getArrowLinePaint(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowLinePaint }
+function _getArrowFillPaint(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowFillPaint }
+function _getArrowBgPaint(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowBgPaint }
+function _getArrowPath(ck: CanvasKit) { _ensureArrowCache(ck); return _arrowPath }
+
 /**
  * Draw a storyboard-style arrow from source element to target element.
  * Finds the best edge pair (closest sides) and draws a curved path with arrowhead.
@@ -676,59 +710,46 @@ export function drawStoryboardArrow(
   const cpx1 = tCx >= sCx ? x1 + cp : x1 - cp
   const cpx2 = tCx >= sCx ? x2 - cp : x2 + cp
 
-  // Draw the curve
-  const linePaint = new ck.Paint()
-  linePaint.setStyle(ck.PaintStyle.Stroke)
-  linePaint.setAntiAlias(true)
-  linePaint.setStrokeWidth(2 * invZ)
+  // Draw the curve — reuse cached paint/path objects to avoid WASM heap fragmentation
+  const linePaint = _getArrowLinePaint(ck)
+  linePaint.setStrokeWidth((alphaOverride !== undefined && alphaOverride >= 1 ? 3 : 2) * invZ)
   const baseAlpha = alphaOverride ?? 0.85
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   linePaint.setAlphaf(baseAlpha)
-  linePaint.setStrokeCap(ck.StrokeCap.Round)
-  // Thicker line when highlighted
-  if (alphaOverride !== undefined && alphaOverride >= 1) {
-    linePaint.setStrokeWidth(3 * invZ)
-  }
   // Animated dash for flow highlight
-  let dashEffect: ReturnType<typeof ck.PathEffect.MakeDash> | null = null
   if (dashPhase !== undefined) {
     const dashLen = 10 * invZ
     const gapLen = 6 * invZ
     const phase = dashPhase * invZ
     if (isFinite(phase)) {
-      dashEffect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
-      if (dashEffect) linePaint.setPathEffect(dashEffect)
+      const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+      if (effect) { linePaint.setPathEffect(effect); effect.delete() }
     }
+  } else {
+    linePaint.setPathEffect(null)
   }
 
-  const path = new ck.Path()
+  const path = _getArrowPath(ck)
+  path.reset()
   path.moveTo(x1, y1)
   path.cubicTo(cpx1, y1, cpx2, y2, x2, y2)
   canvas.drawPath(path, linePaint)
-  path.delete()
-  dashEffect?.delete()
-  linePaint.delete()
 
   // Arrowhead at target end
   const arrowSize = 8 * invZ
-  // Arrow points in the direction of entry
   const dir = tCx >= sCx ? -1 : 1
   const ax = x2, ay = y2
 
-  const arrowPaint = new ck.Paint()
-  arrowPaint.setStyle(ck.PaintStyle.Fill)
-  arrowPaint.setAntiAlias(true)
+  const arrowPaint = _getArrowFillPaint(ck)
   arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   arrowPaint.setAlphaf(baseAlpha)
 
-  const arrowPath = new ck.Path()
-  arrowPath.moveTo(ax, ay)
-  arrowPath.lineTo(ax + dir * arrowSize, ay - arrowSize * 0.5)
-  arrowPath.lineTo(ax + dir * arrowSize, ay + arrowSize * 0.5)
-  arrowPath.close()
-  canvas.drawPath(arrowPath, arrowPaint)
-  arrowPath.delete()
-  arrowPaint.delete()
+  path.reset()
+  path.moveTo(ax, ay)
+  path.lineTo(ax + dir * arrowSize, ay - arrowSize * 0.5)
+  path.lineTo(ax + dir * arrowSize, ay + arrowSize * 0.5)
+  path.close()
+  canvas.drawPath(path, arrowPaint)
 
   // Label at midpoint of the curve
   if (label) {
@@ -743,14 +764,11 @@ export function drawStoryboardArrow(
     const bgX = midX - bgW / 2
     const bgY = midY - bgH / 2
 
-    const bgPaint = new ck.Paint()
-    bgPaint.setStyle(ck.PaintStyle.Fill)
-    bgPaint.setAntiAlias(true)
+    const bgPaint = _getArrowBgPaint(ck)
     bgPaint.setColor(parseColor(ck, '#1e293b'))
     bgPaint.setAlphaf(Math.min(baseAlpha, 0.8))
     const r = 3 * invZ
     canvas.drawRRect(ck.RRectXY(ck.LTRBRect(bgX, bgY, bgX + bgW, bgY + bgH), r, r), bgPaint)
-    bgPaint.delete()
 
     drawText2D(ck, canvas, label, bgX + padX, bgY + padY, '#e2e8f0', fontSize, '500', Math.min(baseAlpha, 1))
   }
@@ -785,38 +803,35 @@ export function drawCrossPageArrow(
 
   const baseAlpha = alphaOverride ?? 0.7
 
-  // Dashed line
-  const linePaint = new ck.Paint()
-  linePaint.setStyle(ck.PaintStyle.Stroke)
-  linePaint.setAntiAlias(true)
+  // Dashed line — use fresh Paint here (cross-page needs different lifecycle from cached arrow paint)
+  const linePaint = _getArrowLinePaint(ck)
   linePaint.setStrokeWidth((alphaOverride !== undefined && alphaOverride >= 1 ? 3 : 2) * invZ)
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   linePaint.setAlphaf(baseAlpha)
-  linePaint.setStrokeCap(ck.StrokeCap.Round)
   const dashLen = dashPhase !== undefined ? 10 * invZ : 6 * invZ
   const gapLen = dashPhase !== undefined ? 6 * invZ : 4 * invZ
   const phase = dashPhase !== undefined ? dashPhase * invZ : 0
-  const effect = isFinite(phase) ? ck.PathEffect.MakeDash([dashLen, gapLen], phase) : null
-  if (effect) linePaint.setPathEffect(effect)
+  if (isFinite(phase)) {
+    const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+    if (effect) { linePaint.setPathEffect(effect); effect.delete() }
+  } else {
+    linePaint.setPathEffect(null)
+  }
   canvas.drawLine(x1, y1, x2, y2, linePaint)
-  effect?.delete()
   linePaint.delete()
 
-  // Arrowhead
+  // Arrowhead — reuse cached objects
   const arrowSize = 7 * invZ
-  const arrowPaint = new ck.Paint()
-  arrowPaint.setStyle(ck.PaintStyle.Fill)
-  arrowPaint.setAntiAlias(true)
+  const arrowPaint = _getArrowFillPaint(ck)
   arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   arrowPaint.setAlphaf(baseAlpha)
-  const arrowPath = new ck.Path()
+  const arrowPath = _getArrowPath(ck)
+  arrowPath.reset()
   arrowPath.moveTo(x2, y2)
   arrowPath.lineTo(x2 - arrowSize, y2 - arrowSize * 0.5)
   arrowPath.lineTo(x2 - arrowSize, y2 + arrowSize * 0.5)
   arrowPath.close()
   canvas.drawPath(arrowPath, arrowPaint)
-  arrowPath.delete()
-  arrowPaint.delete()
 
   // Target page label pill after arrow
   const fontSize = 10 * invZ
@@ -829,24 +844,19 @@ export function drawCrossPageArrow(
   const pillX = x2 + gap
   const pillY = y2 - pillH / 2
 
-  const bgPaint = new ck.Paint()
-  bgPaint.setStyle(ck.PaintStyle.Fill)
-  bgPaint.setAntiAlias(true)
+  const bgPaint = _getArrowBgPaint(ck)
   bgPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   bgPaint.setAlphaf(Math.min(baseAlpha, 0.15))
   const r = 4 * invZ
   canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), bgPaint)
-  bgPaint.delete()
 
-  // Border
-  const borderPaint = new ck.Paint()
-  borderPaint.setStyle(ck.PaintStyle.Stroke)
-  borderPaint.setAntiAlias(true)
+  // Border — reuse line paint
+  const borderPaint = _getArrowLinePaint(ck)
   borderPaint.setStrokeWidth(1 * invZ)
   borderPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   borderPaint.setAlphaf(0.5)
+  borderPaint.setPathEffect(null)
   canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), borderPaint)
-  borderPaint.delete()
 
   drawText2D(ck, canvas, targetName, pillX + padX, pillY + padY, CONNECTION_BADGE_COLOR, fontSize, '500')
 }
@@ -867,27 +877,27 @@ export function drawComponentBadge(
   const cx = x + offsetX
   const cy = y + offsetY
 
-  const paint = new ck.Paint()
-  paint.setStyle(ck.PaintStyle.Fill)
-  paint.setAntiAlias(true)
+  const paint = _getArrowFillPaint(ck)
   // Purple-ish color matching the tab icon, faded per user requirement
   paint.setColor(ck.Color4f(0.6, 0.4, 0.9, 0.4))
 
-  const path = new ck.Path()
+  const path = _getArrowPath(ck)
+  path.reset()
   path.moveTo(cx, cy - badgeR)       // top
   path.lineTo(cx + badgeR, cy)       // right
   path.lineTo(cx, cy + badgeR)       // bottom
   path.lineTo(cx - badgeR, cy)       // left
   path.close()
   canvas.drawPath(path, paint)
-
-  path.delete()
-  paint.delete()
 }
 
 // ---------------------------------------------------------------------------
 // Highlight mode overlays (Focus+Dim, connection arrows, off-screen indicators)
 // ---------------------------------------------------------------------------
+
+/** Reusable dim paint — avoids per-call allocation that fragments WASM heap. */
+let _dimPaint: ReturnType<CanvasKit['Paint']['prototype']['constructor']> | null = null
+let _dimPaintCk: CanvasKit | null = null
 
 /** Draw a semi-transparent dim overlay on top of a render node (for non-connected elements). */
 export function drawDimOverlay(
@@ -895,11 +905,15 @@ export function drawDimOverlay(
   x: number, y: number, w: number, h: number,
   opacity: number,
 ): void {
-  const paint = new ck.Paint()
-  paint.setStyle(ck.PaintStyle.Fill)
-  paint.setColor(ck.Color4f(0, 0, 0, opacity))
-  canvas.drawRect(ck.XYWHRect(x, y, w, h), paint)
-  paint.delete()
+  // Lazy-init reusable paint (one allocation for all dim overlays)
+  if (!_dimPaint || _dimPaintCk !== ck) {
+    _dimPaint?.delete()
+    _dimPaint = new ck.Paint()
+    _dimPaint.setStyle(ck.PaintStyle.Fill)
+    _dimPaintCk = ck
+  }
+  _dimPaint.setColor(ck.Color4f(0, 0, 0, opacity))
+  canvas.drawRect(ck.XYWHRect(x, y, w, h), _dimPaint)
 }
 
 /** Draw a directional arrow between two render nodes (for connection visualization). */

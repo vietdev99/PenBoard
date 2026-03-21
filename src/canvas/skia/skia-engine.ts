@@ -1422,6 +1422,7 @@ export class SkiaEngine {
     // Highlight mode: trace full connection chain from selected element,
     // show bright arrows for connected flow, dim everything else
     // Skip during active pan/zoom — BFS + map building is expensive per frame
+    try {
     if (showConnections && selectedIds.size > 0 && !this.isPanning) {
       const docState = useDocumentStore.getState()
       const allConnections = docState.document.connections ?? []
@@ -1560,6 +1561,7 @@ export class SkiaEngine {
         }
       }
     }
+    } catch { /* Skip CanvasKit WASM errors during highlight/dim rendering */ }
 
     // Hover outline
     if (this.hoveredNodeId && !selectedIds.has(this.hoveredNodeId)) {
