@@ -1286,9 +1286,7 @@ export class SkiaEngine {
     // Storyboard-style connection arrows between elements
     // Skip during active pan/zoom for performance — arrows re-appear once pan settles
     // Skip when connections are disabled due to WASM crashes
-    // At very low zoom with many visible nodes, connections cause WASM heap pressure
-    const skipConnections = this.isPanning || this._connectionsDisabled ||
-      (this.zoom < 0.15 && this.visibleRenderNodes.length > 30)
+    const skipConnections = this.isPanning || this._connectionsDisabled
     const connections = skipConnections ? [] : (useDocumentStore.getState().document.connections ?? [])
     const { showConnections, hoveredConnectionId, highlightedFlow } = useCanvasStore.getState()
     this.flowAnimating = !!(highlightedFlow && highlightedFlow.connectionIds.length > 0)
