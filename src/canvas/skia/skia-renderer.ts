@@ -1921,8 +1921,9 @@ export class SkiaRenderer {
     sx: number, sy: number, sw: number, sh: number,
     tx: number, ty: number, tw: number, th: number,
     zoom: number, label?: string, alphaOverride?: number, dashPhase?: number,
+    sourceOffset?: number, targetOffset?: number,
   ) {
-    _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label, alphaOverride, dashPhase)
+    _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label, alphaOverride, dashPhase, sourceOffset, targetOffset)
   }
 
   drawCrossPageArrow(

@@ -3,6 +3,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import TopBar from './top-bar'
 import Toolbar from './toolbar'
 import BooleanToolbar from './boolean-toolbar'
+import FlowToolbar from './flow-toolbar'
 import StatusBar from './status-bar'
 import LayerPanel from '@/components/panels/layer-panel'
 import RightPanel from '@/components/panels/right-panel'
@@ -167,6 +168,7 @@ export default function EditorLayout() {
                 <SkiaCanvas />
                 <Toolbar />
                 <BooleanToolbar />
+                <FlowToolbar />
 
                 {/* Floating variables panel — anchored to the right of the toolbar */}
                 {variablesPanelOpen && <VariablesPanel />}

@@ -646,6 +646,10 @@ export function drawStoryboardArrow(
   alphaOverride?: number,
   /** When set, draw animated dashes with this phase offset (marching ants). */
   dashPhase?: number,
+  /** Vertical offset for source anchor (spread multiple outgoing connections). */
+  sourceOffset?: number,
+  /** Vertical offset for target anchor (spread multiple incoming connections). */
+  targetOffset?: number,
 ): void {
   // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
   const invZ = Math.max(1 / zoom, 0.1)
@@ -658,12 +662,12 @@ export function drawStoryboardArrow(
   let x1: number, y1: number, x2: number, y2: number
   if (tCx >= sCx) {
     // Target is to the right: exit right, enter left
-    x1 = sx + sw; y1 = sCy
-    x2 = tx;      y2 = tCy
+    x1 = sx + sw; y1 = sCy + (sourceOffset ?? 0)
+    x2 = tx;      y2 = tCy + (targetOffset ?? 0)
   } else {
     // Target is to the left: exit left, enter right
-    x1 = sx;      y1 = sCy
-    x2 = tx + tw; y2 = tCy
+    x1 = sx;      y1 = sCy + (sourceOffset ?? 0)
+    x2 = tx + tw; y2 = tCy + (targetOffset ?? 0)
   }
 
   // Control points for a smooth cubic bezier

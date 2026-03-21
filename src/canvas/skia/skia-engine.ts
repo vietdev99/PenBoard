@@ -1,5 +1,5 @@
 import type { CanvasKit, Surface, Image as SkImage } from 'canvaskit-wasm'
-import type { PenNode, ContainerProps, FrameNode as FrameNodeType, RefNode as RefNodeType } from '@/types/pen'
+import type { PenNode, ContainerProps } from '@/types/pen'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { useDocumentStore, getActivePageChildren, getAllChildren } from '@/stores/document-store'
 import { resolveNodeForCanvas, getDefaultTheme } from '@/variables/resolve-variables'
@@ -29,7 +29,7 @@ import {
 import { isNodeBorderReady, getNodeRevealTime } from '@/services/ai/design-animation'
 import { measureText as measureOverlayText } from './skia-overlays'
 import { SkiaErdRenderer } from './skia-erd-renderer'
-import { applyPropertyValue as _applyPropertyValue, applyBindingsToTree as _applyBindingsToTree, applyArgumentValues as _applyArgumentValues } from './argument-apply'
+import { applyArgumentValues as _applyArgumentValues } from './argument-apply'
 
 // Re-export for use by canvas component
 export { screenToScene } from './skia-viewport'
@@ -157,8 +157,6 @@ function cornerRadiusVal(cr: unknown): number {
  * Must run BEFORE remapIds (uses original child IDs) and BEFORE variable resolution.
  * Creates new node objects (never mutates source). */
 const applyArgumentValues = _applyArgumentValues
-const applyBindingsToTree = _applyBindingsToTree
-const applyPropertyValue = _applyPropertyValue
 
 /** Resolve RefNodes inline (same logic as use-canvas-sync.ts). */
 function resolveRefs(
@@ -457,6 +455,9 @@ export class SkiaEngine {
   // Map: rootFrameId → child renderNodes (built in syncFromDocument)
   private frameChildMap = new Map<string, import('./skia-renderer').RenderNode[]>()
 
+  /** When set, hide these root frame IDs from rendering (flow focus mode). */
+  flowHiddenIds: Set<string> | null = null
+
   // Drag suppression — prevents syncFromDocument during drag
   // so the layout engine doesn't override visual positions
   dragSyncSuppressed = false
@@ -723,7 +724,7 @@ export class SkiaEngine {
     this.lastSyncChildrenRef = pageChildren
 
 
-    const allNodes = getAllChildren(docState.document)
+    const allDocNodes = getAllChildren(docState.document)
 
     // Build id→node lookup map once (O(n)) instead of DFS per ref (O(n×m))
     const nodeMap = new Map<string, PenNode>()
@@ -733,7 +734,7 @@ export class SkiaEngine {
         if ('children' in n && n.children) buildMap(n.children)
       }
     }
-    buildMap(allNodes)
+    buildMap(allDocNodes)
     const findInTree = (_nodes: PenNode[], id: string): PenNode | null => nodeMap.get(id) ?? null
 
     // Collect reusable/instance IDs from raw tree (before ref resolution strips them)
@@ -743,7 +744,7 @@ export class SkiaEngine {
     collectInstanceIds(pageChildren, this.instanceIds)
 
     // Resolve refs, variables, then flatten
-    const resolved = resolveRefs(pageChildren, allNodes, findInTree)
+    const resolved = resolveRefs(pageChildren, allDocNodes, findInTree)
 
     // Resolve data bindings FIRST: inject sample entity row data into child text nodes
     // (per CONTEXT.md: "after argument apply, before variable resolution")
@@ -772,7 +773,37 @@ export class SkiaEngine {
     // container-relative sizing to maintain layout consistency with Fabric.js.
     const measured = premeasureTextHeights(variableResolved)
 
-    this.renderNodes = flattenToRenderNodes(measured)
+    let allNodes = flattenToRenderNodes(measured)
+
+    // Flow focus mode: filter out hidden root frames and their children
+    if (this.flowHiddenIds && this.flowHiddenIds.size > 0) {
+      const hidden = this.flowHiddenIds
+      // Remove root frames + all nodes whose clipRect matches a hidden frame
+      const hiddenBounds = new Map<string, { x: number; y: number; w: number; h: number }>()
+      for (const rn of allNodes) {
+        if (rn.node.type === 'frame' && !rn.clipRect && hidden.has(rn.node.id)) {
+          hiddenBounds.set(rn.node.id, { x: rn.absX, y: rn.absY, w: rn.absW, h: rn.absH })
+        }
+      }
+      allNodes = allNodes.filter((rn) => {
+        // Remove hidden root frames
+        if (!rn.clipRect && hidden.has(rn.node.id)) return false
+        // Remove children clipped to a hidden frame
+        if (rn.clipRect) {
+          for (const [, bounds] of hiddenBounds) {
+            if (Math.abs(rn.clipRect.x - bounds.x) < 1 &&
+                Math.abs(rn.clipRect.y - bounds.y) < 1 &&
+                Math.abs(rn.clipRect.w - bounds.w) < 1 &&
+                Math.abs(rn.clipRect.h - bounds.h) < 1) {
+              return false
+            }
+          }
+        }
+        return true
+      })
+    }
+
+    this.renderNodes = allNodes
 
     // Pre-build auxiliary lists so render() doesn't need to iterate all nodes multiple times
     this.labelNodes = []
@@ -1211,6 +1242,43 @@ export class SkiaEngine {
         // Group cross-page connections by source element to offset labels
         const crossPageBySource = new Map<string, { connectionId: string; targetName: string; targetPageId: string }[]>()
 
+        // Pre-compute anchor offsets: spread multiple connections on the same edge
+        // Key: "sourceId:edge" or "targetId:edge" → list of connection IDs using that edge
+        const ANCHOR_SPREAD = 16 * Math.max(1 / this.zoom, 0.1) // px between anchors
+        const sourceEdgeCounts = new Map<string, string[]>() // "elementId:right|left" → connIds
+        const targetEdgeCounts = new Map<string, string[]>()
+        for (const c of connections) {
+          if (c.sourcePageId !== activePageId || c.targetPageId !== activePageId) continue
+          const src = this.rnMap.get(c.sourceElementId)
+          const targetId = c.targetFrameId || c.targetPageId
+          const tgt = this.rnMap.get(targetId)
+          if (!src || !tgt) continue
+          const sCx = src.absX + src.absW / 2
+          const tCx = tgt.absX + tgt.absW / 2
+          const edge = tCx >= sCx ? 'right' : 'left'
+          const srcKey = `${c.sourceElementId}:${edge}`
+          const tgtKey = `${targetId}:${edge === 'right' ? 'left' : 'right'}`
+          if (!sourceEdgeCounts.has(srcKey)) sourceEdgeCounts.set(srcKey, [])
+          sourceEdgeCounts.get(srcKey)!.push(c.id)
+          if (!targetEdgeCounts.has(tgtKey)) targetEdgeCounts.set(tgtKey, [])
+          targetEdgeCounts.get(tgtKey)!.push(c.id)
+        }
+        // Build connId → offset maps
+        const sourceOffsets = new Map<string, number>()
+        const targetOffsets = new Map<string, number>()
+        for (const [, connIds] of sourceEdgeCounts) {
+          const n = connIds.length
+          for (let i = 0; i < n; i++) {
+            sourceOffsets.set(connIds[i], (i - (n - 1) / 2) * ANCHOR_SPREAD)
+          }
+        }
+        for (const [, connIds] of targetEdgeCounts) {
+          const n = connIds.length
+          for (let i = 0; i < n; i++) {
+            targetOffsets.set(connIds[i], (i - (n - 1) / 2) * ANCHOR_SPREAD)
+          }
+        }
+
         for (const c of connections) {
           if (c.sourcePageId !== activePageId) continue
           const src = this.rnMap.get(c.sourceElementId)
@@ -1228,16 +1296,19 @@ export class SkiaEngine {
             if (tgt) {
               const alpha = isDimmed ? 0.15 : isHovered || isInFlow ? 1.0 : undefined
               const dash = isInFlow ? this.flowDashPhase : undefined
+              const srcOff = sourceOffsets.get(c.id) ?? 0
+              const tgtOff = targetOffsets.get(c.id) ?? 0
               this.renderer.drawStoryboardArrow(
                 canvas,
                 src.absX, src.absY, src.absW, src.absH,
                 tgt.absX, tgt.absY, tgt.absW, tgt.absH,
                 this.zoom, c.label, alpha, dash,
+                srcOff, tgtOff,
               )
               // Build hit area: sample bezier curve points
               const invZ = Math.max(1 / this.zoom, 0.1)
-              const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2
-              const tCx = tgt.absX + tgt.absW / 2, tCy = tgt.absY + tgt.absH / 2
+              const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2 + srcOff
+              const tCx = tgt.absX + tgt.absW / 2, tCy = tgt.absY + tgt.absH / 2 + tgtOff
               const x1 = tCx >= sCx ? src.absX + src.absW : src.absX
               const y1 = sCy
               const x2 = tCx >= sCx ? tgt.absX : tgt.absX + tgt.absW
@@ -1630,6 +1701,40 @@ export class SkiaEngine {
       cw / 2 - centerX * zoom,
       ch / 2 - centerY * zoom,
     )
+  }
+
+  /** Zoom to fit a specific set of nodes (by ID) with padding. */
+  zoomToFitNodes(nodeIds: string[]) {
+    if (!this.canvasEl || nodeIds.length === 0) return
+    const FIT_PADDING = 80
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    const idSet = new Set(nodeIds)
+    // Also include parent frames of specified nodes
+    const docState = useDocumentStore.getState()
+    for (const id of nodeIds) {
+      let p = docState.getParentOf(id)
+      while (p) { idSet.add(p.id); p = docState.getParentOf(p.id) }
+    }
+    for (const rn of this.renderNodes) {
+      if (!idSet.has(rn.node.id)) continue
+      if (rn.clipRect) continue
+      minX = Math.min(minX, rn.absX)
+      minY = Math.min(minY, rn.absY)
+      maxX = Math.max(maxX, rn.absX + rn.absW)
+      maxY = Math.max(maxY, rn.absY + rn.absH)
+    }
+    if (!isFinite(minX)) return
+    const contentW = maxX - minX
+    const contentH = maxY - minY
+    const cw = this.canvasEl.clientWidth
+    const ch = this.canvasEl.clientHeight
+    const scaleX = (cw - FIT_PADDING * 2) / contentW
+    const scaleY = (ch - FIT_PADDING * 2) / contentH
+    let zoom = Math.min(scaleX, scaleY, 1)
+    zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    this.setViewport(zoom, cw / 2 - centerX * zoom, ch / 2 - centerY * zoom)
   }
 
   /** Pan (and optionally zoom) so a specific node is centered in the viewport. */
