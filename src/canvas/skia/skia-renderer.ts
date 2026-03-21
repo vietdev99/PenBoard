@@ -167,9 +167,9 @@ export class SkiaRenderer {
   }
 
   dispose() {
-    this.defaultFont?.delete()
+    try { this.defaultFont?.delete() } catch { /* already deleted */ }
     this.defaultFont = null
-    this.defaultTypeface?.delete()
+    try { this.defaultTypeface?.delete() } catch { /* already deleted */ }
     this.defaultTypeface = null
     this.clearTextCache()
     this.clearParaCache()
@@ -183,7 +183,7 @@ export class SkiaRenderer {
 
   clearTextCache() {
     for (const img of this.textCache.values()) {
-      img?.delete()
+      try { img?.delete() } catch { /* already deleted */ }
     }
     this.textCache.clear()
     this.textCacheOrder = []
@@ -193,7 +193,7 @@ export class SkiaRenderer {
 
   clearParaCache() {
     for (const p of this.paraCache.values()) {
-      p?.delete()
+      try { p?.delete() } catch { /* already deleted */ }
     }
     this.paraCache.clear()
     this.paraCacheOrder = []

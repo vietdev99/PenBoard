@@ -533,7 +533,7 @@ export class SkiaEngine {
     this.renderer.dispose()
     this.invalidateAllSnapshots()
     if (this.canvasEl) this.canvasEl.style.transform = ''
-    this.surface?.delete()
+    try { this.surface?.delete() } catch { /* surface already deleted */ }
     this.surface = null
   }
 
@@ -609,13 +609,13 @@ export class SkiaEngine {
     while (this.frameSnapshotOrder.length >= SkiaEngine.SNAPSHOT_CACHE_MAX) {
       const evictId = this.frameSnapshotOrder.shift()!
       const evicted = this.frameSnapshotCache.get(evictId)
-      evicted?.image.delete()
+      try { evicted?.image.delete() } catch { /* already deleted */ }
       this.frameSnapshotCache.delete(evictId)
     }
 
     // Cache
     const old = this.frameSnapshotCache.get(frameId)
-    old?.image.delete()
+    try { old?.image.delete() } catch { /* already deleted */ }
     this.frameSnapshotCache.set(frameId, { image: img, renderedZoom: this.zoom })
     const idx = this.frameSnapshotOrder.indexOf(frameId)
     if (idx >= 0) this.frameSnapshotOrder.splice(idx, 1)
@@ -625,11 +625,11 @@ export class SkiaEngine {
   /** Invalidate all cached frame snapshots */
   private invalidateAllSnapshots() {
     for (const [, snap] of this.frameSnapshotCache) {
-      snap.image.delete()
+      try { snap.image.delete() } catch { /* image already deleted or WASM corrupted */ }
     }
     this.frameSnapshotCache.clear()
     this.frameSnapshotOrder = []
-    this.snapshotSurface?.delete()
+    try { this.snapshotSurface?.delete() } catch { /* surface already deleted */ }
     this.snapshotSurface = null
     this.snapshotSurfaceSize = 0
   }
@@ -1603,17 +1603,16 @@ export class SkiaEngine {
     try {
       this.surface.flush()
     } catch (flushErr) {
-      // WASM surface corrupted — attempt recovery by recreating surface
+      // WASM surface corrupted — attempt recovery by recreating surface (once, no loop)
       console.warn('[SkiaEngine] surface.flush() failed, recreating surface:', flushErr)
       try {
-        this.surface?.delete()
+        try { this.surface?.delete() } catch { /* already deleted */ }
         this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl!)
         if (!this.surface) {
           this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl!)
         }
-        if (this.surface) {
-          this.markDirty() // schedule a clean re-render
-        }
+        // Do NOT call markDirty() here — would create infinite render→crash→recreate loop.
+        // Next user interaction (pan/zoom/click) will naturally trigger a re-render.
       } catch (recreateErr) {
         console.error('[SkiaEngine] surface recreation failed:', recreateErr)
       }
