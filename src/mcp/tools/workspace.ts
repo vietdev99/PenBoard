@@ -12,12 +12,12 @@ import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
 
 interface WorkspaceManifest {
   version: string
-  flows: { name: string; title: string; updatedAt: string }[]
+  flows: { group: string; name: string; title: string; updatedAt: string }[]
   docs: { category: string; name: string; title: string; updatedAt: string }[]
 }
 
-interface WriteFlowParams { filePath?: string; name: string; content: string }
-interface ReadFlowParams { filePath?: string; name: string }
+interface WriteFlowParams { filePath?: string; group?: string; name: string; content: string }
+interface ReadFlowParams { filePath?: string; group?: string; name: string }
 interface ListFlowsParams { filePath?: string }
 interface WriteDocParams { filePath?: string; category: string; name: string; content: string }
 interface ReadDocParams { filePath?: string; category: string; name: string }
@@ -50,7 +50,8 @@ function penboardDir(workspaceRoot: string): string {
   return join(workspaceRoot, '.penboard')
 }
 
-function flowsDir(workspaceRoot: string): string {
+function flowsDir(workspaceRoot: string, group?: string): string {
+  if (group) return join(penboardDir(workspaceRoot), 'flows', group)
   return join(penboardDir(workspaceRoot), 'flows')
 }
 
@@ -112,14 +113,19 @@ export const WORKSPACE_TOOLS = [
   {
     name: 'write_flow',
     description:
-      'Create or update a mermaid flow document in .penboard/flows/{name}.md. ' +
-      'Content should be full markdown with H1 title, description, and ```mermaid code blocks.',
+      'Create or update a mermaid flow document in .penboard/flows/{group}/{name}.md. ' +
+      'Content should be full markdown with H1 title, description, and ```mermaid code blocks. ' +
+      'Use group to organize flows (e.g. "business", "technical"). Defaults to "general".',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: {
           type: 'string',
           description: 'Path to .pb/.op file, or omit for live canvas',
+        },
+        group: {
+          type: 'string',
+          description: 'Flow group/category (e.g. "business", "technical"). Defaults to "general".',
         },
         name: {
           type: 'string',
@@ -135,13 +141,17 @@ export const WORKSPACE_TOOLS = [
   },
   {
     name: 'read_flow',
-    description: 'Read a flow document from .penboard/flows/{name}.md.',
+    description: 'Read a flow document from .penboard/flows/{group}/{name}.md. Defaults to "general" group.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         filePath: {
           type: 'string',
           description: 'Path to .pb/.op file, or omit for live canvas',
+        },
+        group: {
+          type: 'string',
+          description: 'Flow group/category. Defaults to "general".',
         },
         name: {
           type: 'string',
@@ -222,6 +232,7 @@ export const WORKSPACE_TOOLS = [
 
 export async function handleWriteFlow(params: WriteFlowParams): Promise<{
   success: boolean
+  group: string
   path: string
   title: string
 }> {
@@ -229,16 +240,17 @@ export async function handleWriteFlow(params: WriteFlowParams): Promise<{
   if (!params.content) throw new Error('Missing required parameter: content')
 
   const root = await resolveWorkspaceRoot(params.filePath)
-  await mkdir(flowsDir(root), { recursive: true })
+  const group = params.group || 'general'
+  await mkdir(flowsDir(root, group), { recursive: true })
 
-  const fPath = join(flowsDir(root), `${params.name}.md`)
+  const fPath = join(flowsDir(root, group), `${params.name}.md`)
   await writeFile(fPath, params.content, 'utf-8')
 
   // Update manifest
   const manifest = await readManifest(root)
   const title = extractTitle(params.content)
-  const existingIdx = manifest.flows.findIndex((f) => f.name === params.name)
-  const entry = { name: params.name, title, updatedAt: new Date().toISOString() }
+  const existingIdx = manifest.flows.findIndex((f) => f.group === group && f.name === params.name)
+  const entry = { group, name: params.name, title, updatedAt: new Date().toISOString() }
   if (existingIdx >= 0) {
     manifest.flows[existingIdx] = entry
   } else {
@@ -249,10 +261,11 @@ export async function handleWriteFlow(params: WriteFlowParams): Promise<{
   // Ensure workspace field on PenDocument
   await ensureWorkspaceField(params.filePath)
 
-  return { success: true, path: fPath, title }
+  return { success: true, group, path: fPath, title }
 }
 
 export async function handleReadFlow(params: ReadFlowParams): Promise<{
+  group: string
   name: string
   title: string
   content: string
@@ -260,42 +273,62 @@ export async function handleReadFlow(params: ReadFlowParams): Promise<{
   if (!params.name) throw new Error('Missing required parameter: name')
 
   const root = await resolveWorkspaceRoot(params.filePath)
-  const fPath = join(flowsDir(root), `${params.name}.md`)
+  const group = params.group || 'general'
+  const fPath = join(flowsDir(root, group), `${params.name}.md`)
 
   let content: string
   try {
     content = await readFile(fPath, 'utf-8')
   } catch {
     throw new Error(
-      `Flow "${params.name}" not found at ${fPath}. ` +
+      `Flow "${group}/${params.name}" not found at ${fPath}. ` +
       'Use list_flows to see available flows, or write_flow to create one.',
     )
   }
 
-  return { name: params.name, title: extractTitle(content), content }
+  return { group, name: params.name, title: extractTitle(content), content }
 }
 
 export async function handleListFlows(params: ListFlowsParams): Promise<{
-  flows: { name: string; title: string; path: string }[]
+  flows: { group: string; name: string; title: string; path: string }[]
 }> {
   const root = await resolveWorkspaceRoot(params.filePath)
+  const baseDir = flowsDir(root)
+  const flows: { group: string; name: string; title: string; path: string }[] = []
 
-  let entries: string[]
+  let dirents: { name: string; isDirectory: () => boolean }[]
   try {
-    entries = await readdir(flowsDir(root))
+    dirents = await readdir(baseDir, { withFileTypes: true })
   } catch {
-    // Directory doesn't exist yet
     return { flows: [] }
   }
 
-  const mdFiles = entries.filter((f) => f.endsWith('.md'))
-  const flows = await Promise.all(
-    mdFiles.map(async (file) => {
-      const content = await readFile(join(flowsDir(root), file), 'utf-8')
+  // Root-level .md files → "general" group (backward compat)
+  for (const entry of dirents) {
+    if (!entry.isDirectory() && entry.name.endsWith('.md')) {
+      const filePath = join(baseDir, entry.name)
+      const content = await readFile(filePath, 'utf-8')
+      const name = entry.name.replace(/\.md$/, '')
+      flows.push({ group: 'general', name, title: extractTitle(content), path: filePath })
+    }
+  }
+
+  // Subdirectories → each is a group
+  for (const dir of dirents) {
+    if (!dir.isDirectory()) continue
+    let subEntries: string[]
+    try {
+      subEntries = await readdir(join(baseDir, dir.name))
+    } catch {
+      continue
+    }
+    for (const file of subEntries.filter((f) => f.endsWith('.md'))) {
+      const filePath = join(baseDir, dir.name, file)
+      const content = await readFile(filePath, 'utf-8')
       const name = file.replace(/\.md$/, '')
-      return { name, title: extractTitle(content), path: join(flowsDir(root), file) }
-    }),
-  )
+      flows.push({ group: dir.name, name, title: extractTitle(content), path: filePath })
+    }
+  }
 
   return { flows }
 }

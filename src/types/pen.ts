@@ -62,6 +62,7 @@ export interface PenDocument {
 
 /** Shape of a flow file returned by the workspace API. Shared between server and client. */
 export interface FlowFile {
+  group: string
   name: string
   title: string
   content: string
