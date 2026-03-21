@@ -721,30 +721,40 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'write_flow',
     description:
-      'Write or update a mermaid business flow document in the .penboard/flows/ workspace directory. Creates the directory structure if needed. Auto-updates manifest.json.',
+      'Create or update a mermaid flow document in .penboard/flows/{group}/{name}.md. ' +
+      'Creates the directory structure if needed. Auto-updates manifest.json. ' +
+      'Use group to organize flows (e.g. "business", "technical"). Defaults to "general".',
     inputSchema: {
       type: 'object' as const,
       properties: {
         name: { type: 'string', description: 'Flow file name (without .md extension), e.g. "auth-flow"' },
         content: { type: 'string', description: 'Full markdown content including mermaid code blocks' },
+        group: {
+          type: 'string',
+          description: 'Flow group/category (e.g. "business", "technical"). Defaults to "general".',
+        },
       },
       required: ['name', 'content'],
     },
   },
   {
     name: 'read_flow',
-    description: 'Read a mermaid business flow document from .penboard/flows/ workspace directory.',
+    description: 'Read a flow document from .penboard/flows/{group}/{name}.md. Defaults to "general" group.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         name: { type: 'string', description: 'Flow file name (without .md extension)' },
+        group: {
+          type: 'string',
+          description: 'Flow group/category. Defaults to "general".',
+        },
       },
       required: ['name'],
     },
   },
   {
     name: 'list_flows',
-    description: 'List all mermaid business flow documents in .penboard/flows/ workspace directory.',
+    description: 'List all mermaid business flow documents across all groups in .penboard/flows/ workspace directory.',
     inputSchema: {
       type: 'object' as const,
       properties: {},
