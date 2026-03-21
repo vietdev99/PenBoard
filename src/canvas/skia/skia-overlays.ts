@@ -690,11 +690,15 @@ export function drawStoryboardArrow(
     linePaint.setStrokeWidth(3 * invZ)
   }
   // Animated dash for flow highlight
+  let dashEffect: ReturnType<typeof ck.PathEffect.MakeDash> | null = null
   if (dashPhase !== undefined) {
     const dashLen = 10 * invZ
     const gapLen = 6 * invZ
-    const effect = ck.PathEffect.MakeDash([dashLen, gapLen], dashPhase * invZ)
-    if (effect) { linePaint.setPathEffect(effect); effect.delete() }
+    const phase = dashPhase * invZ
+    if (isFinite(phase)) {
+      dashEffect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
+      if (dashEffect) linePaint.setPathEffect(dashEffect)
+    }
   }
 
   const path = new ck.Path()
@@ -702,6 +706,7 @@ export function drawStoryboardArrow(
   path.cubicTo(cpx1, y1, cpx2, y2, x2, y2)
   canvas.drawPath(path, linePaint)
   path.delete()
+  dashEffect?.delete()
   linePaint.delete()
 
   // Arrowhead at target end
@@ -791,9 +796,10 @@ export function drawCrossPageArrow(
   const dashLen = dashPhase !== undefined ? 10 * invZ : 6 * invZ
   const gapLen = dashPhase !== undefined ? 6 * invZ : 4 * invZ
   const phase = dashPhase !== undefined ? dashPhase * invZ : 0
-  const effect = ck.PathEffect.MakeDash([dashLen, gapLen], phase)
-  if (effect) { linePaint.setPathEffect(effect); effect.delete() }
+  const effect = isFinite(phase) ? ck.PathEffect.MakeDash([dashLen, gapLen], phase) : null
+  if (effect) linePaint.setPathEffect(effect)
   canvas.drawLine(x1, y1, x2, y2, linePaint)
+  effect?.delete()
   linePaint.delete()
 
   // Arrowhead

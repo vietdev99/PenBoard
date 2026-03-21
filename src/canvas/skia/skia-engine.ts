@@ -1231,6 +1231,7 @@ export class SkiaEngine {
     this.flowAnimating = !!(highlightedFlow && highlightedFlow.connectionIds.length > 0)
     this.connectionHitAreas = []
     if (connections.length > 0 && showConnections) {
+      try {
       const activePageId = useCanvasStore.getState().activePageId
       const activePage = (useDocumentStore.getState().document.pages ?? []).find(
         (p) => p.id === activePageId,
@@ -1244,7 +1245,8 @@ export class SkiaEngine {
 
         // Pre-compute anchor offsets: spread multiple connections on the same edge
         // Key: "sourceId:edge" or "targetId:edge" → list of connection IDs using that edge
-        const ANCHOR_SPREAD = 16 * Math.max(1 / this.zoom, 0.1) // px between anchors
+        const rawSpread = 16 * Math.max(1 / this.zoom, 0.1)
+        const ANCHOR_SPREAD = isFinite(rawSpread) ? rawSpread : 16 // px between anchors
         const sourceEdgeCounts = new Map<string, string[]>() // "elementId:right|left" → connIds
         const targetEdgeCounts = new Map<string, string[]>()
         for (const c of connections) {
@@ -1401,6 +1403,9 @@ export class SkiaEngine {
             })
           }
         }
+      }
+      } catch {
+        // Skip CanvasKit WASM errors during connection rendering
       }
     }
 
