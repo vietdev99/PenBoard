@@ -803,7 +803,7 @@ export function drawCrossPageArrow(
 
   const baseAlpha = alphaOverride ?? 0.7
 
-  // Dashed line — use fresh Paint here (cross-page needs different lifecycle from cached arrow paint)
+  // Dashed line — reuse cached paint (do NOT delete cached objects!)
   const linePaint = _getArrowLinePaint(ck)
   linePaint.setStrokeWidth((alphaOverride !== undefined && alphaOverride >= 1 ? 3 : 2) * invZ)
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
@@ -818,7 +818,6 @@ export function drawCrossPageArrow(
     linePaint.setPathEffect(null)
   }
   canvas.drawLine(x1, y1, x2, y2, linePaint)
-  linePaint.delete()
 
   // Arrowhead — reuse cached objects
   const arrowSize = 7 * invZ
