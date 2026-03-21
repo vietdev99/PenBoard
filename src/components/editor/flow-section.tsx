@@ -68,6 +68,7 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     return () => { cancelled = true }
   }, [code, name])
 
+  // Wheel zoom
   useEffect(() => {
     const el = viewportRef.current
     if (!el || !zoomEnabled) return
@@ -82,6 +83,48 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
   }, [zoomEnabled])
+
+  // Mouse drag pan
+  const panState = useRef<{ active: boolean; startX: number; startY: number; scrollX: number; scrollY: number }>({
+    active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0,
+  })
+
+  useEffect(() => {
+    const el = viewportRef.current
+    const canPan = zoomEnabled || fullscreen
+    if (!el || !canPan) return
+
+    const onDown = (e: MouseEvent) => {
+      // Only left button
+      if (e.button !== 0) return
+      // Ignore clicks on toolbar buttons
+      if ((e.target as HTMLElement).closest('button')) return
+      panState.current = { active: true, startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop }
+      el.style.cursor = 'grabbing'
+      e.preventDefault()
+    }
+    const onMove = (e: MouseEvent) => {
+      if (!panState.current.active) return
+      const dx = e.clientX - panState.current.startX
+      const dy = e.clientY - panState.current.startY
+      el.scrollLeft = panState.current.scrollX - dx
+      el.scrollTop = panState.current.scrollY - dy
+    }
+    const onUp = () => {
+      if (!panState.current.active) return
+      panState.current.active = false
+      el.style.cursor = ''
+    }
+
+    el.addEventListener('mousedown', onDown)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      el.removeEventListener('mousedown', onDown)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [zoomEnabled, fullscreen])
 
   const fitToView = useCallback(() => {
     setScale(1)
@@ -157,7 +200,7 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
         {toolbar}
         <div
           ref={viewportRef}
-          className={`${fullscreen ? 'flex-1 overflow-auto' : ''} p-4 ${zoomEnabled ? 'cursor-grab' : 'overflow-x-auto'}`}
+          className={`${fullscreen ? 'flex-1' : ''} p-4 ${zoomEnabled || fullscreen ? 'overflow-auto cursor-grab' : 'overflow-x-auto'}`}
         >
           <div
             ref={containerRef}
