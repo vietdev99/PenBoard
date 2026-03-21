@@ -147,7 +147,7 @@ export const useAIStore = create<AIState>((set, get) => ({
   modelGroups: [],
   isLoadingModels: false,
   panelCorner: 'bottom-left',
-  isMinimized: false,
+  isMinimized: true,
   chatTitle: 'New Chat',
   concurrency: 1,
   generationProgress: null,
