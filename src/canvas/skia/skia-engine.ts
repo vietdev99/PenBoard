@@ -679,6 +679,12 @@ export class SkiaEngine {
 
     const pageChildren = getActivePageChildren(docState.document, activePageId)
 
+    // Re-enable connections when switching pages (gives user a fresh start)
+    if (activePageId !== this.lastSyncPageId && this._connectionsDisabled) {
+      this._connectionsDisabled = false
+      this._renderCrashCount = 0
+    }
+
     // Skip expensive re-processing if document children haven't changed
     // (e.g., only canvas store state like selection/hover changed)
     if (pageChildren === this.lastSyncChildrenRef && activePageId === this.lastSyncPageId) {
@@ -991,11 +997,19 @@ export class SkiaEngine {
   flowDashPhase = 0
   private flowAnimating = false
 
+  /**
+   * WASM crash recovery: after consecutive render crashes, disable complex
+   * overlays (connections/highlights) to keep the canvas functional.
+   */
+  private _renderCrashCount = 0
+  private _connectionsDisabled = false
+  private static CRASH_THRESHOLD = 3 // disable connections after 3 consecutive crashes
+
   private startRenderLoop() {
     const loop = () => {
       this.animFrameId = requestAnimationFrame(loop)
       // Keep animating while flow is highlighted (marching ants)
-      if (this.flowAnimating) {
+      if (this.flowAnimating && !this._connectionsDisabled) {
         this.flowDashPhase = -(performance.now() / 15) % 1000 // ~66px/s march, negative = forward direction
         this.dirty = true
       }
@@ -1003,11 +1017,37 @@ export class SkiaEngine {
       this.dirty = false
       try {
         this.render()
+        // Successful render — reset crash counter
+        if (this._renderCrashCount > 0) {
+          this._renderCrashCount = 0
+        }
       } catch (renderErr) {
-        console.warn('[SkiaEngine] render() crashed, will retry next frame:', renderErr)
+        this._renderCrashCount++
+        if (this._renderCrashCount >= SkiaEngine.CRASH_THRESHOLD && !this._connectionsDisabled) {
+          console.warn(`[SkiaEngine] ${this._renderCrashCount} consecutive render crashes — disabling connections to recover`)
+          this._connectionsDisabled = true
+          // Recreate surface to clear corrupted WASM state
+          try {
+            try { this.surface?.delete() } catch { /* */ }
+            this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl!)
+            if (!this.surface) this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl!)
+          } catch { /* surface recreation failed */ }
+          this.markDirty() // re-render without connections
+        } else if (!this._connectionsDisabled) {
+          console.warn('[SkiaEngine] render() crashed, will retry next frame:', renderErr)
+        }
       }
     }
     this.animFrameId = requestAnimationFrame(loop)
+  }
+
+  /** Re-enable connections after page switch or user action. */
+  enableConnections() {
+    if (this._connectionsDisabled) {
+      this._connectionsDisabled = false
+      this._renderCrashCount = 0
+      this.markDirty()
+    }
   }
 
   /** Callback fired once after the next render() completes (used for post-load modal dismissal). */
@@ -1230,7 +1270,8 @@ export class SkiaEngine {
 
     // Storyboard-style connection arrows between elements
     // Skip during active pan/zoom for performance — arrows re-appear once pan settles
-    const connections = this.isPanning ? [] : (useDocumentStore.getState().document.connections ?? [])
+    // Skip when connections are disabled due to WASM crashes
+    const connections = (this.isPanning || this._connectionsDisabled) ? [] : (useDocumentStore.getState().document.connections ?? [])
     const { showConnections, hoveredConnectionId, highlightedFlow } = useCanvasStore.getState()
     this.flowAnimating = !!(highlightedFlow && highlightedFlow.connectionIds.length > 0)
     this.connectionHitAreas = []
@@ -1427,7 +1468,7 @@ export class SkiaEngine {
     // show bright arrows for connected flow, dim everything else
     // Skip during active pan/zoom — BFS + map building is expensive per frame
     try {
-    if (showConnections && selectedIds.size > 0 && !this.isPanning) {
+    if (showConnections && selectedIds.size > 0 && !this.isPanning && !this._connectionsDisabled) {
       const docState = useDocumentStore.getState()
       const allConnections = docState.document.connections ?? []
       const activePageId = useCanvasStore.getState().activePageId
