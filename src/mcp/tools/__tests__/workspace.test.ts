@@ -33,14 +33,15 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('write_flow', () => {
-  it('creates .penboard/flows/{name}.md file', async () => {
+  it('creates .penboard/flows/general/{name}.md file (default group)', async () => {
     const content = '# Authentication Flow\n\nDescription\n\n```mermaid\nflowchart TD\n  A-->B\n```'
     const result = await handleWriteFlow({ filePath: TEST_PB, name: 'auth', content })
 
     expect(result.success).toBe(true)
     expect(result.title).toBe('Authentication Flow')
+    expect(result.group).toBe('general')
 
-    const fileContent = await readFile(join(TMP_DIR, '.penboard', 'flows', 'auth.md'), 'utf-8')
+    const fileContent = await readFile(join(TMP_DIR, '.penboard', 'flows', 'general', 'auth.md'), 'utf-8')
     expect(fileContent).toBe(content)
   })
 
@@ -61,8 +62,8 @@ describe('write_flow', () => {
     const content = '# New Flow\n\nContent'
     await handleWriteFlow({ filePath: TEST_PB, name: 'new-flow', content })
 
-    // Verify the directory was created and file exists
-    const fileContent = await readFile(join(TMP_DIR, '.penboard', 'flows', 'new-flow.md'), 'utf-8')
+    // Verify the directory was created and file exists (default group = general)
+    const fileContent = await readFile(join(TMP_DIR, '.penboard', 'flows', 'general', 'new-flow.md'), 'utf-8')
     expect(fileContent).toBe(content)
   })
 
@@ -75,6 +76,18 @@ describe('write_flow', () => {
 
     expect(manifest.flows).toHaveLength(1)
     expect(manifest.flows[0].title).toBe('Auth V2')
+    expect(manifest.flows[0].group).toBe('general')
+  })
+
+  it('creates flow in specified group subdirectory', async () => {
+    const content = '# Business Auth\n\nBusiness flow'
+    const result = await handleWriteFlow({ filePath: TEST_PB, group: 'business', name: 'auth', content })
+
+    expect(result.success).toBe(true)
+    expect(result.group).toBe('business')
+
+    const fileContent = await readFile(join(TMP_DIR, '.penboard', 'flows', 'business', 'auth.md'), 'utf-8')
+    expect(fileContent).toBe(content)
   })
 })
 
@@ -83,15 +96,28 @@ describe('write_flow', () => {
 // ---------------------------------------------------------------------------
 
 describe('read_flow', () => {
-  it('reads existing flow file', async () => {
+  it('reads existing flow file from default group', async () => {
     const content = '# Login Flow\n\nLogin description'
-    await mkdir(join(TMP_DIR, '.penboard', 'flows'), { recursive: true })
-    await writeFile(join(TMP_DIR, '.penboard', 'flows', 'login.md'), content, 'utf-8')
+    await mkdir(join(TMP_DIR, '.penboard', 'flows', 'general'), { recursive: true })
+    await writeFile(join(TMP_DIR, '.penboard', 'flows', 'general', 'login.md'), content, 'utf-8')
 
     const result = await handleReadFlow({ filePath: TEST_PB, name: 'login' })
 
     expect(result.name).toBe('login')
     expect(result.title).toBe('Login Flow')
+    expect(result.content).toBe(content)
+    expect(result.group).toBe('general')
+  })
+
+  it('reads flow from specified group', async () => {
+    const content = '# Tech Flow\n\nTechnical description'
+    await mkdir(join(TMP_DIR, '.penboard', 'flows', 'technical'), { recursive: true })
+    await writeFile(join(TMP_DIR, '.penboard', 'flows', 'technical', 'api.md'), content, 'utf-8')
+
+    const result = await handleReadFlow({ filePath: TEST_PB, group: 'technical', name: 'api' })
+
+    expect(result.group).toBe('technical')
+    expect(result.name).toBe('api')
     expect(result.content).toBe(content)
   })
 
@@ -107,24 +133,23 @@ describe('read_flow', () => {
 // ---------------------------------------------------------------------------
 
 describe('list_flows', () => {
-  it('lists all .md files in flows dir', async () => {
+  it('lists flows from subdirectories and root (backward compat)', async () => {
+    // Root-level file (old format -> "general" group)
     await mkdir(join(TMP_DIR, '.penboard', 'flows'), { recursive: true })
-    await writeFile(
-      join(TMP_DIR, '.penboard', 'flows', 'auth.md'),
-      '# Authentication\n\nAuth flow',
-      'utf-8',
-    )
-    await writeFile(
-      join(TMP_DIR, '.penboard', 'flows', 'checkout.md'),
-      '# Checkout\n\nCheckout flow',
-      'utf-8',
-    )
+    await writeFile(join(TMP_DIR, '.penboard', 'flows', 'old.md'), '# Old Flow\n\nLegacy', 'utf-8')
+
+    // Grouped file
+    await mkdir(join(TMP_DIR, '.penboard', 'flows', 'business'), { recursive: true })
+    await writeFile(join(TMP_DIR, '.penboard', 'flows', 'business', 'auth.md'), '# Auth\n\nBiz', 'utf-8')
 
     const result = await handleListFlows({ filePath: TEST_PB })
-
     expect(result.flows).toHaveLength(2)
-    const names = result.flows.map((f) => f.name).sort()
-    expect(names).toEqual(['auth', 'checkout'])
+
+    const oldFlow = result.flows.find((f) => f.name === 'old')
+    expect(oldFlow?.group).toBe('general')
+
+    const bizFlow = result.flows.find((f) => f.name === 'auth')
+    expect(bizFlow?.group).toBe('business')
   })
 
   it('returns empty array when no flows dir', async () => {
@@ -214,5 +239,6 @@ describe('workspace path resolution', () => {
     expect(result.path).toContain(TMP_DIR)
     expect(result.path).toContain('.penboard')
     expect(result.path).toContain('flows')
+    expect(result.group).toBe('general')
   })
 })
