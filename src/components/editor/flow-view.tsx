@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useFlowData } from '@/hooks/use-flow-data'
 import FlowTOC from './flow-toc'
 import FlowSection from './flow-section'
@@ -9,6 +9,22 @@ export default function FlowView() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeFlow, setActiveFlow] = useState<string | undefined>()
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof flows>()
+    for (const flow of flows) {
+      const g = flow.group || 'general'
+      if (!map.has(g)) map.set(g, [])
+      map.get(g)!.push(flow)
+    }
+    return new Map(
+      [...map.entries()].sort(([a], [b]) => {
+        if (a === 'general') return 1
+        if (b === 'general') return -1
+        return a.localeCompare(b)
+      }),
+    )
+  }, [flows])
 
   // Track which flow section is visible during scroll
   const handleScroll = useCallback(() => {
@@ -39,7 +55,7 @@ export default function FlowView() {
       {/* Left sidebar TOC */}
       {flows.length > 0 && (
         <FlowTOC
-          items={flows.map((f) => ({ name: f.name, title: f.title }))}
+          items={flows.map((f) => ({ group: f.group, name: f.name, title: f.title }))}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((p) => !p)}
           activeFlow={activeFlow}
@@ -51,7 +67,7 @@ export default function FlowView() {
         <div className="px-6 py-6">
           {/* Header with refresh button */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-lg font-semibold text-foreground">Business Flows</h1>
+            <h1 className="text-lg font-semibold text-foreground">Flows</h1>
             <button
               onClick={refresh}
               disabled={loading}
@@ -95,13 +111,15 @@ export default function FlowView() {
           )}
 
           {/* Flow sections */}
-          {flows.map((flow) => (
-            <FlowSection
-              key={flow.name}
-              name={flow.name}
-              title={flow.title}
-              content={flow.content}
-            />
+          {[...grouped.entries()].map(([groupName, groupFlows]) => (
+            <div key={groupName} className="mb-10">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 capitalize">
+                {groupName}
+              </h2>
+              {groupFlows.map((flow) => (
+                <FlowSection key={flow.name} name={flow.name} title={flow.title} content={flow.content} />
+              ))}
+            </div>
           ))}
         </div>
       </div>
