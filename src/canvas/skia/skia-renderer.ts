@@ -1930,8 +1930,9 @@ export class SkiaRenderer {
     sx: number, sy: number, sw: number, sh: number,
     zoom: number, targetName: string,
     index = 0, total = 1,
+    alphaOverride?: number,
   ) {
-    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName, index, total)
+    _drawCrossPageArrow(this.ck, canvas, sx, sy, sw, sh, zoom, targetName, index, total, alphaOverride)
   }
 
   drawComponentBadge(

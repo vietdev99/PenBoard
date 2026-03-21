@@ -55,6 +55,40 @@ function toolToCursor(tool: ToolType): string {
 
 interface GuideSpec { x1: number; y1: number; x2: number; y2: number }
 
+/** Minimum distance from point (px,py) to line segment (ax,ay)-(bx,by). */
+function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const abx = bx - ax, aby = by - ay
+  const lenSq = abx * abx + aby * aby
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / lenSq))
+  return Math.hypot(px - (ax + t * abx), py - (ay + t * aby))
+}
+
+/** Check if a scene point is within hitRadius of any connection hit area. */
+function hitTestConnection(
+  sceneX: number, sceneY: number, hitRadius: number,
+  areas: { connectionId: string; points: { x: number; y: number }[]; labelRect?: { x: number; y: number; w: number; h: number } }[],
+): string | null {
+  for (const area of areas) {
+    // Check label rect first (cheap rect test)
+    if (area.labelRect) {
+      const lr = area.labelRect
+      if (sceneX >= lr.x && sceneX <= lr.x + lr.w &&
+          sceneY >= lr.y && sceneY <= lr.y + lr.h) {
+        return area.connectionId
+      }
+    }
+    // Check distance to line segments between consecutive sample points
+    const pts = area.points
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (distToSegment(sceneX, sceneY, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y) <= hitRadius) {
+        return area.connectionId
+      }
+    }
+  }
+  return null
+}
+
 /**
  * Compute alignment guides by comparing the bounding box of the dragged node(s)
  * against all other render nodes. Checks 5 axes per dimension:
@@ -717,7 +751,24 @@ export default function SkiaCanvas() {
           return
         }
 
+        // Check connection hit FIRST — connection labels can overlap frames
+        const connClickId = hitTestConnection(scene.x, scene.y, 8 / engine.zoom, engine.connectionHitAreas)
+
         const hits = engine.spatialIndex.hitTest(scene.x, scene.y)
+
+        // If a connection label was clicked (even on top of a node), prioritize connection
+        if (connClickId && hits.length > 0) {
+          // Check if the click is specifically on the label rect (not just near line)
+          const hitArea = engine.connectionHitAreas.find((a) => a.connectionId === connClickId)
+          const onLabel = hitArea?.labelRect && (
+            scene.x >= hitArea.labelRect.x && scene.x <= hitArea.labelRect.x + hitArea.labelRect.w &&
+            scene.y >= hitArea.labelRect.y && scene.y <= hitArea.labelRect.y + hitArea.labelRect.h
+          )
+          if (onLabel) {
+            // Redirect to connection click handler below
+            hits.length = 0
+          }
+        }
 
         if (hits.length > 0) {
           // Clicking a node clears any active flow highlight
@@ -772,26 +823,8 @@ export default function SkiaCanvas() {
             return { id, x: n?.x ?? 0, y: n?.y ?? 0 }
           })
         } else {
-          // Empty space — check if a connection line was clicked
-          let clickedConnId: string | null = null
-          const hitRadius = 8 / engine.zoom
-          for (const area of engine.connectionHitAreas) {
-            if (area.labelRect) {
-              const lr = area.labelRect
-              if (scene.x >= lr.x && scene.x <= lr.x + lr.w &&
-                  scene.y >= lr.y && scene.y <= lr.y + lr.h) {
-                clickedConnId = area.connectionId
-                break
-              }
-            }
-            for (const pt of area.points) {
-              if (Math.abs(scene.x - pt.x) <= hitRadius && Math.abs(scene.y - pt.y) <= hitRadius) {
-                clickedConnId = area.connectionId
-                break
-              }
-            }
-            if (clickedConnId) break
-          }
+          // Empty space (or label-on-node redirect) — use pre-computed connection hit
+          const clickedConnId = connClickId
 
           if (clickedConnId) {
             // Trace the full flow from this connection
@@ -1188,35 +1221,29 @@ export default function SkiaCanvas() {
           // Rotation cursor — rotate icon via CSS
           canvasEl.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'%3E%3Cpath d=\'M21 2v6h-6\'/%3E%3Cpath d=\'M21 13a9 9 0 1 1-3-7.7L21 8\'/%3E%3C/svg%3E") 12 12, crosshair'
         } else {
-          const hoverHits = engine.spatialIndex.hitTest(scene.x, scene.y)
-          const newHoveredId = hoverHits.length > 0 ? hoverHits[0].node.id : null
+          // Check connection hover first — labels/lines are drawn on top of nodes
+          const connHoverResult = hitTestConnection(scene.x, scene.y, 8 / engine.zoom, engine.connectionHitAreas)
 
-          // Connection hover: check proximity to connection lines
-          let newConnHoverId: string | null = null
-          if (!newHoveredId) {
-            const hitRadius = 8 / engine.zoom // 8px screen-space tolerance
-            for (const area of engine.connectionHitAreas) {
-              // Check label rect first (cheap)
-              if (area.labelRect) {
-                const lr = area.labelRect
-                if (scene.x >= lr.x && scene.x <= lr.x + lr.w &&
-                    scene.y >= lr.y && scene.y <= lr.y + lr.h) {
-                  newConnHoverId = area.connectionId
-                  break
-                }
-              }
-              // Check proximity to sampled curve points
-              for (const pt of area.points) {
-                if (Math.abs(scene.x - pt.x) <= hitRadius && Math.abs(scene.y - pt.y) <= hitRadius) {
-                  newConnHoverId = area.connectionId
-                  break
-                }
-              }
-              if (newConnHoverId) break
+          // If connection label is directly under cursor, prioritize it over node
+          let connOnLabel = false
+          if (connHoverResult) {
+            const hitArea = engine.connectionHitAreas.find((a) => a.connectionId === connHoverResult)
+            if (hitArea?.labelRect) {
+              const lr = hitArea.labelRect
+              connOnLabel = scene.x >= lr.x && scene.x <= lr.x + lr.w &&
+                            scene.y >= lr.y && scene.y <= lr.y + lr.h
             }
           }
 
-          canvasEl.style.cursor = newHoveredId ? 'move' : newConnHoverId ? 'pointer' : 'default'
+          const hoverHits = engine.spatialIndex.hitTest(scene.x, scene.y)
+          const nodeHoveredId = hoverHits.length > 0 ? hoverHits[0].node.id : null
+
+          // Connection label takes priority; otherwise line only wins when no node under cursor
+          const newConnHoverId = connOnLabel ? connHoverResult
+            : (!nodeHoveredId ? connHoverResult : null)
+          const newHoveredId = newConnHoverId ? null : nodeHoveredId
+
+          canvasEl.style.cursor = newConnHoverId ? 'pointer' : newHoveredId ? 'move' : 'default'
           if (newHoveredId !== engine.hoveredNodeId) {
             engine.hoveredNodeId = newHoveredId
             useCanvasStore.getState().setHoveredId(newHoveredId)

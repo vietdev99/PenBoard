@@ -748,6 +748,7 @@ export function drawCrossPageArrow(
   zoom: number,
   targetName: string,
   index = 0, total = 1,
+  alphaOverride?: number,
 ): void {
   // Clamp invZ so overlays stay readable at extreme zoom (>1000%)
   const invZ = Math.max(1 / zoom, 0.1)
@@ -763,13 +764,15 @@ export function drawCrossPageArrow(
   const x2 = x1 + arrowLen
   const y2 = y1
 
+  const baseAlpha = alphaOverride ?? 0.7
+
   // Dashed line
   const linePaint = new ck.Paint()
   linePaint.setStyle(ck.PaintStyle.Stroke)
   linePaint.setAntiAlias(true)
-  linePaint.setStrokeWidth(2 * invZ)
+  linePaint.setStrokeWidth((alphaOverride !== undefined && alphaOverride >= 1 ? 3 : 2) * invZ)
   linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  linePaint.setAlphaf(0.7)
+  linePaint.setAlphaf(baseAlpha)
   linePaint.setStrokeCap(ck.StrokeCap.Round)
   const dashLen = 6 * invZ
   const effect = ck.PathEffect.MakeDash([dashLen, 4 * invZ], 0)
@@ -783,7 +786,7 @@ export function drawCrossPageArrow(
   arrowPaint.setStyle(ck.PaintStyle.Fill)
   arrowPaint.setAntiAlias(true)
   arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  arrowPaint.setAlphaf(0.7)
+  arrowPaint.setAlphaf(baseAlpha)
   const arrowPath = new ck.Path()
   arrowPath.moveTo(x2, y2)
   arrowPath.lineTo(x2 - arrowSize, y2 - arrowSize * 0.5)
@@ -808,7 +811,7 @@ export function drawCrossPageArrow(
   bgPaint.setStyle(ck.PaintStyle.Fill)
   bgPaint.setAntiAlias(true)
   bgPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
-  bgPaint.setAlphaf(0.15)
+  bgPaint.setAlphaf(Math.min(baseAlpha, 0.15))
   const r = 4 * invZ
   canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), bgPaint)
   bgPaint.delete()
