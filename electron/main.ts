@@ -450,6 +450,45 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   }
 
+  // Confirm save when closing with unsaved changes
+  mainWindow.on('close', async (e) => {
+    if (!mainWindow) return
+    try {
+      const isDirty = await mainWindow.webContents.executeJavaScript(
+        '!!window.__documentStore?.getState()?.isDirty',
+      )
+      if (!isDirty) return
+      e.preventDefault()
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['Save', "Don't Save", 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Do you want to save before closing?',
+      })
+      if (response === 2) return // Cancel — don't close
+      if (response === 0) {
+        // Save then close
+        await mainWindow.webContents.executeJavaScript(`
+          (async () => {
+            const store = window.__documentStore?.getState();
+            if (!store?.document) return;
+            const doc = store.document;
+            const filePath = store.filePath;
+            if (filePath && window.electronAPI?.saveToPath) {
+              await window.electronAPI.saveToPath(filePath, JSON.stringify(doc));
+            }
+          })()
+        `)
+      }
+      // Don't Save (response === 1) or after save — close
+      mainWindow.destroy()
+    } catch {
+      // If check fails, allow close
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })

@@ -814,8 +814,12 @@ export {
 } from './document-tree-utils'
 export { nanoid as generateId } from 'nanoid'
 
-// Expose stores on window in dev mode for testing/debugging
-if (import.meta.env.DEV && typeof window !== 'undefined') {
+// Expose document store on window for Electron close-save check
+if (typeof window !== 'undefined') {
   ;(window as unknown as Record<string, unknown>).__documentStore = useDocumentStore
+}
+
+// Expose canvas store in dev mode for debugging
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   ;(window as unknown as Record<string, unknown>).__canvasStore = useCanvasStore
 }

@@ -25,6 +25,7 @@ import { useThemePresetStore } from '@/stores/theme-preset-store'
 import { useElectronMenu } from '@/hooks/use-electron-menu'
 import { useFigmaPaste } from '@/hooks/use-figma-paste'
 import { useMcpSync } from '@/hooks/use-mcp-sync'
+import { useAutoSave } from '@/hooks/use-auto-save'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { initAppStorage } from '@/utils/app-storage'
 import SkiaCanvas from '@/canvas/skia/skia-canvas'
@@ -134,6 +135,9 @@ export default function EditorLayout() {
 
   // MCP ↔ canvas real-time sync
   useMcpSync()
+
+  // Auto-save 3s after last change (only when file path/handle exists)
+  useAutoSave()
 
   // Drag-and-drop file open
   const isDragging = useFileDrop()
