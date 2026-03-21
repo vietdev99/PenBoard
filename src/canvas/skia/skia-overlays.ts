@@ -22,7 +22,7 @@ import { parseColor } from './skia-paint-utils'
 const OVERLAY_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const textImageCache = new Map<string, { img: SkImage; w: number; h: number }>()
 const textCacheOrder: string[] = []
-const TEXT_CACHE_MAX = 200
+const TEXT_CACHE_MAX = 80 // keep low to avoid WASM heap exhaustion from SkImage allocations
 
 // Shared canvases for overlay text — avoids document.createElement per call
 let _overlayMeasureCtx: CanvasRenderingContext2D | null = null
@@ -81,7 +81,11 @@ function drawText2D(
   color: string, fontSize: number, fontWeight = '500',
   alpha = 1,
 ): number {
-  const renderSize = Math.ceil(fontSize)
+  // Quantize renderSize to multiples of 4 to prevent cache explosion during zoom.
+  // Without this, continuous zoom creates a unique cache key per zoom level per label,
+  // rapidly exhausting WASM heap memory (ck.MakeImage allocations) and causing abort.
+  const rawSize = Math.ceil(fontSize)
+  const renderSize = Math.max(8, Math.ceil(rawSize / 4) * 4)
   const cacheKey = `${text}|${color}|${renderSize}|${fontWeight}`
 
   let entry = textImageCache.get(cacheKey)
@@ -122,15 +126,21 @@ function drawText2D(
         premul[p + 3] = a
       }
     }
-    const img = ck.MakeImage(
-      {
-        width: cw, height: ch,
-        alphaType: ck.AlphaType.Premul,
-        colorType: ck.ColorType.RGBA_8888,
-        colorSpace: ck.ColorSpace.SRGB,
-      },
-      premul, cw * 4,
-    )
+    let img: SkImage | null = null
+    try {
+      img = ck.MakeImage(
+        {
+          width: cw, height: ch,
+          alphaType: ck.AlphaType.Premul,
+          colorType: ck.ColorType.RGBA_8888,
+          colorSpace: ck.ColorSpace.SRGB,
+        },
+        premul, cw * 4,
+      )
+    } catch {
+      // WASM heap exhausted — skip text rendering to avoid killing the module
+      return 0
+    }
     if (!img) return 0
 
     entry = { img, w: tw, h: th }
@@ -797,8 +807,8 @@ export function drawStoryboardArrow(
   path.close()
   canvas.drawPath(path, arrowPaint)
 
-  // Label at midpoint of the curve
-  if (label) {
+  // Label at midpoint of the curve — skip at very low zoom (unreadable + saves WASM memory)
+  if (label && zoom > 0.12) {
     const midX = (x1 + x2) / 2
     const midY = (y1 + y2) / 2 - 10 * invZ
     const fontSize = 10 * invZ
@@ -903,7 +913,10 @@ export function drawCrossPageArrow(
   borderPaint.setPathEffect(null)
   canvas.drawRRect(ck.RRectXY(ck.LTRBRect(pillX, pillY, pillX + pillW, pillY + pillH), r, r), borderPaint)
 
-  drawText2D(ck, canvas, targetName, pillX + padX, pillY + padY, CONNECTION_BADGE_COLOR, fontSize, '500')
+  // Skip text at very low zoom to save WASM memory
+  if (zoom > 0.12) {
+    drawText2D(ck, canvas, targetName, pillX + padX, pillY + padY, CONNECTION_BADGE_COLOR, fontSize, '500')
+  }
 }
 
 /**

@@ -1049,14 +1049,20 @@ export class SkiaEngine {
   private _reinitSurface() {
     if (!this.canvasEl) return
     try { this.surface?.delete() } catch { /* */ }
-    this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl)
-    if (!this.surface) {
-      this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl)
+    try {
+      this.surface = this.ck.MakeWebGLCanvasSurface(this.canvasEl)
+      if (!this.surface) {
+        this.surface = this.ck.MakeSWCanvasSurface(this.canvasEl)
+      }
+      this._wasmCorrupted = false
+      this._renderCrashCount = 0
+      this._connectionsDisabled = false
+      this.markDirty()
+    } catch {
+      // CanvasKit WASM module is permanently dead (Aborted) — must reload page
+      console.error('[SkiaEngine] CanvasKit WASM module is dead — reloading page')
+      window.location.reload()
     }
-    this._wasmCorrupted = false
-    this._renderCrashCount = 0
-    this._connectionsDisabled = false
-    this.markDirty()
   }
 
   /** Callback fired once after the next render() completes (used for post-load modal dismissal). */
