@@ -137,12 +137,21 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
   )
 }
 
+/** Detect mermaid content by first-line keyword */
+const MERMAID_KEYWORDS =
+  /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|mindmap|timeline|journey|gitGraph|sankey|xychart|block-beta|kanban)\b/
+
+function isMermaidContent(code: string): boolean {
+  const firstLine = code.trimStart().split('\n')[0].trim()
+  return MERMAID_KEYWORDS.test(firstLine)
+}
+
 /** Custom code block renderer: handles mermaid as diagrams, rest as highlighted code */
 function CodeBlock({ name, children, className }: { name: string; children: ReactNode; className?: string }) {
-  const lang = className?.replace('language-', '') ?? ''
+  const lang = className?.replace(/^.*language-/, '') ?? ''
   const code = String(children).replace(/\n$/, '')
 
-  if (lang === 'mermaid') {
+  if (lang === 'mermaid' || isMermaidContent(code)) {
     return <MermaidDiagram name={name} code={code} />
   }
 
@@ -160,9 +169,48 @@ function CodeBlock({ name, children, className }: { name: string; children: Reac
   )
 }
 
+/** Wrap bare mermaid blocks (no code fence) in ```mermaid fences */
+function wrapBareMermaid(text: string): string {
+  const lines = text.split('\n')
+  const result: string[] = []
+  let inFence = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+
+    // Track code fence state
+    if (trimmed.startsWith('```')) {
+      inFence = !inFence
+      result.push(lines[i])
+      continue
+    }
+
+    // If outside code fence and line starts with a mermaid keyword, wrap the block
+    if (!inFence && MERMAID_KEYWORDS.test(trimmed)) {
+      result.push('```mermaid')
+      result.push(lines[i])
+      let j = i + 1
+      // Collect until blank line, heading, or another code fence
+      while (j < lines.length) {
+        const next = lines[j].trim()
+        if (next === '' || next.startsWith('#') || next.startsWith('```')) break
+        result.push(lines[j])
+        j++
+      }
+      result.push('```')
+      i = j - 1
+      continue
+    }
+
+    result.push(lines[i])
+  }
+
+  return result.join('\n')
+}
+
 export default function FlowSection({ name, title, content }: FlowSectionProps) {
   // Strip H1 title from content (already shown as section header)
-  const cleanContent = content.replace(/^#\s+.*/m, '').trim()
+  const cleanContent = wrapBareMermaid(content.replace(/^#\s+.*/m, '').trim())
 
   return (
     <section id={`flow-${name}`} className="mb-8 scroll-mt-4">
@@ -171,12 +219,22 @@ export default function FlowSection({ name, title, content }: FlowSectionProps) 
       </h2>
 
       <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/80
-        prose-headings:text-foreground prose-strong:text-foreground
+        prose-headings:text-foreground prose-headings:font-semibold
+        prose-h2:text-base prose-h2:border-b prose-h2:border-border prose-h2:pb-2 prose-h2:mb-4
+        prose-h3:text-sm prose-h3:mb-2
+        prose-strong:text-foreground prose-strong:font-semibold
         prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-        prose-code:text-foreground/90 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-        prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-border
-        prose-table:border-border prose-th:border-border prose-td:border-border
-        prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground
+        prose-code:text-[13px] prose-code:text-foreground/90 prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+        prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-border prose-pre:rounded-lg
+        prose-table:text-sm
+        [&_table]:border [&_table]:border-border [&_table]:rounded-lg [&_table]:overflow-hidden
+        [&_thead]:bg-muted/50
+        [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:text-foreground [&_th]:border-b [&_th]:border-border
+        [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-border/50 [&_td]:text-foreground/80
+        [&_tr:last-child_td]:border-b-0
+        [&_tr:hover_td]:bg-muted/30
+        prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground prose-blockquote:bg-muted/30 prose-blockquote:rounded-r-lg prose-blockquote:py-1
+        prose-li:marker:text-muted-foreground
         prose-img:rounded-lg prose-img:border prose-img:border-border
         prose-hr:border-border">
         <ReactMarkdown
@@ -184,8 +242,12 @@ export default function FlowSection({ name, title, content }: FlowSectionProps) 
           rehypePlugins={[rehypeKatex, rehypeHighlight]}
           components={{
             code({ className: codeClassName, children, ...props }) {
-              // Inline code (no language class) → render normally
-              const isBlock = codeClassName?.startsWith('language-')
+              // Detect block code: has language- class or hljs class or contains newlines
+              const codeStr = String(children)
+              const isBlock =
+                codeClassName?.includes('language-') ||
+                codeClassName?.includes('hljs') ||
+                codeStr.includes('\n')
               if (!isBlock) {
                 return <code className={codeClassName} {...props}>{children}</code>
               }
