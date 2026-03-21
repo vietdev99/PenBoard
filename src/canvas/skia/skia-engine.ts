@@ -965,7 +965,7 @@ export class SkiaEngine {
       this.animFrameId = requestAnimationFrame(loop)
       // Keep animating while flow is highlighted (marching ants)
       if (this.flowAnimating) {
-        this.flowDashPhase = (performance.now() / 15) % 1000 // ~66px/s march speed
+        this.flowDashPhase = -(performance.now() / 15) % 1000 // ~66px/s march, negative = forward direction
         this.dirty = true
       }
       if (!this.dirty || !this.surface) return
