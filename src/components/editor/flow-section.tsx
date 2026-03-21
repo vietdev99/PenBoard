@@ -5,7 +5,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import mermaid from 'mermaid'
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize, Maximize2, Minimize2 } from 'lucide-react'
 
 // KaTeX styles for math rendering
 import 'katex/dist/katex.min.css'
@@ -28,6 +28,17 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
   const [renderError, setRenderError] = useState<string | null>(null)
   const [zoomEnabled, setZoomEnabled] = useState(false)
   const [scale, setScale] = useState(1)
+  const [fullscreen, setFullscreen] = useState(false)
+
+  // Close fullscreen on Escape
+  useEffect(() => {
+    if (!fullscreen) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [fullscreen])
 
   useEffect(() => {
     let cancelled = false
@@ -77,62 +88,110 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     setZoomEnabled(false)
   }, [])
 
-  return (
-    <div className="relative bg-card border border-border rounded-lg my-4 overflow-hidden group">
-      <div className="absolute top-2 right-2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => setZoomEnabled((p) => !p)}
-          className={`p-1.5 rounded-md text-xs transition-colors ${
-            zoomEnabled
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-card/80 backdrop-blur text-muted-foreground hover:text-foreground border border-border'
-          }`}
-          title={zoomEnabled ? 'Disable zoom' : 'Enable zoom'}
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </button>
-        {zoomEnabled && (
-          <>
-            <button
-              onClick={() => setScale((s) => Math.max(0.2, s - 0.2))}
-              className="p-1.5 rounded-md bg-card/80 backdrop-blur text-muted-foreground hover:text-foreground border border-border transition-colors"
-              title="Zoom out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[11px] text-muted-foreground min-w-[36px] text-center tabular-nums">
-              {Math.round(scale * 100)}%
-            </span>
-            <button
-              onClick={fitToView}
-              className="p-1.5 rounded-md bg-card/80 backdrop-blur text-muted-foreground hover:text-foreground border border-border transition-colors"
-              title="Fit to view"
-            >
-              <Maximize className="w-3.5 h-3.5" />
-            </button>
-          </>
-        )}
-      </div>
+  const toggleFullscreen = useCallback(() => {
+    setFullscreen((p) => !p)
+    // Reset zoom when entering fullscreen for clean view
+    if (!fullscreen) {
+      setScale(1)
+      setZoomEnabled(true)
+    }
+  }, [fullscreen])
 
+  const toolbarBtnClass =
+    'p-1.5 rounded-md bg-card/80 backdrop-blur text-muted-foreground hover:text-foreground border border-border transition-colors'
+
+  const toolbar = (
+    <div className={`absolute top-2 right-2 flex items-center gap-1 z-10 ${fullscreen ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+      <button
+        onClick={() => setZoomEnabled((p) => !p)}
+        className={`p-1.5 rounded-md text-xs transition-colors ${
+          zoomEnabled
+            ? 'bg-primary text-primary-foreground'
+            : toolbarBtnClass
+        }`}
+        title={zoomEnabled ? 'Disable zoom' : 'Enable zoom'}
+      >
+        <ZoomIn className="w-3.5 h-3.5" />
+      </button>
+      {zoomEnabled && (
+        <>
+          <button
+            onClick={() => setScale((s) => Math.max(0.2, s - 0.2))}
+            className={toolbarBtnClass}
+            title="Zoom out"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[11px] text-muted-foreground min-w-[36px] text-center tabular-nums">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            onClick={fitToView}
+            className={toolbarBtnClass}
+            title="Fit to view"
+          >
+            <Maximize className="w-3.5 h-3.5" />
+          </button>
+        </>
+      )}
+      <div className="w-px h-4 bg-border mx-0.5" />
+      <button
+        onClick={toggleFullscreen}
+        className={toolbarBtnClass}
+        title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+      >
+        {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+      </button>
+    </div>
+  )
+
+  const diagramContent = (
+    <>
       <div
         ref={viewportRef}
-        className={`p-4 ${zoomEnabled ? 'cursor-grab' : 'overflow-x-auto'}`}
+        className={`${fullscreen ? 'flex-1 overflow-auto' : ''} p-4 ${zoomEnabled ? 'cursor-grab' : 'overflow-x-auto'}`}
       >
         <div
           ref={containerRef}
+          className={fullscreen ? 'min-h-full flex items-start justify-center' : ''}
           style={{
             transform: `scale(${scale})`,
-            transformOrigin: 'top left',
+            transformOrigin: fullscreen ? 'top center' : 'top left',
             transition: zoomEnabled ? 'none' : 'transform 0.2s ease',
           }}
         />
       </div>
-
       {renderError && (
         <div className="text-sm text-destructive bg-destructive/10 p-3 mx-4 mb-4 rounded-lg">
           {renderError}
         </div>
       )}
+    </>
+  )
+
+  // Fullscreen overlay
+  if (fullscreen) {
+    return (
+      <>
+        {/* Inline placeholder to preserve scroll position */}
+        <div className="bg-card border border-border rounded-lg my-4 h-20 flex items-center justify-center text-xs text-muted-foreground">
+          Viewing fullscreen...
+        </div>
+        {/* Fullscreen overlay */}
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+          <div className="relative flex-1 flex flex-col">
+            {toolbar}
+            {diagramContent}
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <div className="relative bg-card border border-border rounded-lg my-4 overflow-hidden group">
+      {toolbar}
+      {diagramContent}
     </div>
   )
 }
