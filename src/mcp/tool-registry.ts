@@ -47,6 +47,7 @@ import {
   handleReadDoc,
 } from './tools/workspace'
 import { handleGetProjectContext } from './tools/project-context'
+import { FORMAT_FLOW_TOOLS, handleFormatFlow } from './tools/format-flow'
 import { openDocument, saveDocument, resolveDocPath, getCachedFilePath, fetchLiveFilePath, LIVE_CANVAS_PATH } from './document-manager'
 
 // --- Tool definitions (shared across all Server instances) ---
@@ -662,6 +663,7 @@ export const TOOL_DEFINITIONS = [
   ...PREVIEW_TOOLS,
   ...WORKFLOW_TOOLS,
   ...WORKSPACE_TOOLS,
+  ...FORMAT_FLOW_TOOLS,
   {
     name: 'manage_connections',
     description:
@@ -965,6 +967,8 @@ export async function handleToolCall(name: string, args: Record<string, unknown>
       return JSON.stringify(await handleGetProjectContext(a), null, 2)
     case 'save_document':
       return JSON.stringify(await handleSaveDocumentTool(a), null, 2)
+    case 'format_flow':
+      return JSON.stringify(await handleFormatFlow(a), null, 2)
 
     default:
       throw new Error(`Unknown tool: ${name}`)
