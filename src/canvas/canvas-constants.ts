@@ -62,7 +62,7 @@ export const GUIDE_LINE_WIDTH = 1
 export const GUIDE_DASH = [3, 3]
 
 // Connection badge
-export const CONNECTION_BADGE_COLOR = '#10b981'
+export const CONNECTION_BADGE_COLOR = '#3b82f6'
 export const CONNECTION_BADGE_ICON_COLOR = '#ffffff'
 
 // ERD nodes
