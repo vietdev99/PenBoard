@@ -875,6 +875,217 @@ export function drawStoryboardArrow(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Obstacle-avoiding connection routing
+// ---------------------------------------------------------------------------
+
+export interface ObstacleRect { id: string; x: number; y: number; w: number; h: number }
+
+/** Check if a straight line passes through a rectangle (sample-based). */
+function lineHitsRect(
+  x1: number, y1: number, x2: number, y2: number,
+  r: ObstacleRect, margin: number,
+): boolean {
+  const steps = 10
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps
+    const px = x1 + (x2 - x1) * t
+    const py = y1 + (y2 - y1) * t
+    if (px >= r.x - margin && px <= r.x + r.w + margin &&
+        py >= r.y - margin && py <= r.y + r.h + margin) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Compute anchor point on source/target edge (same logic as drawStoryboardArrow). */
+export function computeAnchor(
+  sx: number, sy: number, sw: number, sh: number,
+  tx: number, ty: number, tw: number, th: number,
+  srcOff: number, tgtOff: number,
+): { x1: number; y1: number; x2: number; y2: number; tgtEdge: 'left' | 'right' | 'top' | 'bottom' } {
+  const sCx = sx + sw / 2, sCy = sy + sh / 2
+  const tCx = tx + tw / 2, tCy = ty + th / 2
+  const dxC = tCx - sCx, dyC = tCy - sCy
+  const hW = Math.abs(dxC) / ((sw + tw) / 2 || 1)
+  const vW = Math.abs(dyC) / ((sh + th) / 2 || 1)
+  const prefH = hW >= vW
+
+  if (prefH) {
+    if (dxC >= 0) {
+      return { x1: sx + sw, y1: sCy + srcOff, x2: tx, y2: tCy + tgtOff, tgtEdge: 'left' }
+    } else {
+      return { x1: sx, y1: sCy + srcOff, x2: tx + tw, y2: tCy + tgtOff, tgtEdge: 'right' }
+    }
+  } else {
+    if (dyC >= 0) {
+      return { x1: sCx + srcOff, y1: sy + sh, x2: tCx + tgtOff, y2: ty, tgtEdge: 'top' }
+    } else {
+      return { x1: sCx + srcOff, y1: sy, x2: tCx + tgtOff, y2: ty + th, tgtEdge: 'bottom' }
+    }
+  }
+}
+
+/**
+ * Compute waypoints to route a connection around blocking frames.
+ * Returns empty array if the direct path is clear.
+ */
+export function computeConnectionWaypoints(
+  x1: number, y1: number, x2: number, y2: number,
+  obstacles: ObstacleRect[],
+  margin: number,
+): { x: number; y: number }[] {
+  const blockers = obstacles.filter((obs) => lineHitsRect(x1, y1, x2, y2, obs, margin))
+  if (blockers.length === 0) return []
+
+  // Sort blockers along the src→tgt direction
+  const dx = x2 - x1, dy = y2 - y1
+  blockers.sort((a, b) => {
+    const projA = (a.x + a.w / 2 - x1) * dx + (a.y + a.h / 2 - y1) * dy
+    const projB = (b.x + b.w / 2 - x1) * dx + (b.y + b.h / 2 - y1) * dy
+    return projA - projB
+  })
+
+  // For each blocker, compute a waypoint above or below (or left/right) to route around it
+  const isHorizontalTravel = Math.abs(dx) >= Math.abs(dy)
+  const waypoints: { x: number; y: number }[] = []
+
+  for (const obs of blockers) {
+    const obsCx = obs.x + obs.w / 2
+    const obsCy = obs.y + obs.h / 2
+
+    if (isHorizontalTravel) {
+      // Route above or below the obstacle
+      const topY = obs.y - margin
+      const botY = obs.y + obs.h + margin
+      // Pick the side closer to the line's path at this X
+      const lineYAtObsCx = y1 + (y2 - y1) * ((obsCx - x1) / (dx || 1))
+      const wpY = Math.abs(topY - lineYAtObsCx) <= Math.abs(botY - lineYAtObsCx) ? topY : botY
+      waypoints.push({ x: obsCx, y: wpY })
+    } else {
+      // Route left or right of the obstacle
+      const leftX = obs.x - margin
+      const rightX = obs.x + obs.w + margin
+      const lineXAtObsCy = x1 + (x2 - x1) * ((obsCy - y1) / (dy || 1))
+      const wpX = Math.abs(leftX - lineXAtObsCy) <= Math.abs(rightX - lineXAtObsCy) ? leftX : rightX
+      waypoints.push({ x: wpX, y: obsCy })
+    }
+  }
+
+  return waypoints
+}
+
+/**
+ * Draw a storyboard arrow routed through waypoints to avoid obstacles.
+ * Uses Catmull-Rom → cubic Bezier conversion for smooth curves through all points.
+ */
+export function drawRoutedStoryboardArrow(
+  ck: CanvasKit, canvas: Canvas,
+  sx: number, sy: number, sw: number, sh: number,
+  tx: number, ty: number, tw: number, th: number,
+  waypoints: { x: number; y: number }[],
+  zoom: number,
+  label?: string,
+  alphaOverride?: number,
+  dashPhase?: number,
+  sourceOffset?: number,
+  targetOffset?: number,
+): void {
+  const invZ = Math.max(1 / zoom, 0.1)
+  const anchor = computeAnchor(sx, sy, sw, sh, tx, ty, tw, th, sourceOffset ?? 0, targetOffset ?? 0)
+
+  // Full point list: source → waypoints → target
+  const pts: { x: number; y: number }[] = [
+    { x: anchor.x1, y: anchor.y1 },
+    ...waypoints,
+    { x: anchor.x2, y: anchor.y2 },
+  ]
+
+  // Setup paint
+  const linePaint = _getArrowLinePaint(ck)
+  linePaint.setStrokeWidth((alphaOverride !== undefined && alphaOverride >= 1 ? 3 : 2) * invZ)
+  const baseAlpha = alphaOverride ?? 0.85
+  linePaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  linePaint.setAlphaf(baseAlpha)
+  if (dashPhase !== undefined) {
+    const dashLen = 10 * invZ, gapLen = 6 * invZ, phase = dashPhase * invZ
+    if (isFinite(phase)) {
+      const effect = _getDashEffect(ck, dashLen, gapLen, phase)
+      if (effect) linePaint.setPathEffect(effect)
+    }
+  } else {
+    linePaint.setPathEffect(null)
+  }
+
+  // Build smooth path using Catmull-Rom to cubic Bezier conversion
+  const path = _getArrowPath(ck)
+  path.reset()
+  path.moveTo(pts[0].x, pts[0].y)
+
+  const tension = 0.35
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]
+    const p1 = pts[i]
+    const p2 = pts[i + 1]
+    const p3 = pts[Math.min(pts.length - 1, i + 2)]
+
+    // Catmull-Rom to cubic Bezier control points
+    const cp1x = p1.x + (p2.x - p0.x) * tension
+    const cp1y = p1.y + (p2.y - p0.y) * tension
+    const cp2x = p2.x - (p3.x - p1.x) * tension
+    const cp2y = p2.y - (p3.y - p1.y) * tension
+
+    path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y)
+  }
+  canvas.drawPath(path, linePaint)
+
+  // Arrowhead at target
+  const arrowSize = 8 * invZ
+  const arrowPaint = _getArrowFillPaint(ck)
+  arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
+  arrowPaint.setAlphaf(baseAlpha)
+
+  const tgtEdge = anchor.tgtEdge
+  path.reset()
+  path.moveTo(anchor.x2, anchor.y2)
+  if (tgtEdge === 'left') {
+    path.lineTo(anchor.x2 - arrowSize, anchor.y2 - arrowSize * 0.5)
+    path.lineTo(anchor.x2 - arrowSize, anchor.y2 + arrowSize * 0.5)
+  } else if (tgtEdge === 'right') {
+    path.lineTo(anchor.x2 + arrowSize, anchor.y2 - arrowSize * 0.5)
+    path.lineTo(anchor.x2 + arrowSize, anchor.y2 + arrowSize * 0.5)
+  } else if (tgtEdge === 'top') {
+    path.lineTo(anchor.x2 - arrowSize * 0.5, anchor.y2 - arrowSize)
+    path.lineTo(anchor.x2 + arrowSize * 0.5, anchor.y2 - arrowSize)
+  } else {
+    path.lineTo(anchor.x2 - arrowSize * 0.5, anchor.y2 + arrowSize)
+    path.lineTo(anchor.x2 + arrowSize * 0.5, anchor.y2 + arrowSize)
+  }
+  path.close()
+  canvas.drawPath(path, arrowPaint)
+
+  // Label at midpoint of full path
+  if (label && zoom > 0.12) {
+    const midIdx = Math.floor(pts.length / 2)
+    const midPt = pts[midIdx]
+    const midX = midPt.x
+    const midY = midPt.y - 10 * invZ
+    const fontSize = 10 * invZ
+    const padX = 4 * invZ, padY = 2 * invZ
+    const textW = measureText(label, 10, '500') * invZ
+    const bgW = textW + padX * 2, bgH = fontSize + padY * 2
+    const bgX = midX - bgW / 2, bgY = midY - bgH / 2
+
+    const bgPaint = _getArrowBgPaint(ck)
+    bgPaint.setColor(parseColor(ck, '#1e293b'))
+    bgPaint.setAlphaf(Math.min(baseAlpha, 0.8))
+    const r = 3 * invZ
+    canvas.drawRRect(ck.RRectXY(ck.LTRBRect(bgX, bgY, bgX + bgW, bgY + bgH), r, r), bgPaint)
+    drawText2D(ck, canvas, label, bgX + padX, bgY + padY, '#e2e8f0', fontSize, '500', Math.min(baseAlpha, 1))
+  }
+}
+
 /**
  * Draw a storyboard arrow that goes off-screen to indicate a cross-page connection.
  * Shows a short arrow from the source element going right, ending with a label pill.
