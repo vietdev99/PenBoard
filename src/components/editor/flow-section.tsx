@@ -226,7 +226,8 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
 const MERMAID_KEYWORDS =
   /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|mindmap|timeline|journey|gitGraph|sankey|xychart|block-beta|kanban)\b/
 
-function isMermaidContent(code: string): boolean {
+/** @internal Exported for testing */
+export function isMermaidContent(code: string): boolean {
   const firstLine = code.trimStart().split('\n')[0].trim()
   return MERMAID_KEYWORDS.test(firstLine)
 }
@@ -254,8 +255,8 @@ function CodeBlock({ name, children, className }: { name: string; children: Reac
   )
 }
 
-/** Wrap bare mermaid blocks (no code fence) in ```mermaid fences */
-function wrapBareMermaid(text: string): string {
+/** Wrap bare mermaid blocks (no code fence) in ```mermaid fences. @internal Exported for testing */
+export function wrapBareMermaid(text: string): string {
   const lines = text.split('\n')
   const result: string[] = []
   let inFence = false
