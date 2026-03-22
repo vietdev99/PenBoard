@@ -302,56 +302,95 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     }
   }
 
-  // Step 7: Resolve horizontal overlaps within each row
-  for (let lvl = 0; lvl <= maxLevel; lvl++) {
-    const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
-    rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
-    for (let i = 1; i < rowFrames.length; i++) {
-      const prevPos = positions.get(rowFrames[i - 1])!
-      const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
-      const curPos = positions.get(rowFrames[i])!
-      const minX = prevPos.x + prevW + GAP_X
-      if (curPos.x < minX) {
-        curPos.x = minX
+  // Step 7-9: Iterative overlap resolution + parent re-centering (max 5 passes)
+  for (let pass = 0; pass < 5; pass++) {
+    let anyShift = false
+
+    // 7a: Resolve horizontal overlaps within each row (top-down, shift subtrees)
+    for (let lvl = 0; lvl <= maxLevel; lvl++) {
+      const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
+      rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
+      for (let i = 1; i < rowFrames.length; i++) {
+        const prevPos = positions.get(rowFrames[i - 1])!
+        const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
+        const curPos = positions.get(rowFrames[i])!
+        const minX = prevPos.x + prevW + GAP_X
+        if (curPos.x < minX) {
+          const shift = minX - curPos.x
+          shiftSubtreeX(rowFrames[i], shift, childrenMap, nodeLevel, positions)
+          anyShift = true
+        }
       }
     }
-  }
 
-  // Step 8: Re-center parents over their children after overlap resolution
-  for (let lvl = maxLevel - 1; lvl >= 0; lvl--) {
-    for (const parentId of levelFrames[lvl]) {
-      const kids = Array.from(childrenMap.get(parentId) ?? []).filter(
-        (c) => nodeLevel.get(c) === lvl + 1 && positions.has(c),
-      )
-      if (kids.length === 0) continue
+    // 7b: Re-center parents over their children (bottom-up)
+    for (let lvl = maxLevel - 1; lvl >= 0; lvl--) {
+      for (const parentId of levelFrames[lvl]) {
+        const kids = Array.from(childrenMap.get(parentId) ?? []).filter(
+          (c) => nodeLevel.get(c) === lvl + 1 && positions.has(c),
+        )
+        if (kids.length === 0) continue
 
-      const parentW = frameSizes.get(parentId)?.w ?? 300
-      // Find center of children block
-      const firstKidPos = positions.get(kids[0])!
-      const lastKid = kids[kids.length - 1]
-      const lastKidPos = positions.get(lastKid)!
-      const lastKidW = frameSizes.get(lastKid)?.w ?? 300
-      const childrenCenterX = (firstKidPos.x + lastKidPos.x + lastKidW) / 2
-
-      positions.get(parentId)!.x = childrenCenterX - parentW / 2
-    }
-  }
-
-  // Step 9: Final overlap resolution (re-centering may have caused new overlaps)
-  for (let lvl = 0; lvl <= maxLevel; lvl++) {
-    const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
-    rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
-    for (let i = 1; i < rowFrames.length; i++) {
-      const prevPos = positions.get(rowFrames[i - 1])!
-      const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
-      const curPos = positions.get(rowFrames[i])!
-      const minX = prevPos.x + prevW + GAP_X
-      if (curPos.x < minX) {
-        const shift = minX - curPos.x
-        // Shift this frame and all its descendants
-        shiftSubtreeX(rowFrames[i], shift, childrenMap, nodeLevel, positions)
+        const parentW = frameSizes.get(parentId)?.w ?? 300
+        const firstKidPos = positions.get(kids[0])!
+        const lastKid = kids[kids.length - 1]
+        const lastKidPos = positions.get(lastKid)!
+        const lastKidW = frameSizes.get(lastKid)?.w ?? 300
+        const childrenCenterX = (firstKidPos.x + lastKidPos.x + lastKidW) / 2
+        const newX = childrenCenterX - parentW / 2
+        const oldX = positions.get(parentId)!.x
+        if (Math.abs(newX - oldX) > 1) {
+          positions.get(parentId)!.x = newX
+          anyShift = true
+        }
       }
     }
+
+    if (!anyShift) break
+  }
+
+  // Step 9: Global overlap check — ensure no two frames overlap (any level pair)
+  const allPlacedIds = Array.from(positions.keys())
+  for (let pass = 0; pass < 3; pass++) {
+    let anyFix = false
+    for (let i = 0; i < allPlacedIds.length; i++) {
+      for (let j = i + 1; j < allPlacedIds.length; j++) {
+        const aId = allPlacedIds[i], bId = allPlacedIds[j]
+        const aPos = positions.get(aId)!, bPos = positions.get(bId)!
+        const aSize = frameSizes.get(aId) ?? { w: 300, h: 200 }
+        const bSize = frameSizes.get(bId) ?? { w: 300, h: 200 }
+
+        // Check AABB overlap
+        const overlapX = aPos.x < bPos.x + bSize.w + GAP_X &&
+                          bPos.x < aPos.x + aSize.w + GAP_X
+        const overlapY = aPos.y < bPos.y + bSize.h + GAP_Y * 0.5 &&
+                          bPos.y < aPos.y + aSize.h + GAP_Y * 0.5
+
+        if (overlapX && overlapY) {
+          // Push the rightmost/bottommost frame away
+          const xOverlap = Math.min(aPos.x + aSize.w + GAP_X - bPos.x, bPos.x + bSize.w + GAP_X - aPos.x)
+          const yOverlap = Math.min(aPos.y + aSize.h + GAP_Y - bPos.y, bPos.y + bSize.h + GAP_Y - aPos.y)
+
+          if (xOverlap <= yOverlap) {
+            // Push horizontally (smaller overlap)
+            if (bPos.x >= aPos.x) {
+              bPos.x = aPos.x + aSize.w + GAP_X
+            } else {
+              aPos.x = bPos.x + bSize.w + GAP_X
+            }
+          } else {
+            // Push vertically
+            if (bPos.y >= aPos.y) {
+              bPos.y = aPos.y + aSize.h + GAP_Y
+            } else {
+              aPos.y = bPos.y + bSize.h + GAP_Y
+            }
+          }
+          anyFix = true
+        }
+      }
+    }
+    if (!anyFix) break
   }
 
   // Step 10: Place unconnected frames in a row below the tree
