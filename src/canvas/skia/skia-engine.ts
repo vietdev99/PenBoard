@@ -1306,39 +1306,67 @@ export class SkiaEngine {
 
         // Pre-compute anchor offsets: spread multiple connections on the same edge
         // Key: "sourceId:edge" or "targetId:edge" → list of connection IDs using that edge
-        const rawSpread = 16 * Math.max(1 / this.zoom, 0.1)
-        const ANCHOR_SPREAD = isFinite(rawSpread) ? rawSpread : 16 // px between anchors
-        const sourceEdgeCounts = new Map<string, string[]>() // "elementId:right|left" → connIds
+        const invZSpread = Math.max(1 / this.zoom, 0.1)
+        const BASE_SPREAD = 12 // base px between anchors (scene coords)
+        const sourceEdgeCounts = new Map<string, string[]>()
         const targetEdgeCounts = new Map<string, string[]>()
+        // Store which edge each connection uses for offset clamping
+        const connEdgeInfo = new Map<string, { srcEdge: string; tgtEdge: string; srcSize: number; tgtSize: number }>()
         for (const c of connections) {
           if (c.sourcePageId !== activePageId || c.targetPageId !== activePageId) continue
           const src = this.rnMap.get(c.sourceElementId)
           const targetId = c.targetFrameId || c.targetPageId
           const tgt = this.rnMap.get(targetId)
           if (!src || !tgt) continue
-          const sCx = src.absX + src.absW / 2
-          const tCx = tgt.absX + tgt.absW / 2
-          const edge = tCx >= sCx ? 'right' : 'left'
-          const srcKey = `${c.sourceElementId}:${edge}`
-          const tgtKey = `${targetId}:${edge === 'right' ? 'left' : 'right'}`
+          // Match 4-direction logic from drawStoryboardArrow
+          const dxC = (tgt.absX + tgt.absW / 2) - (src.absX + src.absW / 2)
+          const dyC = (tgt.absY + tgt.absH / 2) - (src.absY + src.absH / 2)
+          const hW = Math.abs(dxC) / ((src.absW + tgt.absW) / 2 || 1)
+          const vW = Math.abs(dyC) / ((src.absH + tgt.absH) / 2 || 1)
+          let srcEdge: string, tgtEdge: string
+          if (hW >= vW) {
+            srcEdge = dxC >= 0 ? 'right' : 'left'
+            tgtEdge = dxC >= 0 ? 'left' : 'right'
+          } else {
+            srcEdge = dyC >= 0 ? 'bottom' : 'top'
+            tgtEdge = dyC >= 0 ? 'top' : 'bottom'
+          }
+          const srcKey = `${c.sourceElementId}:${srcEdge}`
+          const tgtKey = `${targetId}:${tgtEdge}`
           if (!sourceEdgeCounts.has(srcKey)) sourceEdgeCounts.set(srcKey, [])
           sourceEdgeCounts.get(srcKey)!.push(c.id)
           if (!targetEdgeCounts.has(tgtKey)) targetEdgeCounts.set(tgtKey, [])
           targetEdgeCounts.get(tgtKey)!.push(c.id)
+          // Track edge axis size for offset clamping
+          const srcSize = (srcEdge === 'left' || srcEdge === 'right') ? src.absH : src.absW
+          const tgtSize = (tgtEdge === 'left' || tgtEdge === 'right') ? tgt.absH : tgt.absW
+          connEdgeInfo.set(c.id, { srcEdge, tgtEdge, srcSize, tgtSize })
         }
-        // Build connId → offset maps
+        // Build connId → offset maps (clamped to stay within frame edge)
         const sourceOffsets = new Map<string, number>()
         const targetOffsets = new Map<string, number>()
         for (const [, connIds] of sourceEdgeCounts) {
           const n = connIds.length
+          if (n <= 1) { sourceOffsets.set(connIds[0], 0); continue }
+          // Find the edge size for this group to clamp spread
+          const info = connEdgeInfo.get(connIds[0])
+          const edgeSize = info?.srcSize ?? 200
+          // Spread must fit within 70% of edge, with a max per-connection gap
+          const maxTotal = edgeSize * 0.7
+          const spread = Math.min(BASE_SPREAD * invZSpread, maxTotal / (n - 1))
           for (let i = 0; i < n; i++) {
-            sourceOffsets.set(connIds[i], (i - (n - 1) / 2) * ANCHOR_SPREAD)
+            sourceOffsets.set(connIds[i], (i - (n - 1) / 2) * spread)
           }
         }
         for (const [, connIds] of targetEdgeCounts) {
           const n = connIds.length
+          if (n <= 1) { targetOffsets.set(connIds[0], 0); continue }
+          const info = connEdgeInfo.get(connIds[0])
+          const edgeSize = info?.tgtSize ?? 200
+          const maxTotal = edgeSize * 0.7
+          const spread = Math.min(BASE_SPREAD * invZSpread, maxTotal / (n - 1))
           for (let i = 0; i < n; i++) {
-            targetOffsets.set(connIds[i], (i - (n - 1) / 2) * ANCHOR_SPREAD)
+            targetOffsets.set(connIds[i], (i - (n - 1) / 2) * spread)
           }
         }
 
