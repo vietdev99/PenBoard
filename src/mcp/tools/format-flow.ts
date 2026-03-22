@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// format_flow MCP tool — Auto-arrange root frames as layered graph layout
+// format_flow MCP tool — Auto-arrange root frames as a vertical tree layout
 // ---------------------------------------------------------------------------
 
 import { openDocument, saveDocument, resolveDocPath } from '../document-manager'
@@ -25,10 +25,11 @@ export const FORMAT_FLOW_TOOLS = [
   {
     name: 'format_flow',
     description:
-      'Auto-arrange root frames on a page as a layered graph layout based on screen connections. ' +
-      'Frames are organized into columns by depth (BFS level from roots), ' +
-      'then compacted vertically within each column to minimize wasted space. ' +
-      'Unconnected frames are placed in a separate row below. ' +
+      'Auto-arrange root frames on a page as a vertical tree layout (top-down) based on screen connections. ' +
+      'Root frames (no incoming edges) are placed at the top, children below. ' +
+      'Each parent\'s children are centered horizontally beneath it. ' +
+      'Connection lines flow straight downward, naturally avoiding frame overlap. ' +
+      'Unconnected frames are placed in a row below the tree. ' +
       'Returns the number of frames arranged and their new positions.',
     inputSchema: {
       type: 'object' as const,
@@ -43,11 +44,11 @@ export const FORMAT_FLOW_TOOLS = [
         },
         gapX: {
           type: 'number',
-          description: 'Horizontal gap between columns (default 200)',
+          description: 'Horizontal gap between sibling frames (default 120)',
         },
         gapY: {
           type: 'number',
-          description: 'Vertical gap between rows (default 60)',
+          description: 'Vertical gap between tree levels (default 200)',
         },
       },
       required: [],
@@ -95,8 +96,8 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     return { ok: false, error: 'No root frames found on page' }
   }
 
-  const GAP_X = params.gapX ?? 200
-  const GAP_Y = params.gapY ?? 60
+  const GAP_X = params.gapX ?? 120
+  const GAP_Y = params.gapY ?? 200
 
   const allRootIds = new Set(rootFrames.map((n) => n.id))
   const frameSizes = new Map<string, { w: number; h: number }>()
@@ -150,10 +151,10 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
   if (!isFinite(startY)) startY = 100
 
   // ---------------------------------------------------------------------------
-  // Layered graph layout (Sugiyama-style, simplified)
+  // Vertical tree layout (top-down)
   // ---------------------------------------------------------------------------
 
-  // Step 1: BFS level assignment
+  // Step 1: BFS level assignment (level = row from top)
   const nodeLevel = new Map<string, number>()
   const bfsQueue: string[] = []
   for (const r of roots) {
@@ -177,7 +178,7 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     if (!nodeLevel.has(fid)) nodeLevel.set(fid, 0)
   }
 
-  // Step 2: Group frames by level (column)
+  // Step 2: Group frames by level (row)
   const maxLevel = Math.max(0, ...nodeLevel.values())
   const levelFrames: string[][] = Array.from({ length: maxLevel + 1 }, () => [])
   for (const [fid, lvl] of nodeLevel) {
@@ -185,13 +186,12 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
   }
 
   // Step 3: Sort frames within each level to reduce edge crossings
-  // Heuristic: order by the average Y position of parents (or by name for roots)
   for (let lvl = 0; lvl <= maxLevel; lvl++) {
     if (lvl === 0) {
-      // Sort roots alphabetically by name for predictability
       levelFrames[lvl].sort((a, b) => (frameNames.get(a) ?? '').localeCompare(frameNames.get(b) ?? ''))
     } else {
-      // Sort by median position of parents in the previous level
+      // Sort by median X position of parents in the previous level
+      // (will be computed after parent positions are assigned — use parent order as proxy)
       const prevOrder = new Map<string, number>()
       levelFrames[lvl - 1].forEach((fid, idx) => prevOrder.set(fid, idx))
 
@@ -209,90 +209,154 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     }
   }
 
-  // Step 4: Compute column X positions (based on max width in each level)
-  const colMaxWidth: number[] = Array(maxLevel + 1).fill(0)
+  // Step 4: Compute row Y positions (based on max height in each level)
+  const rowMaxHeight: number[] = Array(maxLevel + 1).fill(0)
   for (const [fid, lvl] of nodeLevel) {
-    colMaxWidth[lvl] = Math.max(colMaxWidth[lvl], frameSizes.get(fid)?.w ?? 300)
+    rowMaxHeight[lvl] = Math.max(rowMaxHeight[lvl], frameSizes.get(fid)?.h ?? 200)
   }
-  const colX: number[] = [startX]
+  const rowY: number[] = [startY]
   for (let i = 1; i <= maxLevel; i++) {
-    colX[i] = colX[i - 1] + colMaxWidth[i - 1] + GAP_X
+    rowY[i] = rowY[i - 1] + rowMaxHeight[i - 1] + GAP_Y
   }
 
-  // Step 5: Place frames — compact vertical layout within each column
+  // Step 5: Bottom-up subtree width calculation for proper centering
+  // Each node's subtree width = max(own width, sum of children subtree widths + gaps)
+  const subtreeWidth = new Map<string, number>()
+
+  function computeSubtreeWidth(nodeId: string): number {
+    if (subtreeWidth.has(nodeId)) return subtreeWidth.get(nodeId)!
+
+    const ownW = frameSizes.get(nodeId)?.w ?? 300
+    const kids = Array.from(childrenMap.get(nodeId) ?? []).filter((c) => nodeLevel.has(c))
+
+    if (kids.length === 0) {
+      subtreeWidth.set(nodeId, ownW)
+      return ownW
+    }
+
+    let childrenTotalWidth = 0
+    for (let i = 0; i < kids.length; i++) {
+      if (i > 0) childrenTotalWidth += GAP_X
+      childrenTotalWidth += computeSubtreeWidth(kids[i])
+    }
+
+    const w = Math.max(ownW, childrenTotalWidth)
+    subtreeWidth.set(nodeId, w)
+    return w
+  }
+
+  for (const r of roots) computeSubtreeWidth(r)
+  // Also compute for any connected nodes not reachable from roots (cycles)
+  for (const fid of connectedIds) {
+    if (!subtreeWidth.has(fid)) computeSubtreeWidth(fid)
+  }
+
+  // Step 6: Top-down X placement — each node centered within its allocated subtree width
   const positions = new Map<string, { x: number; y: number }>()
 
-  // First pass: place each level's frames with simple stacking
+  function placeSubtree(nodeId: string, allocatedX: number, allocatedWidth: number) {
+    const ownW = frameSizes.get(nodeId)?.w ?? 300
+    const lvl = nodeLevel.get(nodeId) ?? 0
+
+    // Center this node within its allocated width
+    const nodeX = allocatedX + (allocatedWidth - ownW) / 2
+    positions.set(nodeId, { x: nodeX, y: rowY[lvl] })
+
+    // Place children spread within this node's allocated width
+    const kids = Array.from(childrenMap.get(nodeId) ?? []).filter(
+      (c) => nodeLevel.has(c) && !positions.has(c),
+    )
+    if (kids.length === 0) return
+
+    let childrenTotalWidth = 0
+    for (let i = 0; i < kids.length; i++) {
+      if (i > 0) childrenTotalWidth += GAP_X
+      childrenTotalWidth += subtreeWidth.get(kids[i]) ?? (frameSizes.get(kids[i])?.w ?? 300)
+    }
+
+    // Center children block under this node
+    let childX = allocatedX + (allocatedWidth - childrenTotalWidth) / 2
+
+    for (const kid of kids) {
+      const kidW = subtreeWidth.get(kid) ?? (frameSizes.get(kid)?.w ?? 300)
+      placeSubtree(kid, childX, kidW)
+      childX += kidW + GAP_X
+    }
+  }
+
+  // Place each root tree side by side
+  let rootX = startX
+  for (const r of roots) {
+    const sw = subtreeWidth.get(r) ?? (frameSizes.get(r)?.w ?? 300)
+    placeSubtree(r, rootX, sw)
+    rootX += sw + GAP_X * 2 // extra gap between root trees
+  }
+
+  // Place any connected nodes that weren't placed (e.g., cycles or orphans within connected set)
+  for (const fid of connectedIds) {
+    if (!positions.has(fid)) {
+      const lvl = nodeLevel.get(fid) ?? 0
+      const ownW = frameSizes.get(fid)?.w ?? 300
+      positions.set(fid, { x: rootX, y: rowY[lvl] })
+      rootX += ownW + GAP_X
+    }
+  }
+
+  // Step 7: Resolve horizontal overlaps within each row
   for (let lvl = 0; lvl <= maxLevel; lvl++) {
-    let curY = startY
-    for (const fid of levelFrames[lvl]) {
-      const size = frameSizes.get(fid) ?? { w: 300, h: 200 }
-      positions.set(fid, { x: colX[lvl], y: curY })
-      curY += size.h + GAP_Y
+    const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
+    rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
+    for (let i = 1; i < rowFrames.length; i++) {
+      const prevPos = positions.get(rowFrames[i - 1])!
+      const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
+      const curPos = positions.get(rowFrames[i])!
+      const minX = prevPos.x + prevW + GAP_X
+      if (curPos.x < minX) {
+        curPos.x = minX
+      }
     }
   }
 
-  // Second pass: vertically center children around their parent's center
-  // This improves readability by aligning connected frames
-  for (let lvl = 1; lvl <= maxLevel; lvl++) {
-    // Group frames by their primary parent (first parent in the previous level)
-    const groups = new Map<string, string[]>()
-    const orphans: string[] = []
+  // Step 8: Re-center parents over their children after overlap resolution
+  for (let lvl = maxLevel - 1; lvl >= 0; lvl--) {
+    for (const parentId of levelFrames[lvl]) {
+      const kids = Array.from(childrenMap.get(parentId) ?? []).filter(
+        (c) => nodeLevel.get(c) === lvl + 1 && positions.has(c),
+      )
+      if (kids.length === 0) continue
 
-    for (const fid of levelFrames[lvl]) {
-      const parents = Array.from(parentsMap.get(fid) ?? []).filter((p) => nodeLevel.get(p) === lvl - 1)
-      if (parents.length > 0) {
-        const primaryParent = parents[0]
-        if (!groups.has(primaryParent)) groups.set(primaryParent, [])
-        groups.get(primaryParent)!.push(fid)
-      } else {
-        orphans.push(fid)
-      }
-    }
+      const parentW = frameSizes.get(parentId)?.w ?? 300
+      // Find center of children block
+      const firstKidPos = positions.get(kids[0])!
+      const lastKid = kids[kids.length - 1]
+      const lastKidPos = positions.get(lastKid)!
+      const lastKidW = frameSizes.get(lastKid)?.w ?? 300
+      const childrenCenterX = (firstKidPos.x + lastKidPos.x + lastKidW) / 2
 
-    // Place each group centered around its parent
-    let nextGroupY = startY
-    const parentOrder = levelFrames[lvl - 1]
-
-    for (const parentId of parentOrder) {
-      const group = groups.get(parentId)
-      if (!group || group.length === 0) continue
-
-      const parentPos = positions.get(parentId)!
-      const parentSize = frameSizes.get(parentId) ?? { w: 300, h: 200 }
-      const parentCenterY = parentPos.y + parentSize.h / 2
-
-      // Total height of this group
-      let groupH = 0
-      for (const fid of group) {
-        if (groupH > 0) groupH += GAP_Y
-        groupH += (frameSizes.get(fid)?.h ?? 200)
-      }
-
-      // Center the group around the parent's center, but don't go above nextGroupY
-      let groupTopY = Math.max(nextGroupY, parentCenterY - groupH / 2)
-
-      let curY = groupTopY
-      for (const fid of group) {
-        const size = frameSizes.get(fid) ?? { w: 300, h: 200 }
-        positions.set(fid, { x: colX[lvl], y: curY })
-        curY += size.h + GAP_Y
-      }
-      nextGroupY = curY
-    }
-
-    // Place orphans (no parent in previous level) after all groups
-    for (const fid of orphans) {
-      const size = frameSizes.get(fid) ?? { w: 300, h: 200 }
-      positions.set(fid, { x: colX[lvl], y: nextGroupY })
-      nextGroupY += size.h + GAP_Y
+      positions.get(parentId)!.x = childrenCenterX - parentW / 2
     }
   }
 
-  // Step 6: Place unconnected frames in a row below all connected frames
+  // Step 9: Final overlap resolution (re-centering may have caused new overlaps)
+  for (let lvl = 0; lvl <= maxLevel; lvl++) {
+    const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
+    rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
+    for (let i = 1; i < rowFrames.length; i++) {
+      const prevPos = positions.get(rowFrames[i - 1])!
+      const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
+      const curPos = positions.get(rowFrames[i])!
+      const minX = prevPos.x + prevW + GAP_X
+      if (curPos.x < minX) {
+        const shift = minX - curPos.x
+        // Shift this frame and all its descendants
+        shiftSubtreeX(rowFrames[i], shift, childrenMap, nodeLevel, positions)
+      }
+    }
+  }
+
+  // Step 10: Place unconnected frames in a row below the tree
   const unconnected = Array.from(allRootIds).filter((id) => !connectedIds.has(id))
   if (unconnected.length > 0) {
-    // Find the bottom of all placed frames
     let maxBottomY = startY
     for (const [fid, pos] of positions) {
       const size = frameSizes.get(fid) ?? { w: 300, h: 200 }
@@ -327,5 +391,25 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     connectedFrames: connectedIds.size,
     unconnectedFrames: unconnected.length,
     positions: result,
+  }
+}
+
+/** Shift a node and all its descendants rightward */
+function shiftSubtreeX(
+  nodeId: string,
+  dx: number,
+  childrenMap: Map<string, Set<string>>,
+  nodeLevel: Map<string, number>,
+  positions: Map<string, { x: number; y: number }>,
+) {
+  const pos = positions.get(nodeId)
+  if (!pos) return
+  pos.x += dx
+
+  const lvl = nodeLevel.get(nodeId) ?? 0
+  for (const child of childrenMap.get(nodeId) ?? []) {
+    if (nodeLevel.get(child) === lvl + 1 && positions.has(child)) {
+      shiftSubtreeX(child, dx, childrenMap, nodeLevel, positions)
+    }
   }
 }
