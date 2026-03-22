@@ -1368,18 +1368,41 @@ export class SkiaEngine {
                 this.zoom, c.label, alpha, dash,
                 srcOff, tgtOff,
               )
-              // Build hit area: sample bezier curve points
+              // Build hit area: sample bezier curve points (must match drawStoryboardArrow logic)
               const invZ = Math.max(1 / this.zoom, 0.1)
-              const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2 + srcOff
-              const tCx = tgt.absX + tgt.absW / 2, tCy = tgt.absY + tgt.absH / 2 + tgtOff
-              const x1 = tCx >= sCx ? src.absX + src.absW : src.absX
-              const y1 = sCy
-              const x2 = tCx >= sCx ? tgt.absX : tgt.absX + tgt.absW
-              const y2 = tCy
-              const dx = Math.abs(x2 - x1)
-              const cp = Math.max(40 * invZ, dx * 0.4)
-              const cpx1 = tCx >= sCx ? x1 + cp : x1 - cp
-              const cpx2 = tCx >= sCx ? x2 - cp : x2 + cp
+              const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2
+              const tCx = tgt.absX + tgt.absW / 2, tCy = tgt.absY + tgt.absH / 2
+              const dxC = tCx - sCx, dyC = tCy - sCy
+              const hW = Math.abs(dxC) / ((src.absW + tgt.absW) / 2 || 1)
+              const vW = Math.abs(dyC) / ((src.absH + tgt.absH) / 2 || 1)
+              const prefH = hW >= vW
+              let x1: number, y1: number, x2: number, y2: number
+              let cpx1: number, cpy1: number, cpx2: number, cpy2: number
+              if (prefH) {
+                if (dxC >= 0) {
+                  x1 = src.absX + src.absW; y1 = sCy + srcOff
+                  x2 = tgt.absX;            y2 = tCy + tgtOff
+                } else {
+                  x1 = src.absX;            y1 = sCy + srcOff
+                  x2 = tgt.absX + tgt.absW; y2 = tCy + tgtOff
+                }
+                const dx = Math.abs(x2 - x1)
+                const cp = Math.max(40 * invZ, dx * 0.4)
+                cpx1 = dxC >= 0 ? x1 + cp : x1 - cp; cpy1 = y1
+                cpx2 = dxC >= 0 ? x2 - cp : x2 + cp; cpy2 = y2
+              } else {
+                if (dyC >= 0) {
+                  x1 = sCx + srcOff; y1 = src.absY + src.absH
+                  x2 = tCx + tgtOff; y2 = tgt.absY
+                } else {
+                  x1 = sCx + srcOff; y1 = src.absY
+                  x2 = tCx + tgtOff; y2 = tgt.absY + tgt.absH
+                }
+                const dy = Math.abs(y2 - y1)
+                const cp = Math.max(40 * invZ, dy * 0.4)
+                cpx1 = x1; cpy1 = dyC >= 0 ? y1 + cp : y1 - cp
+                cpx2 = x2; cpy2 = dyC >= 0 ? y2 - cp : y2 + cp
+              }
               const pts: { x: number; y: number }[] = []
               const SAMPLE_STEP = 0.04 // ~25 points for smooth hit detection
               for (let t = 0; t <= 1 + SAMPLE_STEP * 0.5; t += SAMPLE_STEP) {
@@ -1387,7 +1410,7 @@ export class SkiaEngine {
                 const u = 1 - tc
                 pts.push({
                   x: u * u * u * x1 + 3 * u * u * tc * cpx1 + 3 * u * tc * tc * cpx2 + tc * tc * tc * x2,
-                  y: u * u * u * y1 + 3 * u * u * tc * y1 + 3 * u * tc * tc * y2 + tc * tc * tc * y2,
+                  y: u * u * u * y1 + 3 * u * u * tc * cpy1 + 3 * u * tc * tc * cpy2 + tc * tc * tc * y2,
                 })
               }
               // Label rect at midpoint

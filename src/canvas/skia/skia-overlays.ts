@@ -748,23 +748,59 @@ export function drawStoryboardArrow(
   const sCx = sx + sw / 2, sCy = sy + sh / 2
   const tCx = tx + tw / 2, tCy = ty + th / 2
 
-  // Pick exit/entry edges: prefer horizontal (right→left) like Xcode
+  // Pick exit/entry edges based on relative position (closest-edge heuristic)
+  // Use aspect-ratio of the offset to decide horizontal vs vertical
+  const dxCenter = tCx - sCx
+  const dyCenter = tCy - sCy
+  // Normalize by frame size to get relative direction weight
+  const hWeight = Math.abs(dxCenter) / ((sw + tw) / 2 || 1)
+  const vWeight = Math.abs(dyCenter) / ((sh + th) / 2 || 1)
+  const preferHorizontal = hWeight >= vWeight
+
+  type Edge = 'right' | 'left' | 'top' | 'bottom'
   let x1: number, y1: number, x2: number, y2: number
-  if (tCx >= sCx) {
-    // Target is to the right: exit right, enter left
-    x1 = sx + sw; y1 = sCy + (sourceOffset ?? 0)
-    x2 = tx;      y2 = tCy + (targetOffset ?? 0)
+  let srcEdge: Edge, tgtEdge: Edge
+
+  if (preferHorizontal) {
+    if (dxCenter >= 0) {
+      srcEdge = 'right'; tgtEdge = 'left'
+      x1 = sx + sw; y1 = sCy + (sourceOffset ?? 0)
+      x2 = tx;      y2 = tCy + (targetOffset ?? 0)
+    } else {
+      srcEdge = 'left'; tgtEdge = 'right'
+      x1 = sx;      y1 = sCy + (sourceOffset ?? 0)
+      x2 = tx + tw; y2 = tCy + (targetOffset ?? 0)
+    }
   } else {
-    // Target is to the left: exit left, enter right
-    x1 = sx;      y1 = sCy + (sourceOffset ?? 0)
-    x2 = tx + tw; y2 = tCy + (targetOffset ?? 0)
+    if (dyCenter >= 0) {
+      srcEdge = 'bottom'; tgtEdge = 'top'
+      x1 = sCx + (sourceOffset ?? 0); y1 = sy + sh
+      x2 = tCx + (targetOffset ?? 0); y2 = ty
+    } else {
+      srcEdge = 'top'; tgtEdge = 'bottom'
+      x1 = sCx + (sourceOffset ?? 0); y1 = sy
+      x2 = tCx + (targetOffset ?? 0); y2 = ty + th
+    }
   }
 
-  // Control points for a smooth cubic bezier
-  const dx = Math.abs(x2 - x1)
-  const cp = Math.max(40 * invZ, dx * 0.4)
-  const cpx1 = tCx >= sCx ? x1 + cp : x1 - cp
-  const cpx2 = tCx >= sCx ? x2 - cp : x2 + cp
+  // Control points for smooth cubic bezier — direction depends on edge axis
+  const isHorizontal = srcEdge === 'left' || srcEdge === 'right'
+  let cpx1: number, cpy1: number, cpx2: number, cpy2: number
+  if (isHorizontal) {
+    const dx = Math.abs(x2 - x1)
+    const cp = Math.max(40 * invZ, dx * 0.4)
+    const dirS = srcEdge === 'right' ? 1 : -1
+    const dirT = tgtEdge === 'left' ? -1 : 1
+    cpx1 = x1 + dirS * cp; cpy1 = y1
+    cpx2 = x2 + dirT * cp; cpy2 = y2
+  } else {
+    const dy = Math.abs(y2 - y1)
+    const cp = Math.max(40 * invZ, dy * 0.4)
+    const dirS = srcEdge === 'bottom' ? 1 : -1
+    const dirT = tgtEdge === 'top' ? -1 : 1
+    cpx1 = x1; cpy1 = y1 + dirS * cp
+    cpx2 = x2; cpy2 = y2 + dirT * cp
+  }
 
   // Draw the curve — reuse cached paint/path objects to avoid WASM heap fragmentation
   const linePaint = _getArrowLinePaint(ck)
@@ -788,29 +824,38 @@ export function drawStoryboardArrow(
   const path = _getArrowPath(ck)
   path.reset()
   path.moveTo(x1, y1)
-  path.cubicTo(cpx1, y1, cpx2, y2, x2, y2)
+  path.cubicTo(cpx1, cpy1, cpx2, cpy2, x2, y2)
   canvas.drawPath(path, linePaint)
 
-  // Arrowhead at target end
+  // Arrowhead at target end — point toward the target edge
   const arrowSize = 8 * invZ
-  const dir = tCx >= sCx ? -1 : 1
-  const ax = x2, ay = y2
-
   const arrowPaint = _getArrowFillPaint(ck)
   arrowPaint.setColor(parseColor(ck, CONNECTION_BADGE_COLOR))
   arrowPaint.setAlphaf(baseAlpha)
 
   path.reset()
-  path.moveTo(ax, ay)
-  path.lineTo(ax + dir * arrowSize, ay - arrowSize * 0.5)
-  path.lineTo(ax + dir * arrowSize, ay + arrowSize * 0.5)
+  path.moveTo(x2, y2)
+  if (tgtEdge === 'left') {
+    path.lineTo(x2 - arrowSize, y2 - arrowSize * 0.5)
+    path.lineTo(x2 - arrowSize, y2 + arrowSize * 0.5)
+  } else if (tgtEdge === 'right') {
+    path.lineTo(x2 + arrowSize, y2 - arrowSize * 0.5)
+    path.lineTo(x2 + arrowSize, y2 + arrowSize * 0.5)
+  } else if (tgtEdge === 'top') {
+    path.lineTo(x2 - arrowSize * 0.5, y2 - arrowSize)
+    path.lineTo(x2 + arrowSize * 0.5, y2 - arrowSize)
+  } else {
+    path.lineTo(x2 - arrowSize * 0.5, y2 + arrowSize)
+    path.lineTo(x2 + arrowSize * 0.5, y2 + arrowSize)
+  }
   path.close()
   canvas.drawPath(path, arrowPaint)
 
   // Label at midpoint of the curve — skip at very low zoom (unreadable + saves WASM memory)
   if (label && zoom > 0.12) {
-    const midX = (x1 + x2) / 2
-    const midY = (y1 + y2) / 2 - 10 * invZ
+    // Bezier midpoint at t=0.5
+    const midX = 0.125 * x1 + 0.375 * cpx1 + 0.375 * cpx2 + 0.125 * x2
+    const midY = 0.125 * y1 + 0.375 * cpy1 + 0.375 * cpy2 + 0.125 * y2 - 10 * invZ
     const fontSize = 10 * invZ
     const padX = 4 * invZ
     const padY = 2 * invZ
