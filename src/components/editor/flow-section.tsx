@@ -28,6 +28,8 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
   const [renderError, setRenderError] = useState<string | null>(null)
   const [zoomEnabled, setZoomEnabled] = useState(false)
   const [scale, setScale] = useState(1)
+  const [panX, setPanX] = useState(0)
+  const [panY, setPanY] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
 
   // Close fullscreen on Escape
@@ -84,9 +86,9 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     return () => el.removeEventListener('wheel', handler)
   }, [zoomEnabled])
 
-  // Mouse drag pan
-  const panState = useRef<{ active: boolean; startX: number; startY: number; scrollX: number; scrollY: number }>({
-    active: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0,
+  // Mouse drag pan (free transform-based, no scroll limits)
+  const panState = useRef<{ active: boolean; startX: number; startY: number; startPanX: number; startPanY: number }>({
+    active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0,
   })
 
   useEffect(() => {
@@ -95,20 +97,16 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
     if (!el || !canPan) return
 
     const onDown = (e: MouseEvent) => {
-      // Only left button
       if (e.button !== 0) return
-      // Ignore clicks on toolbar buttons
       if ((e.target as HTMLElement).closest('button')) return
-      panState.current = { active: true, startX: e.clientX, startY: e.clientY, scrollX: el.scrollLeft, scrollY: el.scrollTop }
+      panState.current = { active: true, startX: e.clientX, startY: e.clientY, startPanX: panX, startPanY: panY }
       el.style.cursor = 'grabbing'
       e.preventDefault()
     }
     const onMove = (e: MouseEvent) => {
       if (!panState.current.active) return
-      const dx = e.clientX - panState.current.startX
-      const dy = e.clientY - panState.current.startY
-      el.scrollLeft = panState.current.scrollX - dx
-      el.scrollTop = panState.current.scrollY - dy
+      setPanX(panState.current.startPanX + (e.clientX - panState.current.startX))
+      setPanY(panState.current.startPanY + (e.clientY - panState.current.startY))
     }
     const onUp = () => {
       if (!panState.current.active) return
@@ -124,18 +122,21 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [zoomEnabled, fullscreen])
+  }, [zoomEnabled, fullscreen, panX, panY])
 
   const fitToView = useCallback(() => {
     setScale(1)
+    setPanX(0)
+    setPanY(0)
     setZoomEnabled(false)
   }, [])
 
   const toggleFullscreen = useCallback(() => {
     setFullscreen((p) => !p)
-    // Reset zoom when entering fullscreen for clean view
     if (!fullscreen) {
       setScale(1)
+      setPanX(0)
+      setPanY(0)
       setZoomEnabled(true)
     }
   }, [fullscreen])
@@ -200,14 +201,14 @@ function MermaidDiagram({ name, code }: { name: string; code: string }) {
         {toolbar}
         <div
           ref={viewportRef}
-          className={`${fullscreen ? 'flex-1' : ''} p-4 ${zoomEnabled || fullscreen ? 'overflow-auto cursor-grab' : 'overflow-x-auto'}`}
+          className={`${fullscreen ? 'flex-1' : ''} p-4 ${zoomEnabled || fullscreen ? 'overflow-hidden cursor-grab' : 'overflow-x-auto'}`}
         >
           <div
             ref={containerRef}
             style={{
-              transform: `scale(${scale})`,
+              transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
               transformOrigin: fullscreen ? 'top center' : 'top left',
-              transition: zoomEnabled ? 'none' : 'transform 0.2s ease',
+              transition: panState.current.active ? 'none' : zoomEnabled ? 'none' : 'transform 0.2s ease',
             }}
           />
         </div>
