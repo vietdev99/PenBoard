@@ -245,7 +245,11 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     if (subtreeWidth.has(nodeId)) return subtreeWidth.get(nodeId)!
 
     const ownW = frameSizes.get(nodeId)?.w ?? 300
-    const kids = Array.from(childrenMap.get(nodeId) ?? []).filter((c) => nodeLevel.has(c))
+    const myLevel = nodeLevel.get(nodeId) ?? 0
+    // Only follow tree edges (children at next BFS level) — ignore back-edges/cross-edges
+    const kids = Array.from(childrenMap.get(nodeId) ?? []).filter(
+      (c) => nodeLevel.get(c) === myLevel + 1,
+    )
 
     if (kids.length === 0) {
       subtreeWidth.set(nodeId, ownW)
@@ -280,9 +284,9 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     const nodeX = allocatedX + (allocatedWidth - ownW) / 2
     positions.set(nodeId, { x: nodeX, y: rowY[lvl] })
 
-    // Place children spread within this node's allocated width
+    // Place children at next BFS level (ignore back-edges/cross-edges)
     const kids = Array.from(childrenMap.get(nodeId) ?? []).filter(
-      (c) => nodeLevel.has(c) && !positions.has(c),
+      (c) => nodeLevel.get(c) === lvl + 1 && !positions.has(c),
     )
     if (kids.length === 0) return
 
