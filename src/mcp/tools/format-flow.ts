@@ -134,10 +134,32 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     }
   }
 
-  // Find roots (no incoming edges among connected nodes)
-  const roots = Array.from(connectedIds).filter((id) => parentsMap.get(id)!.size === 0)
-  if (roots.length === 0 && connectedIds.size > 0) {
-    roots.push(Array.from(connectedIds)[0]) // fallback for cycles
+  // Find connected components (undirected) — each cluster gets its own root
+  const componentOf = new Map<string, number>()
+  let componentCount = 0
+  for (const startId of connectedIds) {
+    if (componentOf.has(startId)) continue
+    const compId = componentCount++
+    const stack = [startId]
+    componentOf.set(startId, compId)
+    while (stack.length > 0) {
+      const cur = stack.pop()!
+      // Follow both directions (undirected)
+      for (const neighbor of childrenMap.get(cur) ?? []) {
+        if (!componentOf.has(neighbor)) { componentOf.set(neighbor, compId); stack.push(neighbor) }
+      }
+      for (const neighbor of parentsMap.get(cur) ?? []) {
+        if (!componentOf.has(neighbor)) { componentOf.set(neighbor, compId); stack.push(neighbor) }
+      }
+    }
+  }
+
+  // Find root for each component: prefer node with no incoming edges, fallback to first node
+  const roots: string[] = []
+  for (let comp = 0; comp < componentCount; comp++) {
+    const members = Array.from(connectedIds).filter((id) => componentOf.get(id) === comp)
+    const compRoot = members.find((id) => parentsMap.get(id)!.size === 0) ?? members[0]
+    if (compRoot) roots.push(compRoot)
   }
 
   // Starting point: use the topmost-leftmost frame as anchor
@@ -172,10 +194,6 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
         bfsQueue.push(child)
       }
     }
-  }
-  // Assign unvisited connected nodes to level 0
-  for (const fid of connectedIds) {
-    if (!nodeLevel.has(fid)) nodeLevel.set(fid, 0)
   }
 
   // Step 2: Group frames by level (row)
@@ -349,43 +367,21 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
     if (!anyShift) break
   }
 
-  // Step 9: Global overlap check — ensure no two frames overlap (any level pair)
-  const allPlacedIds = Array.from(positions.keys())
+  // Step 9: Final per-row overlap sweep — guarantee no horizontal overlap
+  // (only push horizontally to preserve row Y positions from tree layout)
   for (let pass = 0; pass < 3; pass++) {
     let anyFix = false
-    for (let i = 0; i < allPlacedIds.length; i++) {
-      for (let j = i + 1; j < allPlacedIds.length; j++) {
-        const aId = allPlacedIds[i], bId = allPlacedIds[j]
-        const aPos = positions.get(aId)!, bPos = positions.get(bId)!
-        const aSize = frameSizes.get(aId) ?? { w: 300, h: 200 }
-        const bSize = frameSizes.get(bId) ?? { w: 300, h: 200 }
-
-        // Check AABB overlap
-        const overlapX = aPos.x < bPos.x + bSize.w + GAP_X &&
-                          bPos.x < aPos.x + aSize.w + GAP_X
-        const overlapY = aPos.y < bPos.y + bSize.h + GAP_Y * 0.5 &&
-                          bPos.y < aPos.y + aSize.h + GAP_Y * 0.5
-
-        if (overlapX && overlapY) {
-          // Push the rightmost/bottommost frame away
-          const xOverlap = Math.min(aPos.x + aSize.w + GAP_X - bPos.x, bPos.x + bSize.w + GAP_X - aPos.x)
-          const yOverlap = Math.min(aPos.y + aSize.h + GAP_Y - bPos.y, bPos.y + bSize.h + GAP_Y - aPos.y)
-
-          if (xOverlap <= yOverlap) {
-            // Push horizontally (smaller overlap)
-            if (bPos.x >= aPos.x) {
-              bPos.x = aPos.x + aSize.w + GAP_X
-            } else {
-              aPos.x = bPos.x + bSize.w + GAP_X
-            }
-          } else {
-            // Push vertically
-            if (bPos.y >= aPos.y) {
-              bPos.y = aPos.y + aSize.h + GAP_Y
-            } else {
-              aPos.y = bPos.y + bSize.h + GAP_Y
-            }
-          }
+    for (let lvl = 0; lvl <= maxLevel; lvl++) {
+      const rowFrames = levelFrames[lvl].filter((f) => positions.has(f))
+      rowFrames.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
+      for (let i = 1; i < rowFrames.length; i++) {
+        const prevPos = positions.get(rowFrames[i - 1])!
+        const prevW = frameSizes.get(rowFrames[i - 1])?.w ?? 300
+        const curPos = positions.get(rowFrames[i])!
+        const minX = prevPos.x + prevW + GAP_X
+        if (curPos.x < minX) {
+          const shift = minX - curPos.x
+          shiftSubtreeX(rowFrames[i], shift, childrenMap, nodeLevel, positions)
           anyFix = true
         }
       }
