@@ -32,11 +32,7 @@ import {
   drawAgentPreviewFill as _drawAgentPreviewFill,
   drawConnectionBadge as _drawConnectionBadge,
   drawStoryboardArrow as _drawStoryboardArrow,
-  drawRoutedStoryboardArrow as _drawRoutedStoryboardArrow,
-  computeConnectionWaypoints,
-  computeAnchor as _computeAnchor,
   drawCrossPageArrow as _drawCrossPageArrow,
-  type ObstacleRect,
   drawComponentBadge as _drawComponentBadge,
   drawDimOverlay as _drawDimOverlay,
   drawConnectionArrow as _drawConnectionArrow,
@@ -1928,32 +1924,6 @@ export class SkiaRenderer {
     sourceOffset?: number, targetOffset?: number,
   ) {
     _drawStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, zoom, label, alphaOverride, dashPhase, sourceOffset, targetOffset)
-  }
-
-  drawRoutedStoryboardArrow(
-    canvas: Canvas,
-    sx: number, sy: number, sw: number, sh: number,
-    tx: number, ty: number, tw: number, th: number,
-    waypoints: { x: number; y: number }[],
-    zoom: number, label?: string, alphaOverride?: number, dashPhase?: number,
-    sourceOffset?: number, targetOffset?: number,
-  ) {
-    _drawRoutedStoryboardArrow(this.ck, canvas, sx, sy, sw, sh, tx, ty, tw, th, waypoints, zoom, label, alphaOverride, dashPhase, sourceOffset, targetOffset)
-  }
-
-  getConnectionAnchor(
-    sx: number, sy: number, sw: number, sh: number,
-    tx: number, ty: number, tw: number, th: number,
-    srcOff: number, tgtOff: number,
-  ) {
-    return _computeAnchor(sx, sy, sw, sh, tx, ty, tw, th, srcOff, tgtOff)
-  }
-
-  computeWaypoints(
-    x1: number, y1: number, x2: number, y2: number,
-    obstacles: ObstacleRect[], margin: number,
-  ) {
-    return computeConnectionWaypoints(x1, y1, x2, y2, obstacles, margin)
   }
 
   drawCrossPageArrow(

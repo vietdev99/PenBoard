@@ -1370,16 +1370,6 @@ export class SkiaEngine {
           }
         }
 
-        // Collect root-frame obstacle rects for connection routing
-        const pageChildren = activePage?.children ?? useDocumentStore.getState().document.children
-        const obstacleFrames: { id: string; x: number; y: number; w: number; h: number }[] = []
-        for (const child of pageChildren) {
-          if (child.type !== 'frame') continue
-          const rn = this.rnMap.get(child.id)
-          if (rn) obstacleFrames.push({ id: child.id, x: rn.absX, y: rn.absY, w: rn.absW, h: rn.absH })
-        }
-        const ROUTE_MARGIN = 20 * Math.max(1 / this.zoom, 0.1)
-
         for (const c of connections) {
           if (c.sourcePageId !== activePageId) continue
           const src = this.rnMap.get(c.sourceElementId)
@@ -1400,46 +1390,13 @@ export class SkiaEngine {
               const srcOff = sourceOffsets.get(c.id) ?? 0
               const tgtOff = targetOffsets.get(c.id) ?? 0
 
-              // Find root frame containing source element (to exclude from obstacles)
-              const srcRootId = pageChildren.find((ch: { id: string; type?: string }) => ch.type === 'frame' && (
-                ch.id === c.sourceElementId || (this.rnMap.get(ch.id) && (
-                  src.absX >= (this.rnMap.get(ch.id)!.absX - 1) &&
-                  src.absY >= (this.rnMap.get(ch.id)!.absY - 1) &&
-                  src.absX + src.absW <= (this.rnMap.get(ch.id)!.absX + this.rnMap.get(ch.id)!.absW + 1) &&
-                  src.absY + src.absH <= (this.rnMap.get(ch.id)!.absY + this.rnMap.get(ch.id)!.absH + 1)
-                ))
-              ))?.id
-
-              // Compute obstacle-avoiding waypoints
-              const obstacles = obstacleFrames.filter((f) => f.id !== targetId && f.id !== srcRootId)
-              const anchor = this.renderer.getConnectionAnchor(
+              this.renderer.drawStoryboardArrow(
+                canvas,
                 src.absX, src.absY, src.absW, src.absH,
                 tgt.absX, tgt.absY, tgt.absW, tgt.absH,
+                this.zoom, c.label, alpha, dash,
                 srcOff, tgtOff,
               )
-              const waypoints = this.renderer.computeWaypoints(
-                anchor.x1, anchor.y1, anchor.x2, anchor.y2,
-                obstacles, ROUTE_MARGIN,
-              )
-
-              if (waypoints.length > 0) {
-                this.renderer.drawRoutedStoryboardArrow(
-                  canvas,
-                  src.absX, src.absY, src.absW, src.absH,
-                  tgt.absX, tgt.absY, tgt.absW, tgt.absH,
-                  waypoints,
-                  this.zoom, c.label, alpha, dash,
-                  srcOff, tgtOff,
-                )
-              } else {
-                this.renderer.drawStoryboardArrow(
-                  canvas,
-                  src.absX, src.absY, src.absW, src.absH,
-                  tgt.absX, tgt.absY, tgt.absW, tgt.absH,
-                  this.zoom, c.label, alpha, dash,
-                  srcOff, tgtOff,
-                )
-              }
               // Build hit area: sample bezier curve points (must match drawStoryboardArrow logic)
               const invZ = Math.max(1 / this.zoom, 0.1)
               const sCx = src.absX + src.absW / 2, sCy = src.absY + src.absH / 2
