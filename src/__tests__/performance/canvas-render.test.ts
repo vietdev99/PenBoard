@@ -365,4 +365,81 @@ describe('SkiaEngine bitmap snapshot mode', () => {
 
     vi.useRealTimers()
   })
+
+  it('syncFromDocument is skipped during active panning', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // First sync to populate renderNodes
+    engine.syncFromDocument()
+    const nodeCount = engine.renderNodes.length
+    expect(nodeCount).toBeGreaterThan(0)
+
+    // Simulate active panning
+    engine.isPanning = true
+
+    // Change the mock document to have more nodes
+    mockDocument = buildDoc(100, 100)
+
+    // syncFromDocument during panning should be skipped
+    engine.syncFromDocument()
+
+    // renderNodes should be unchanged (sync was skipped)
+    expect(engine.renderNodes.length).toBe(nodeCount)
+  })
+
+  it('setViewport without bitmapEnabled calls markDirty for full re-render', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    // bitmapEnabled is false by default — should mark dirty for full re-render
+    engine.setViewport(1.5, 100, 200)
+
+    expect((engine as any).dirty).toBe(true)
+    expect((engine as any).cssTransformActive).toBe(false)
+  })
+
+  it('CSS transform computes correct translate and scale from viewport delta', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    const mockCanvas = { style: { transform: '', transformOrigin: '' } } as unknown as HTMLCanvasElement
+    ;(engine as any).canvasEl = mockCanvas
+    ;(engine as any).bitmapEnabled = true
+    ;(engine as any).lastRenderedViewport = { zoom: 1, panX: 50, panY: 30 }
+
+    // New viewport: zoom 2x, pan (200, 100)
+    // Expected: scale = 2/1 = 2, dx = 200 - 50*2 = 100, dy = 100 - 30*2 = 40
+    engine.setViewport(2, 200, 100)
+
+    expect(mockCanvas.style.transform).toBe('translate(100px, 40px) scale(2)')
+    expect(mockCanvas.style.transformOrigin).toBe('0 0')
+  })
+
+  it('setViewport idle timer resets panIdleTimer on rapid calls', async () => {
+    const { SkiaEngine } = await import('@/canvas/skia/skia-engine')
+    const mockCk = {} as import('canvaskit-wasm').CanvasKit
+    const engine = new SkiaEngine(mockCk)
+
+    vi.useFakeTimers()
+
+    // Rapid viewport updates (simulating continuous scroll)
+    engine.setViewport(1.5, 100, 200)
+    vi.advanceTimersByTime(50) // Not enough to trigger idle
+    engine.setViewport(1.6, 110, 210)
+    vi.advanceTimersByTime(50) // Still not enough
+    engine.setViewport(1.7, 120, 220)
+
+    // isPanning should still be true (timer keeps resetting)
+    expect(engine.isPanning).toBe(true)
+
+    // Now wait for full idle threshold from last call
+    vi.advanceTimersByTime(151)
+    expect(engine.isPanning).toBe(false)
+
+    vi.useRealTimers()
+  })
 })
