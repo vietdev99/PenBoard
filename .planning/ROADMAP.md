@@ -135,12 +135,12 @@ Key implementation areas:
 **Goal:** Eliminate canvas freeze during zoom/pan on large documents by replacing per-frame re-rendering with a bitmap snapshot approach during active gestures
 **Requirements**: N/A (urgent inserted phase -- performance optimization)
 **Depends on:** Phase 7
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
 
-- [ ] 07.1-01-PLAN.md — Core bitmap engine: snapshot capture/display in SkiaEngine, auto-detect threshold, gesture state machine, cleanup and timing fix
-- [ ] 07.1-02-PLAN.md — Unit tests for bitmap mode + human verification of zoom/pan performance
+- [x] 07.1-01-PLAN.md — Core bitmap engine: snapshot capture/display in SkiaEngine, auto-detect threshold, gesture state machine, cleanup and timing fix
+- [x] 07.1-02-PLAN.md — Unit tests for bitmap mode + human verification of zoom/pan performance
 
 ### Phase 8: Workflow Visualization
 
@@ -195,19 +195,20 @@ Note: Phases 5 and 6 are independent and could execute in either order. Phase 7 
 | 5. Data Binding | v1.1 | 3/3 | Checkpoint | - |
 | 6. Context & AI | v1.1 | 2/2 | Complete | 2026-03-18 |
 | 7. Interactive Preview | v1.1 | 4/4 | Complete | 2026-03-19 |
-| 7.1 Canvas Zoom Performance | v1.1 | 0/2 | Planned | - |
+| 7.1 Canvas Zoom Performance | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 7.2 Canvas Offthread Sync | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 7.3 Tile-Based Rendering | v1.1 | — | Complete | 2026-03-20 |
 | 8. Workflow Visualization | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. MCP Integration | v1.1 | 2/2 | Complete | 2026-03-20 |
+| 9.1 PenBoard Workspace | v1.1 | 2/2 | Complete | 2026-03-23 |
 
 ### Phase 09.1: PenBoard Workspace & External Mermaid Docs (INSERTED)
 
 **Goal:** Externalize business flow diagrams from .pb files into a .penboard/ workspace directory with MCP tools for AI read/write access, and add a Canvas/Flow tab UI for viewing rendered mermaid diagrams alongside UI designs
 **Requirements**: N/A (inserted phase, no mapped requirements)
 **Depends on:** Phase 9
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
-- [ ] 09.1-01-PLAN.md -- Backend: PenDocument.workspace type, 5 MCP workspace tools (write_flow, read_flow, list_flows, write_doc, read_doc), server API endpoints, unit tests
-- [ ] 09.1-02-PLAN.md -- Frontend: Canvas/Flow tab system, FlowView with mermaid rendering, TOC navigation, editor-layout integration, human verification
+- [x] 09.1-01-PLAN.md -- Backend: PenDocument.workspace type, 5 MCP workspace tools (write_flow, read_flow, list_flows, write_doc, read_doc), server API endpoints, unit tests
+- [x] 09.1-02-PLAN.md -- Frontend: Canvas/Flow tab system, FlowView with mermaid rendering, TOC navigation, editor-layout integration, human verification

@@ -3,32 +3,31 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Data-Driven Design
 status: completed
-stopped_at: Milestone complete — shipped to GitHub
-last_updated: "2026-03-21T00:00:00.000Z"
+stopped_at: All phases complete including 07.1 and 09.1
+last_updated: "2026-03-23T12:30:00.000Z"
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 24
-  completed_plans: 24
+  total_phases: 11
+  completed_phases: 11
+  total_plans: 28
+  completed_plans: 28
 ---
 
 # Project State: PenBoard
 
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-03-23
 **Milestone:** v1.1 Data-Driven Design
-**Overall Status:** COMPLETED — Shipped to GitHub (public)
+**Overall Status:** COMPLETED — All phases shipped (including inserted 07.1, 09.1)
 
 ## Current Position
 
-Phase: 09.1 (penboard-workspace-external-mermaid-docs) — EXECUTING
-Plan: 2 of 2
+All v1.1 phases complete. Ready for next milestone or ad-hoc work.
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Visual design canvas + storyboard intelligence with data-driven design
-**Current focus:** Phase 09.1 — penboard-workspace-external-mermaid-docs
+**Current focus:** Milestone complete — next milestone TBD
 
 ## Performance Metrics
 
@@ -58,14 +57,16 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 | Phase 07 P03 | 5min | 2 tasks | 4 files |
 | Phase 07 P04 | manual | 4 fixes | 3 files |
 | Phase 07.1 P01 | 9min | 2 tasks | 3 files |
+| Phase 07.1 P02 | 5min | 1 tasks | 1 files |
 | Phase 09 P01 | 9min | 2 tasks | 11 files |
 | Phase 09 P02 | 5min | 3 tasks | 7 files |
 | Phase 09.1 P01 | 6min | 3 tasks | 10 files |
+| Phase 09.1 P02 | 8min | 3 tasks | 8 files |
 
 ## Milestone History
 
 - **v1.0 PenBoard MVP** -- Shipped 2026-03-17 (4 phases, 16 plans, 35 requirements)
-- **v1.1 Data-Driven Design** -- Shipped 2026-03-21 (9 phases, 24 plans, 19 requirements) — [GitHub](https://github.com/vietdev99/PenBoard)
+- **v1.1 Data-Driven Design** -- Shipped 2026-03-21 (9+2 phases, 28 plans, 19 requirements) — [GitHub](https://github.com/vietdev99/PenBoard)
 
 ## Accumulated Context
 
@@ -111,6 +112,15 @@ Decisions logged in PROJECT.md Key Decisions table.
 - [07.1-01] CanvasKit drawImageRect for bitmap display (not CSS transform) -- single GPU pipeline, simpler architecture
 - [07.1-01] Auto-detect threshold via single render timing after syncFromDocument, re-benchmark on page change
 - [07.1-01] Double-RAF pattern for loadDocumentWithProgress timing fix
+- [07.1-02] CSS-transform gesture path tested (actual implementation approach)
+
+- [09.1-01] Workspace root = dirname of .pb file (file-based); live canvas uses /api/workspace/root
+- [09.1-01] Manifest auto-updates on every write_flow/write_doc (upsert pattern)
+- [09.1-01] filePath plumbing: use-mcp-sync -> document.post -> setSyncFilePath -> workspace/root.get
+- [09.1-01] Tool-registry at 788 LOC after adding 5 workspace tool cases (under 800 limit)
+- [09.1-02] Canvas/Flow tabs above toolbar for mode separation
+- [09.1-02] FlowView lazy-loaded with Suspense for code-splitting
+- [09.1-02] parseFlowContent exported as pure function for testability
 
 ### Roadmap Evolution
 
@@ -124,11 +134,6 @@ Decisions logged in PROJECT.md Key Decisions table.
 - [09-02] Dynamic import for preview-html-generator to avoid browser-only dependency issues in MCP bundle
 - [09-02] Puppeteer browser caching at module level for repeated mermaid-cli SVG/PNG renders
 - [09-02] Graceful error with helpful message when mermaid-cli rendering fails (not hard crash)
-
-- [09.1-01] Workspace root = dirname of .pb file (file-based); live canvas uses /api/workspace/root
-- [09.1-01] Manifest auto-updates on every write_flow/write_doc (upsert pattern)
-- [09.1-01] filePath plumbing: use-mcp-sync -> document.post -> setSyncFilePath -> workspace/root.get
-- [09.1-01] Tool-registry at 788 LOC after adding 5 workspace tool cases (under 800 limit)
 
 ### Pending Todos
 
@@ -146,6 +151,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Milestone v1.1 completed and shipped
-Resume: Start new milestone (v1.2) or work on pending todos
+Last session: 2026-03-23
+Stopped at: All phases complete including 07.1 and 09.1
+Resume: Start new milestone (v1.2) or work on pending todos / uncommitted changes
