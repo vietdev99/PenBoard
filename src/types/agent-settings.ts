@@ -16,6 +16,7 @@ export type MCPCliTool =
   | 'opencode-cli'
   | 'kiro-cli'
   | 'copilot-cli'
+  | 'antigravity-ide'
 
 export type MCPTransportMode = 'stdio' | 'http' | 'both'
 

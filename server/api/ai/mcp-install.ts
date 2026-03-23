@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, setResponseHeaders } from 'h3'
 import { homedir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -11,6 +11,10 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const MCP_DEFAULT_PORT = 3100
+
+/** Stable install directory for the MCP server binary */
+const STABLE_MCP_DIR = join(homedir(), '.penboard')
+const STABLE_MCP_PATH = join(STABLE_MCP_DIR, 'mcp-server.cjs')
 
 interface InstallBody {
   tool: string
@@ -30,11 +34,10 @@ interface InstallResult {
 const MCP_SERVER_NAME = 'penboard'
 
 /**
- * Resolve the absolute path to the compiled MCP server.
- * In dev: <project>/dist/mcp-server.cjs
- * In production (Electron): <resources>/mcp-server.cjs
+ * Find the source MCP server binary (may be in an ephemeral location).
+ * Used internally — callers should use `ensureStableMcpServer()` instead.
  */
-function resolveMcpServerPath(): string {
+function findMcpServerSource(): string | null {
   // Electron production: extraResources places it in resourcesPath
   const electronResources = process.env.ELECTRON_RESOURCES_PATH
   if (electronResources) {
@@ -47,7 +50,34 @@ function resolveMcpServerPath(): string {
   // Fallback: try relative to this file
   const serverDist = resolve(__dirname, '..', '..', '..', 'dist', 'mcp-server.cjs')
   if (existsSync(serverDist)) return serverDist
-  return projectDist // Return expected path even if not yet compiled
+  return null
+}
+
+/**
+ * Ensure the MCP server binary exists at a stable path (~/.penboard/mcp-server.cjs).
+ * Copies from source location (Electron resources, dist/) if the stable copy is
+ * missing or older than the source. Returns the stable path, or the dev path
+ * if already in a stable location (non-Electron dev).
+ */
+async function ensureStableMcpServer(): Promise<string> {
+  const source = findMcpServerSource()
+  if (!source) {
+    throw new Error('MCP server binary not found. Please build the project first (bun run mcp:compile).')
+  }
+
+  // In dev mode (no Electron), dist/ is already stable — use it directly
+  if (!process.env.ELECTRON_RESOURCES_PATH) {
+    return source
+  }
+
+  // In Electron: copy to ~/.penboard/ for a stable path that survives app restarts
+  if (!existsSync(STABLE_MCP_DIR)) {
+    await mkdir(STABLE_MCP_DIR, { recursive: true })
+  }
+
+  // Always copy to keep the stable version up-to-date
+  await copyFile(source, STABLE_MCP_PATH)
+  return STABLE_MCP_PATH
 }
 
 /**
@@ -118,6 +148,8 @@ interface CliConfigDef {
   configPath: () => string
   read: (filePath: string) => Promise<Record<string, any>>
   write: (filePath: string, config: Record<string, any>) => Promise<void>
+  /** Custom HTTP entry builder (for tools that use a different format, e.g. serverUrl) */
+  buildHttpEntry?: (httpPort: number) => Record<string, any>
 }
 
 function installMcpServer(
@@ -186,6 +218,12 @@ const CLI_CONFIGS: Record<string, CliConfigDef> = {
     read: readJsonConfig,
     write: writeJsonConfig,
   },
+  'antigravity-ide': {
+    configPath: () => join(homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
+    read: readJsonConfig,
+    write: writeJsonConfig,
+    buildHttpEntry: (port) => ({ serverUrl: `http://127.0.0.1:${port}/mcp` }),
+  },
 }
 
 async function readJsonConfig(filePath: string): Promise<Record<string, any>> {
@@ -238,7 +276,18 @@ export default defineEventHandler(async (event) => {
       // No node on this machine — fall back to HTTP URL config
       // and ensure the MCP HTTP server is running
       const httpPort = body.httpPort ?? MCP_DEFAULT_PORT
-      updated = installMcpServerHttpUrl(config, httpPort)
+      // Use tool-specific HTTP entry format if provided (e.g. Antigravity uses serverUrl)
+      if (cliConfig.buildHttpEntry) {
+        updated = {
+          ...config,
+          mcpServers: {
+            ...(config.mcpServers ?? {}),
+            [MCP_SERVER_NAME]: cliConfig.buildHttpEntry(httpPort),
+          },
+        }
+      } else {
+        updated = installMcpServerHttpUrl(config, httpPort)
+      }
       fallbackHttp = true
 
       // Auto-start the MCP HTTP server so the URL is reachable
@@ -249,7 +298,7 @@ export default defineEventHandler(async (event) => {
         // Non-fatal: server may already be running or will be started manually
       }
     } else {
-      const serverPath = resolveMcpServerPath()
+      const serverPath = await ensureStableMcpServer()
       updated = installMcpServer(config, serverPath, body.transportMode, body.httpPort)
     }
 

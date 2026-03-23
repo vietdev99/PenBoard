@@ -76,6 +76,7 @@ const DEFAULT_MCP_INTEGRATIONS: MCPCliIntegration[] = [
   { tool: 'opencode-cli', displayName: 'OpenCode CLI', enabled: false, installed: false },
   { tool: 'kiro-cli', displayName: 'Kiro CLI', enabled: false, installed: false },
   { tool: 'copilot-cli', displayName: 'GitHub Copilot CLI', enabled: false, installed: false },
+  { tool: 'antigravity-ide', displayName: 'Antigravity IDE', enabled: false, installed: false },
 ]
 
 export const useAgentSettingsStore = create<AgentSettingsState>((set, get) => ({
