@@ -15,6 +15,7 @@ export interface FormatFlowParams {
   pageId?: string
   gapX?: number
   gapY?: number
+  direction?: 'auto' | 'vertical' | 'horizontal'
 }
 
 // ---------------------------------------------------------------------------
@@ -25,12 +26,12 @@ export const FORMAT_FLOW_TOOLS = [
   {
     name: 'format_flow',
     description:
-      'Auto-arrange root frames on a page as a vertical tree layout (top-down) based on screen connections. ' +
-      'Root frames (no incoming edges) are placed at the top, children below. ' +
-      'Each parent\'s children are centered horizontally beneath it. ' +
-      'Connection lines flow straight downward, naturally avoiding frame overlap. ' +
-      'Unconnected frames are placed in a row below the tree. ' +
-      'Returns the number of frames arranged and their new positions.',
+      'Auto-arrange root frames on a page based on screen connections. ' +
+      'Auto-detects layout direction: vertical (top-down tree) for branching flows, ' +
+      'horizontal (left-to-right) for linear chains. Override with direction param. ' +
+      'Root frames (no incoming edges) are placed first, children follow. ' +
+      'Unconnected frames are placed after the tree. ' +
+      'Returns the number of frames arranged, direction chosen, and their new positions.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -49,6 +50,13 @@ export const FORMAT_FLOW_TOOLS = [
         gapY: {
           type: 'number',
           description: 'Vertical gap between tree levels (default 200)',
+        },
+        direction: {
+          type: 'string',
+          enum: ['auto', 'vertical', 'horizontal'],
+          description:
+            'Layout direction: "vertical" (top-down tree), "horizontal" (left-to-right flow), ' +
+            'or "auto" (default — horizontal for linear chains, vertical for branching trees)',
         },
       },
       required: [],
@@ -172,10 +180,6 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
   if (!isFinite(startX)) startX = 100
   if (!isFinite(startY)) startY = 100
 
-  // ---------------------------------------------------------------------------
-  // Vertical tree layout (top-down)
-  // ---------------------------------------------------------------------------
-
   // Step 1: BFS level assignment (level = row from top)
   const nodeLevel = new Map<string, number>()
   const bfsQueue: string[] = []
@@ -194,6 +198,24 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
         bfsQueue.push(child)
       }
     }
+  }
+
+  // Auto-detect layout direction: horizontal for linear chains, vertical for trees
+  const maxBranching = Math.max(0, ...Array.from(connectedIds).map((id) => {
+    const lvl = nodeLevel.get(id) ?? 0
+    return Array.from(childrenMap.get(id) ?? []).filter((c) => nodeLevel.get(c) === lvl + 1).length
+  }))
+  const directionParam = params.direction ?? 'auto'
+  const isHorizontal = directionParam === 'horizontal'
+    || (directionParam === 'auto' && maxBranching <= 1)
+
+  // For horizontal: swap frame dimensions and start positions so the
+  // vertical algorithm produces a rotated (left-to-right) layout
+  if (isHorizontal) {
+    for (const [id, size] of frameSizes) {
+      frameSizes.set(id, { w: size.h, h: size.w })
+    }
+    const tmp = startX; startX = startY; startY = tmp
   }
 
   // Step 2: Group frames by level (row)
@@ -412,13 +434,16 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
   }
 
   // Apply positions to document nodes
+  // For horizontal layout: swap x↔y since algorithm ran in rotated space
   const result: Array<{ id: string; name: string; x: number; y: number }> = []
   for (const [fid, pos] of positions) {
     const node = children.find((n) => n.id === fid)
     if (node) {
-      ;(node as any).x = pos.x
-      ;(node as any).y = pos.y
-      result.push({ id: fid, name: node.name ?? fid, x: pos.x, y: pos.y })
+      const realX = isHorizontal ? pos.y : pos.x
+      const realY = isHorizontal ? pos.x : pos.y
+      ;(node as any).x = realX
+      ;(node as any).y = realY
+      result.push({ id: fid, name: node.name ?? fid, x: realX, y: realY })
     }
   }
 
@@ -426,6 +451,7 @@ export async function handleFormatFlow(params: FormatFlowParams): Promise<Record
 
   return {
     ok: true,
+    direction: isHorizontal ? 'horizontal' : 'vertical',
     framesArranged: result.length,
     connectedFrames: connectedIds.size,
     unconnectedFrames: unconnected.length,

@@ -246,8 +246,6 @@ export default function Toolbar() {
     }
     if (!isFinite(startX)) { startX = 100; startY = 100 }
 
-    // --- Vertical tree layout (top-down) ---
-
     // Step 1: BFS level assignment (level = row from top)
     const nodeLevel = new Map<string, number>()
     const bfsQueue: string[] = []
@@ -263,6 +261,22 @@ export default function Toolbar() {
           bfsQueue.push(child)
         }
       }
+    }
+
+    // Auto-detect layout direction: horizontal for linear chains, vertical for trees
+    const maxBranching = Math.max(0, ...Array.from(connectedIds).map((id) => {
+      const lvl = nodeLevel.get(id) ?? 0
+      return Array.from(childrenMap.get(id) ?? []).filter((c) => nodeLevel.get(c) === lvl + 1).length
+    }))
+    const isHorizontal = maxBranching <= 1
+
+    // For horizontal: swap frame dimensions and start positions so the
+    // vertical algorithm produces a rotated (left-to-right) layout
+    if (isHorizontal) {
+      for (const [id, size] of frameSizes) {
+        frameSizes.set(id, { w: size.h, h: size.w })
+      }
+      const tmp = startX; startX = startY; startY = tmp
     }
 
     // Step 2: Group frames by level (row)
@@ -471,9 +485,12 @@ export default function Toolbar() {
     }
 
     // Apply positions via batch update (single undo step)
+    // For horizontal layout: swap x↔y since algorithm ran in rotated space
     useHistoryStore.getState().startBatch(docStore.document)
     for (const [fid, pos] of positions) {
-      docStore.updateNode(fid, { x: pos.x, y: pos.y })
+      const realX = isHorizontal ? pos.y : pos.x
+      const realY = isHorizontal ? pos.x : pos.y
+      docStore.updateNode(fid, { x: realX, y: realY })
     }
     useHistoryStore.getState().endBatch(useDocumentStore.getState().document)
 
